@@ -1,0 +1,12 @@
+
+
+# update with API changes
+pushd ../../libraries/api/ruby_generator/
+mkdir output
+./generate.rb && cp output/wallet_api.js ../../../programs/web_toolkit/src/
+popd
+
+
+# test API call
+curl http://user:password@localhost:5680/rpc --data-binary '{"method":"wallet_get_info","params":[],"id":123}'
+

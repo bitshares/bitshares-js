@@ -1,0 +1,41 @@
+{
+  "name": "bitshares-jslib",
+  "version": "0.0.1",
+  "description": "Client-side Bitshares JavaScript library",
+  "main": "./src/index.js",
+  "scripts": {
+    "test": "./node_modules/.bin/istanbul test  ./node_modules/.bin/mocha -- --watch --reporter list test/*.js",
+    "coverage": "./node_modules/.bin/istanbul cover ./node_modules/.bin/_mocha -- --reporter list test/*.js",
+    "compile": "./node_modules/.bin/browserify ./src/index.js -s Bitshares | ./node_modules/.bin/uglifyjs > bitshares-webtoolkit-min.js",
+    "jsdoc":"test -e out && rm -r out; jsdoc src/*"
+  },
+  "dependencies": {
+    "q":"1.0.1",
+    "bigi": "1.0.0",
+    "bs58": "1.2.1",
+    "crypto-js": "3.1.2-3",
+    "ecurve": "1.0.0",
+    "secure-random": "0.2.1",
+    "xmlhttprequest":"1.6.0"
+  },
+  "devDependencies": {
+    "mocha": "1.18.2",
+    "istanbul": "0.1.30",
+    "uglify-js": "2.4.13",
+    "node-browserify": "https://github.com/substack/node-browserify/tarball/master",
+    "coveralls": "~2.10.0",
+    "mocha-lcov-reporter": "0.0.1",
+    "jsdoc":"*"
+  },
+  "keywords": [
+    "bitshares",
+    "browser",
+    "client",
+    "library"
+  ],
+  "author": "James Calfee",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bitshares/bitshares_jslib.git"
+  }
+}
