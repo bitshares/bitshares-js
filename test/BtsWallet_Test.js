@@ -4,9 +4,9 @@ var base58=require('bs58')
 var BtsKey = Bitshares.BtsKey;
 var BtsWallet = new Bitshares.BtsWallet({
     'rpc' : {
-        'url' : 'http://localhost:5680/rpc',
-        'user' : 'user',
-        'password' : 'password'
+        'url' : 'http://localhost:'+process.env.HTTP_PORT+'/rpc',
+        'user' : 'test',
+        'password' : 'test'
     }
 });
 

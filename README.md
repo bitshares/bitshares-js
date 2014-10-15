@@ -17,10 +17,11 @@ pushd node_modules/bitcoinjs-lib && npm install && popd
 Some unit tests require the RPC server.  This server is in the bitshares_toolkit:
 ```
 pushd ~/bitshares/bitshares_toolkit/programs/client
-./bitshares_client --server --httpport 5680 --rpcuser user --rpcpassword password --daemon
+./bitshares_client --server --httpport 9989 --rpcuser user --rpcpassword password --daemon
 ```
 On the same host, run:
 ```
+export HTTP_PORT=2201
 npm test
 ```
 ### Commands

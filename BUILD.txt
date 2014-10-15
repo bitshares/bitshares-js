@@ -8,5 +8,5 @@ popd
 
 
 # test API call
-curl http://user:password@localhost:5680/rpc --data-binary '{"method":"wallet_get_info","params":[],"id":123}'
+curl http://user:password@localhost:9989/rpc --data-binary '{"method":"wallet_get_info","params":[],"id":123}'
 

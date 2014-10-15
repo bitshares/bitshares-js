@@ -1,0 +1,4 @@
+[submodule "node_modules/bitcoinjs-lib"]
+	path = node_modules/bitcoinjs-lib
+	url = https://github.com/bitcoinjs/bitcoinjs-lib.git
+	ignore = dirty
