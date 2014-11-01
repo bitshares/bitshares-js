@@ -4,21 +4,27 @@
 # GDB="gdb -ex run --args" ./client.sh
 
 # The first parameter is the client number.  This is different for each client.  It defaults to 000 and is used for both the data-dir and HTTP/RPC port suffix.
-# The second parameter is the test net number (p2p port suffix).  This parameter also default to 000.
+# The second parameter is the delegate number (p2p port suffix).  This parameter also default to 000.
 client_num=${1-000}
-testnet_num=${2-000}
-
-testnet_datadir="tmp/client${client_num}"
+delegate_num=${2-000}
 
 BTS_BUILD=${BTS_BUILD-~/bitshares/bitshares_toolkit}
 BTS_WEBKIT=${BTS_WEBKIT-~/bitshares/bitshares_webkit}
 
+testnet_datadir="$BTS_WEBKIT/testnet/tmp/client${client_num}"
+
 HTTP_PORT=${HTTP_PORT-44${client_num}}	# 44000
 RPC_PORT=${RPC_PORT-45${client_num}}	# 45000
-P2P_HOST=127.0.0.1:10${testnet_num}	# 10000
+P2P_HOST=127.0.0.1:10${delegate_num}	# 10000
+
+function rpc {
+  method=${1?rpc method name}
+  params=${2?rpc parameters in json format}
+  echo $method $params
+  curl http://test:test@localhost:${HTTP_PORT}/rpc --data-binary '{"method":"'"${method}"'","params":['"${params}"'],"id":0}"'
+}
 
 function init {
-  . ./bin/rpc_function.sh
   if test -d "$testnet_datadir/wallets/default"
   then
     if [ -z "$GDB" ]
@@ -34,7 +40,7 @@ function init {
   else
     sleep 3
     echo "Creating default wallet..."
-    rpc wallet_backup_restore '"config/wallet.json", "default", "Password00"'
+    rpc wallet_backup_restore '"'$BTS_WEBKIT'/testnet/config/wallet.json", "default", "Password00"'
   fi
 }
 init&
