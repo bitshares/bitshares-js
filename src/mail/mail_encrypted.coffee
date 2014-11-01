@@ -32,10 +32,10 @@ class EncryptedMail
 
     EncryptedMail.fromByteBuffer = (b) ->
         # un-encrypted compressed public key
-        one_time_key = b.copy(b.offset, b.offset + 33).toBinary(); b.skip 33
+        one_time_key = new Buffer(b.copy(b.offset, b.offset + 33).toBinary(), 'binary'); b.skip 33
         
         len = b.readVarint32()
-        ciphertext = b.copy(b.offset, b.offset + len).toBinary()
+        ciphertext = new Buffer(b.copy(b.offset, b.offset + len).toBinary(), 'binary')
         b.skip len
 
         assert.equal b.remaining(), 0, 'bytes unread '+b.remaining()

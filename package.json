@@ -6,7 +6,9 @@
     "ecurve": "1.0.0",
     "bigi": "1.1.0",
     "bytebuffer": "3.5.0",
-    "q": "1.0.1"
+    "q": "1.0.1",
+    "bs58": "~2.0.0",
+    "sjcl": "~1.0.1"
   },
   "scripts": {
     "test": "./node_modules/.bin/mocha --compilers coffee:coffee-script --require coffee-script/register --watch"

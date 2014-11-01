@@ -12,7 +12,6 @@ class Mail
 
     Mail.fromHex= (hex) ->
         b = ByteBuffer.fromHex hex
-        
         return Mail.fromByteBuffer b
         
     toHex: (include_signature) ->
