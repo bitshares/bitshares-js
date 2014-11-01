@@ -5,8 +5,8 @@
 num=${1-000}
 testnet_datadir=tmp/delegate${num}
 
-BTS_BUILD=${BTS_BUILD:-~/bitshares/bitshares_toolkit}
-BTS_WEB=${BTS_WEB:-~/bitshares/bitshares_toolkit/programs/web_wallet}
+BTS_BUILD=${BTS_BUILD-~/bitshares/bitshares_toolkit}
+BTS_WEBKIT=${BTS_WEBKIT-~/bitshares/bitshares_webkit}
 
 HTTP_PORT=${HTTP_PORT-42${num}}	# 42000
 RPC_PORT=${RPC_PORT-43${num}}	# 43000
@@ -43,7 +43,7 @@ set -o xtrace
 ${GDB-} \
 "${BTS_BUILD}/programs/client/bitshares_client"\
  --data-dir "$testnet_datadir"\
- --genesis-config "$BTS_WEB/test/testnet/config/genesis.json"\
+ --genesis-config "$BTS_WEBKIT/testnet/config/genesis.json"\
  --server\
  --httpport=$HTTP_PORT\
  --rpcport=$RPC_PORT\
@@ -51,4 +51,5 @@ ${GDB-} \
  --rpcpassword=test\
  --upnp=false\
  --p2p-port=$P2P_PORT\
- --min-delegate-connection-count=0
+ --min-delegate-connection-count=0\
+ --disable-default-peers

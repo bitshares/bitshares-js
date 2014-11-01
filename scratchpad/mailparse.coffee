@@ -126,7 +126,11 @@ onetimekey = ->
         mm=EMail.fromHex hex
         mm.toByteBuffer().printDebug()
 
+    ss_key_hex=""
+    ss_iv_hex=""
+    
     shared_secret_bitcore = ->
+        console.log "=bitcore"
 
         # npm install bitcore
         ECIES = require '../node_modules/bitcore/lib/ECIES'
@@ -160,15 +164,33 @@ onetimekey = ->
         # the private key
         S_iv = S_kdf_buf.slice 32, 48
         S_privkey = S_kdf_buf.slice 0, 32
-        plaintext = symmetricDecrypt S_privkey.toString('hex'), S_iv.toString('hex'), cipherbuf.toString('hex')
-        ByteBuffer.fromHex(plaintext).printDebug()
-        ##
+        ss_key_hex = S_privkey.toString('hex')
+        ss_iv_hex = S_iv.toString('hex')
+        plainhex = symmetricDecrypt ss_key_hex, ss_iv_hex, cipherbuf.toString('hex')
+
+        ByteBuffer.fromHex(plainhex).printDebug()
 
         #plainbuf = symmetricDecrypt S_privkey, S_iv
         #msg = ECIES.symmetricDecrypt S_privkey, cipher_buf
         #show_mail new Buffer(msg, 'hex').toString(), 'bitcore'
 
     shared_secret_bitcore()
+    
+    crypto_js = ->
+        console.log "=crypto-js"
+        CryptoJS = require("crypto-js")
+        key = CryptoJS.enc.Hex.parse ss_key_hex
+        iv = CryptoJS.enc.Hex.parse ss_iv_hex
+        cipherwords = CryptoJS.enc.Hex.parse cipherbuf.toString('hex')
+        plainwords = CryptoJS.AES.decrypt(
+              ciphertext: cipherwords
+              salt: cipherwords
+            , key,
+              iv: iv
+            )
+        plainhex = CryptoJS.enc.Hex.stringify plainwords
+        ByteBuffer.fromHex(plainhex).printDebug()
+    crypto_js()
 
     elliptic = ->
         # git clone https://github.com/indutny/elliptic.git
@@ -212,7 +234,9 @@ onetimekey = ->
         b.skip 35
         plaintext = b.toHex()
         show_mail plaintext, 'elliptic.js'###
-    elliptic()
+    #elliptic()
+    
+    
 
 onetimekey()
 

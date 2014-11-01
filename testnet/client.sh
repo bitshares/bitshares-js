@@ -3,15 +3,19 @@
 # ./client.sh 001
 # GDB="gdb -ex run --args" ./client.sh
 
-num=${1-000}
-testnet_datadir="tmp/client${num}"
+# The first parameter is the client number.  This is different for each client.  It defaults to 000 and is used for both the data-dir and HTTP/RPC port suffix.
+# The second parameter is the test net number (p2p port suffix).  This parameter also default to 000.
+client_num=${1-000}
+testnet_num=${2-000}
 
-BTS_BUILD=${BTS_BUILD:-~/bitshares/bitshares_toolkit}
-BTS_WEB=${BTS_WEB:-~/bitshares/bitshares_toolkit/programs/web_wallet}
+testnet_datadir="tmp/client${client_num}"
 
-HTTP_PORT=${HTTP_PORT-44${num}}	# 44000
-RPC_PORT=${RPC_PORT-45${num}}	# 45000
-P2P_HOST=127.0.0.1:10${num}	# 10000
+BTS_BUILD=${BTS_BUILD-~/bitshares/bitshares_toolkit}
+BTS_WEBKIT=${BTS_WEBKIT-~/bitshares/bitshares_webkit}
+
+HTTP_PORT=${HTTP_PORT-44${client_num}}	# 44000
+RPC_PORT=${RPC_PORT-45${client_num}}	# 45000
+P2P_HOST=127.0.0.1:10${testnet_num}	# 10000
 
 function init {
   . ./bin/rpc_function.sh
@@ -40,11 +44,12 @@ set -o xtrace
 ${GDB-} \
 "${BTS_BUILD}/programs/client/bitshares_client"\
  --data-dir "$testnet_datadir"\
- --genesis-config "$BTS_WEB/test/testnet/config/genesis.json"\
+ --genesis-config "$BTS_WEBKIT/testnet/config/genesis.json"\
  --server\
  --httpport=$HTTP_PORT\
  --rpcport=$RPC_PORT\
  --rpcuser=test\
  --rpcpassword=test\
  --upnp=false\
- --connect-to=$P2P_HOST
+ --connect-to=$P2P_HOST\
+ --disable-default-peers
