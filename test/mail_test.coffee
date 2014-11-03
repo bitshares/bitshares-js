@@ -80,13 +80,13 @@ encrypted_mail_test = (msg) ->
                 plaintext = aes.decrypt_hex new Buffer(encrypted_mail.ciphertext, 'binary').toString 'hex'
                 assert.equal plaintext, msg.decrypted_mail
 
-            ###
+            ##
             it "Parse and regenerate", ->
                 mail = Mail.fromHex msg.decrypted_mail
                 
                 # signature: RangeError: Illegal range: 0 <= 54 <= 119 <= 84
-                email = mail.toEmail()
-            ###
+                #email = mail.toEmail()
+            ######
 
 
 encrypted_mail_test

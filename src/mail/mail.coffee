@@ -19,11 +19,24 @@ class Mail
         b.toHex()
 
     Mail.fromByteBuffer= (b) ->
-        _type = b.readVarint32()
-        console.log 'mail type',type[_type]
-
-        recipient = new Buffer b.copy(b.offset, b.offset + 32).toBinary(), 'binary'
-        b.skip 32
+        console.log "=Mail"; b.printDebug()
+        _type = b.readVarint32(); console.log 'type',type[_type]
+        
+        ###
+        i = b.readVarint64();console.log 'readVarint64',i
+        i = b.readVarint32();console.log 'readVarint32',i
+        i = b.readVarint32();console.log 'readVarint32',i
+        
+        # Id ripemd 160 (160 bits / 8 = 20 bytes)
+        mail_id = b.copy(b.offset, b.offset + 20).toBinary(); b.skip 20
+        
+        s = b.readVString(); console.log "readVString",s.length,s
+        
+        recipient = b.readVString()
+        console.log recipient.length
+        ####
+        ##
+        recipient = new Buffer b.copy(b.offset, b.offset + 32).toBinary(), 'binary'; b.skip 32
         console.log 'recipient',recipient.toString 'hex'
 
         nonce = b.readVarint64()
@@ -31,8 +44,10 @@ class Mail
 
         time = b.readVarint32()
         console.log 'time',time
-
-        b.printDebug()
+        ####
+        
+        
+        #b.printDebug()
 
         data = new Buffer b.copy(b.offset, b.remaining()).toBinary(), 'binary'
         b.skip b.remaining()

@@ -74,7 +74,7 @@ class RpcJson
             data = JSON.stringify rpc_data
             console.log ">>> #{data}" if @debug
             #console.log ">>> #{data.id}: #{data.method} #{data.params.join(" ")}" if @debug
-            @connection.write data
+            @connection.write data #+ '\n'
 
         @defer_request[@json_rpc_request_counter].promise
 

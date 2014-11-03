@@ -1,6 +1,6 @@
 
-exports.Common =
-class Common
+exports.RpcCommon =
+class RpcCommon
 
     q = require 'q'
 
