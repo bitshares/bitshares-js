@@ -130,9 +130,11 @@ class MailTest
 ###
 open default
 unlock 9999 Password00
+
 mail_send delegate0 delegate1 subject body
 
 mail_get_processing_messages
+mail_check_new_messages 
 
 wallet_set_preferred_mail_servers "delegate1"  ["delegate1"] "delegate1"
 blockchain_get_account delegate1

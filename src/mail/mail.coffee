@@ -8,65 +8,49 @@ ByteBuffer = ByteBuffer.dcodeIO.ByteBuffer if ByteBuffer.dcodeIO
 
 class Mail
 
-    constructor: (@type, @data) ->
+    constructor: (@type, @recipient, @nonce, @time, @data) ->
 
     Mail.fromHex= (hex) ->
-        b = ByteBuffer.fromHex hex
+        b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
         return Mail.fromByteBuffer b
-        
-    toHex: (include_signature) ->
-        b=@toByteBuffer(include_signature)
+
+    toHex: () ->
+        b=@toByteBuffer()
         b.toHex()
 
     Mail.fromByteBuffer= (b) ->
-        console.log "=Mail"; b.printDebug()
-        _type = b.readVarint32(); console.log 'type',type[_type]
-        
-        ###
-        i = b.readVarint64();console.log 'readVarint64',i
-        i = b.readVarint32();console.log 'readVarint32',i
-        i = b.readVarint32();console.log 'readVarint32',i
-        
-        # Id ripemd 160 (160 bits / 8 = 20 bytes)
-        mail_id = b.copy(b.offset, b.offset + 20).toBinary(); b.skip 20
-        
-        s = b.readVString(); console.log "readVString",s.length,s
-        
-        recipient = b.readVString()
-        console.log recipient.length
-        ####
-        ##
-        recipient = new Buffer b.copy(b.offset, b.offset + 32).toBinary(), 'binary'; b.skip 32
-        console.log 'recipient',recipient.toString 'hex'
+        #console.log "=Mail"; b.printDebug()
+        _type = b.readUint16(); console.log 'type',type[_type],_type
 
-        nonce = b.readVarint64()
-        console.log 'nonce',nonce
+        # blockchain::address === Id ripemd 160 (160 bits / 8 = 20 bytes)
+        recipient = new Buffer b.copy(b.offset, b.offset + 20).toBinary(), 'binary'; b.skip 20
+        #console.log 'recipient',recipient.toString 'hex'
 
-        time = b.readVarint32()
-        console.log 'time',time
-        ####
+        nonce = b.readUint64() #; console.log 'nonce',nonce #uint64_t
+
+        epoch = b.readInt32() # fc::time_point_sec
+        time = new Date(epoch * 1000)
+        #console.log 'time',time
+
+        len = b.readVarint32()
+        data = new Buffer(b.copy(b.offset, b.offset + len).toBinary(), 'binary'); b.skip len
         
-        
-        #b.printDebug()
+        #ByteBuffer.fromBinary(data.toString('binary')).printDebug()
 
-        data = new Buffer b.copy(b.offset, b.remaining()).toBinary(), 'binary'
-        b.skip b.remaining()
+        assert.equal b.remaining(), 0, "Error, #{b.remaining()} unparsed bytes"
+        new Mail(type[_type], recipient, nonce, time, data)
 
-        new Mail(type[_type], data)
     toByteBuffer: () ->
-        assert.equal true, false, "Not Implemented"
-        ###
-        b = new ByteBuffer()
-        b.writeVString @subject
-        b.writeVString @body
-        b.append @reply_to, 'binary'
-        b.writeVarint32 @attachments.length
-        throw "Message with attachments has not been implemented" unless @attachments.length is 0
         
-        b.append @signature, 'binary' if include_signature
+        b = new ByteBuffer ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN
+        
+        b.writeUint16 parseInt k for k,v of type when v is @type
+        b.append @recipient.toString('binary'), 'binary'
+        b.writeUint64 @nonce.low
+        b.writeInt32 @time.getTime() / 1000
+        b.writeVarint32 @data.length
+        b.append @data.toString('binary'), 'binary'
         return b.copy 0, b.offset
-
-        ###
 
     toEmail: ->
         assert.equal @type, 'email'

@@ -83,8 +83,7 @@ encrypted_mail_test = (msg) ->
             ##
             it "Parse and regenerate", ->
                 mail = Mail.fromHex msg.decrypted_mail
-                
-                # signature: RangeError: Illegal range: 0 <= 54 <= 119 <= 84
+                assert.equal mail.toHex(), msg.decrypted_mail
                 #email = mail.toEmail()
             ######
 
