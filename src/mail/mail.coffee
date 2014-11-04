@@ -20,7 +20,7 @@ class Mail
 
     Mail.fromByteBuffer= (b) ->
         #console.log "=Mail"; b.printDebug()
-        _type = b.readUint16(); console.log 'type',type[_type],_type
+        _type = b.readUint16() #; console.log 'type',type[_type],_type
 
         # blockchain::address === Id ripemd 160 (160 bits / 8 = 20 bytes)
         recipient = new Buffer b.copy(b.offset, b.offset + 20).toBinary(), 'binary'; b.skip 20

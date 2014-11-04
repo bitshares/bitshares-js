@@ -12,7 +12,7 @@
   "data": {
     "index": 1,
     "key": "next_record_number",
-    "value": 210
+    "value": 212
   }
 },
 {
@@ -4710,6 +4710,26 @@
     "valid_from_signature": false,
     "memo": null,
     "gen_seq_number": 0
+  }
+},
+{
+  "type": "property_record_type",
+  "data": {
+    "index": 210,
+    "key": "next_child_key_index",
+    "value": 2
+  }
+},
+{
+  "type": "key_record_type",
+  "data": {
+    "index": 211,
+    "account_address": "XTSzzkkiVviYrDQebH3jdc7LQVqPbVXnB58",
+    "public_key": "XTS6W974oE6TmGfZZxR53znSD88ozq8zVRoD5UiPfErYYuCMsjS5K",
+    "encrypted_private_key": "71121a664417626851da46f3faab898cb800012461763a07efe0e90844a48755a30e08d41cd552a6bb8ddd0afba845d3",
+    "valid_from_signature": false,
+    "memo": null,
+    "gen_seq_number": 1
   }
 }
 ]

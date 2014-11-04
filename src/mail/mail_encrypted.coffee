@@ -48,5 +48,9 @@ class EncryptedMail
         b.writeVarint32 @ciphertext.length
         b.append @ciphertext, 'binary'
         return b.copy 0, b.offset
+        
+    ### <HEX> ###
+    
+    ### </HEX> ###
 
 exports.EncryptedMail = EncryptedMail
