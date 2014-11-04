@@ -22,21 +22,15 @@ debug readability and complete code coverage.
 
 encrypted_mail_test = (msg) ->
     describe "Encrypted Mail", ->
-        describe "Parse and regenerate", ->
-            it "HEX", ->
-                encrypted_mail = EncryptedMail.fromHex msg.data
-                assert.equal encrypted_mail.toHex(), msg.data
-
-            it "Buffer", ->
-                encrypted_mail = EncryptedMail.fromBuffer new Buffer msg.data, 'hex'
-                assert.equal encrypted_mail.toBuffer().toString('hex'), msg.data
+        it "Parse and regenerate", ->
+            encrypted_mail = EncryptedMail.fromHex msg.data
+            assert.equal encrypted_mail.toHex(), msg.data
 
     describe "Mail", ->
-        describe "Parse and regenerate", ->
-            it "HEX", ->
-                mail = Mail.fromHex msg.decrypted_mail
-                assert.equal mail.toHex(), msg.decrypted_mail
-                email = mail.toEmail()
+        it "Parse and regenerate", ->
+            mail = Mail.fromHex msg.decrypted_mail
+            assert.equal mail.toHex(), msg.decrypted_mail
+            email = mail.toEmail()
 
         it "Matching one_time_key", ->
             aes = Aes.fromSecret 'Password00'
@@ -60,8 +54,6 @@ encrypted_mail_test = (msg) ->
             plaintext = aes.decrypt_hex new Buffer(encrypted_mail.ciphertext, 'binary').toString 'hex'
             assert.equal plaintext, msg.decrypted_mail
 
-        
-
 
 encrypted_mail_test
     type: "encrypted"
@@ -80,10 +72,9 @@ encrypted_mail_test
 
 email_test = (msg) ->
     describe "Email", ->
-        describe "Parse and regenerate", ->
-            it "HEX", ->
-                Email email = Email.fromHex(msg.hex)
-                assert.equal email.toHex(true), msg.hex
+        it "Parse and regenerate", ->
+            Email email = Email.fromHex(msg.hex)
+            assert.equal email.toHex(true), msg.hex
             
         #it "Buffer", ->
         #    Email email = Email.fromBuffer(new Buffer(msg.hex, 'hex'))
