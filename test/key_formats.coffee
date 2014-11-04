@@ -9,10 +9,16 @@ PublicKey = Ecc.PublicKey
 
 test = (key) ->
     describe "Key Convert", ->
-        it "BTS", ->
+        
+        it "Create BTS short address", ->
             private_key = PrivateKey.fromHex key.private_key
             public_key = private_key.toPublicKey()
             assert.equal key.bts_address, public_key.toBtsAddy() 
+
+            
+        it "BTS public key import / export", ->
+            public_key = PublicKey.fromBtsPublic key.public_key
+            assert.equal key.public_key, public_key.toBtsPublic()
 
         it "PTS", ->
             private_key = PrivateKey.fromHex key.private_key

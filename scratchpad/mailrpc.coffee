@@ -2,11 +2,11 @@ console.log "-------------------"
 JSON_PORT=process.argv[2] or 45000
 console.log "(param 1) JSON_PORT=",JSON_PORT
 
-#Ecc = require '../src/ecc'
-#Aes = Ecc.Aes
-#Signature = Ecc.Signature
-#PrivateKey = Ecc.PrivateKey
-#PublicKey = Ecc.PublicKey
+Ecc = require '../src/ecc'
+Aes = Ecc.Aes
+Signature = Ecc.Signature
+PrivateKey = Ecc.PrivateKey
+PublicKey = Ecc.PublicKey
 
 _Mail = require '../src/mail'
 Mail = _Mail.Mail
@@ -151,16 +151,22 @@ mail_get_message ...  #unencrypted
 mail_retry_send "b784d94a16fdca48fcd90eeaad08cd861fac259f"
 
 ###
-
-email =
+email = (key) ->
+    aes = Aes.fromSecret 'Password00'
+    otk_private = aes.decrypt_hex key.otk_encrypted
+    private_key = PrivateKey.fromHex otk_private
+    console.log private_key.toPublicKey().toBtsAddy()
+    
+email
     from: 'delegate0'
     to: 'delegate1'
     subject: 'subject'
     body: 'body'
     id: '1318b251281fcb2d1c8e7171de5e170ffed630c6'
     pow: '000baf5bff3e8e45522e11c4780b7e93d1fb5a54'
+    delegate0_private_key_encrypted: '5e1ae410919c450dce1c476ae3ed3e5fe779ad248081d85b3dcf2888e698744d0a4b60efb7e854453bec3f6883bcbd1d'
     otk_encrypted: '71121a664417626851da46f3faab898cb800012461763a07efe0e90844a48755a30e08d41cd552a6bb8ddd0afba845d3'
-    active_key: 'XTS7jDPoMwyjVH5obFmqzFNp4Ffp7G2nvC7FKFkrMBpo7Sy4uq5Mj'
+    delegate0_active_key: 'XTS7jDPoMwyjVH5obFmqzFNp4Ffp7G2nvC7FKFkrMBpo7Sy4uq5Mj'
     
 
 Test = =>
@@ -182,7 +188,7 @@ Test = =>
     m.processing()
     #m.inbox()
 
-Test()
+#Test()
 
 @rpc.close()
 

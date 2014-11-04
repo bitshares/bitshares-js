@@ -178,6 +178,7 @@ onetimekey = ->
     
     crypto_js = ->
         console.log "=crypto-js"
+        # npm install crypto-js
         CryptoJS = require("crypto-js")
         key = CryptoJS.enc.Hex.parse ss_key_hex
         iv = CryptoJS.enc.Hex.parse ss_iv_hex

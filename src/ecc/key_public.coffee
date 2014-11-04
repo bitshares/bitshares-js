@@ -8,6 +8,7 @@ class PublicKey
     base58 = require 'bs58'
     hash = require './hash'
     config = require '../config'
+    assert = require 'assert'
 
     ###*
     @param {BigInteger} public key
@@ -32,6 +33,29 @@ class PublicKey
         point = ecurve.Point.decodeFrom secp256k1, buf
         PublicKey.fromPoint point
     
+    toBtsPublic: ->
+        pub_buf = @toBuffer()
+        checksum = hash.ripemd160 pub_buf
+        addy = Buffer.concat [pub_buf, checksum.slice 0, 4]
+        config.bts_address_prefix + base58.encode addy
+        
+    ###*
+    {param1} public_key string
+    {return} PublicKey
+    ###
+    PublicKey.fromBtsPublic = (public_key) ->
+        prefix = public_key.slice 0, config.bts_address_prefix.length
+        assert.equal config.bts_address_prefix, prefix, "Expecting key to begin with #{config.bts_address_prefix}, instead got #{prefix}"
+        public_key = public_key.slice config.bts_address_prefix.length
+        
+        public_key = new Buffer(base58.decode public_key, 'binary')
+        checksum = public_key.slice -4
+        public_key = public_key.slice 0, -4
+        new_checksum = hash.ripemd160 public_key
+        new_checksum = new_checksum.slice 0, 4
+        assert.deepEqual checksum, new_checksum, 'Checksum did not match'
+        PublicKey.fromBuffer public_key
+    
     toBtsAddy: ->
         pub_buf = @toBuffer()
         pub_sha = hash.sha512 pub_buf
@@ -55,10 +79,13 @@ class PublicKey
     ### <HEX> ###
     
     PublicKey.fromHex = (hex) ->
-        new PublicKey BigInteger.fromHex(hex)
+        PublicKey.fromBuffer new Buffer hex, 'hex'
 
     toHex: ->
         @toBuffer().toString 'hex'
+        
+    PublicKey.fromBtsPublicHex = (hex) ->
+        PublicKey.fromBtsPublic new Buffer hex, 'hex'
         
     ### </HEX> ###
 
