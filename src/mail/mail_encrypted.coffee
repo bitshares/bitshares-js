@@ -44,7 +44,7 @@ class EncryptedMail
         b = new ByteBuffer()
         b.append @one_time_key.toBuffer().toString('binary'), 'binary'
         b.writeVarint32 @ciphertext.length
-        b.append @ciphertext, 'binary'
+        b.append @ciphertext.toString('binary'), 'binary'
         return b.copy 0, b.offset
         
     ### <HEX> ###

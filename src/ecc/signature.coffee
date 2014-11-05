@@ -12,7 +12,7 @@ class Signature
     constructor: (@r, @s, @i) ->
         assert.equal @r isnt null, true, 'Missing parameter'
         assert.equal @s isnt null, true, 'Missing parameter'
-        assert.equal @i isnt null, true, 'Missing parameter'
+        @i = 31 unless @i
 
     Signature.fromBuffer = (buf) ->
         assert.equal buf.length, 65, 'Invalid signature length'
@@ -45,7 +45,8 @@ class Signature
     ###
     Signature.signBuffer = (buf, private_key) ->
         _hash = hash.sha256 buf
-        new Signature ecdsa.sign secp256k1, _hash, private_key.d
+        ecsignature = ecdsa.sign secp256k1, _hash, private_key.d
+        new Signature ecsignature.r, ecsignature.s
         
     ###*
     @param {Buffer}
@@ -57,7 +58,7 @@ class Signature
         ecdsa.verify secp256k1, _hash, {r:@r, s:@s}, public_key.Q
 
     ### <HEX> ###
-     
+    
     Signature.fromHex = (hex) ->
         Signature.fromBuffer new Buffer hex, "hex"
 

@@ -8,7 +8,7 @@ class Aes
     constructor: (@iv, @key) ->
 
     Aes.fromSha512 = (hash) ->
-        assert.equal hash.length, 128, "A Sha512 in HEX should be 128 characters long"
+        assert.equal hash.length, 128, "A Sha512 in HEX should be 128 characters long, instead got #{hash.length}"
         #https://github.com/InvictusInnovations/fc/blob/978de7885a8065bc84b07bfb65b642204e894f55/src/crypto/aes.cpp#L330
         #Bitshares aes_decrypt uses part of the password hash as the initilization vector
         iv = CryptoJS.enc.Hex.parse(hash.substring(64, 96))
@@ -32,9 +32,12 @@ class Aes
         )
     
     encrypt_word_array: (plaintext) ->
-        CryptoJS.AES.encrypt plaintext, @key, {iv: @iv}
+        #https://code.google.com/p/crypto-js/issues/detail?id=85
+        cipher = CryptoJS.AES.encrypt plaintext, @key, {iv: @iv}
+        CryptoJS.enc.Base64.parse cipher.toString()
 
-    # HEX in / HEX out
+    ### <HEX> ###
+    
     decrypt_hex: (cipher) ->
         # Convert data into word arrays (used by Crypto)
         cipher_array = CryptoJS.enc.Hex.parse cipher
@@ -45,6 +48,8 @@ class Aes
         plain_array = CryptoJS.enc.Hex.parse plainhex
         cipher_array = @encrypt_word_array plain_array
         CryptoJS.enc.Hex.stringify cipher_array
+        
+    ### </HEX> ###
 
 exports.Aes = Aes
 

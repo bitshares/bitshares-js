@@ -27,14 +27,16 @@ class Email
         body = b.readVString()
 
         # reply_to message Id ripemd 160 (160 bits / 8 = 20 bytes)
-        reply_to = new Buffer(b.copy(b.offset, b.offset + 20).toBinary(), 'binary'); b.skip 20
+        len = 20
+        _b = b.copy(b.offset, b.offset + len); b.skip len
+        reply_to = new Buffer(_b.toBinary(), 'binary')
 
         # FC_REFLECT( bts::mail::attachment, (name)(data) )
         attachments = Array(b.readVarint32())
         throw "Message with attachments has not been implemented" unless attachments.length is 0
 
         sig_bin = b.copy(b.offset, b.offset + 65).toBinary(); b.skip 65
-        sig_buf = new Buffer(sig_bin, 'binary')
+        sig_buf = new Buffer sig_bin, 'binary'
         signature = Signature.fromBuffer sig_buf
         
         throw "Message contained #{b.remaining()} unknown bytes" unless b.remaining() is 0

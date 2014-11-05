@@ -116,26 +116,39 @@ class MailTest
                 encrypted_mail otk, cipher =
                     encrypt sign email subject, body, replyto(ripemd 20 bytes), attach, sig
         ###
+        
         aes = Aes.fromSecret 'Password00'
         otk_private = PrivateKey.fromHex aes.decrypt_hex msg.otk_encrypted
-        otk_public = otk_private.toPublicKey()
+        otk_public_compressed = otk_private.toPublicKey()
+        #otk_public_uncompressed = otk_public_compressed.toUncompressed()
+        
         d0_private = PrivateKey.fromHex aes.decrypt_hex msg.delegate0_private_key_encrypted
         
-        delegate0 = "XTS8DvGQqzbgCR5FHiNsFf8kotEXr8VKD3mR"
         # blockchain::address
+        delegate0 = "XTS8DvGQqzbgCR5FHiNsFf8kotEXr8VKD3mR"
         delegate1 = "XTS2Kpf4whNd3TkSi6BZ6it4RXRuacUY1qsj"
+        
         Email email = new Email msg.subject, msg.body
-        email.signature = Signature.signHex email.toHex(include_signature=false), otk_private
-        email_encrypted = aes.encrypt_hex email.toHex(false)
-        EncryptedMail enc_mail = new EncryptedMail otk_public, email_encrypted
-        enc_mail_data = enc_mail.toBuffer()
+        email.signature = Signature.signHex email.toHex(include_signature=false), d0_private
+        console.log "email\t\t",email.toHex(include_signature=true)
+        
+        aes = Aes.fromSecret otk_private.toBuffer().toString('binary')
+        
+        encrypted_mail = ->
+            cipher_hex = aes.encrypt_hex email.toHex(include_signature=true)
+            console.log "cipher_hex\t",cipher_hex
+            cipher_buffer = new Buffer(cipher_hex, 'hex')
+            new EncryptedMail otk_public_compressed, cipher_buffer
+        encrypted_mail = encrypted_mail()
+        
+        console.log "encrypted_mail\t",encrypted_mail.toHex()
         #Mail mail = new Mail 'encrypted', delegate1, 1234, @time(), enc_mail_data
         mail_json =
             type: "encrypted"
             recipient: delegate1
             nonce: 1234
             timestamp: @time()
-            data: enc_mail_data.toString 'hex'
+            data: encrypted_mail.toHex()
         @rpc.run "mail_store_message", [mail_json]
         
     ## Authenticated
