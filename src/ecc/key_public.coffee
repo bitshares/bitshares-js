@@ -19,15 +19,15 @@ class PublicKey
     PublicKey.fromBinary = (bin) ->
         PublicKey.fromBuffer new Buffer bin, 'binary'
 
-    PublicKey.fromBuffer = (buf) ->
-        new PublicKey ecurve.Point.decodeFrom secp256k1, buf
-
-    PublicKey.fromPoint = (point) ->
-        new PublicKey point
+    PublicKey.fromBuffer = (buffer) ->
+        new PublicKey ecurve.Point.decodeFrom secp256k1, buffer
 
     toBuffer: ->
         @Q.getEncoded @Q.compressed
         
+    PublicKey.fromPoint = (point) ->
+        new PublicKey point
+
     toUncompressed: ->
         buf = @Q.getEncoded(false)
         point = ecurve.Point.decodeFrom secp256k1, buf

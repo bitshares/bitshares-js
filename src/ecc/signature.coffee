@@ -5,23 +5,38 @@ class Signature
     ecdsa = require './ecdsa'
     hash = require './hash'
     secp256k1 = require('ecurve').getCurveByName 'secp256k1'
-    ECSignature = require "./ecsignature"
+    #ECSignature = require "./ecsignature"
     assert = require 'assert'
+    BigInteger = require 'bigi'
 
-    constructor: (ecsignature) ->
-        assert.equal ecsignature.r isnt null, true, 'ECSignature object expected'
-        assert.equal ecsignature.s isnt null, true, 'ECSignature object expected'
-        @ecsignature = ecsignature
+    constructor: (@r, @s, @i) ->
+        assert.equal @r isnt null, true, 'Missing parameter'
+        assert.equal @s isnt null, true, 'Missing parameter'
+        assert.equal @i isnt null, true, 'Missing parameter'
 
     Signature.fromBuffer = (buf) ->
-        result = ECSignature.parseCompact buf
-        new Signature result.signature
+        assert.equal buf.length, 65, 'Invalid signature length'
+        
+        i = buf.readUInt8(0)
+        
+        # At most 3 bits (bitcoinjs-lib, ecsignature.js::parseCompact)
+        assert.equal i - 27, i - 27 & 7, 'Invalid signature parameter'
+        
+        #compressed = !!(i & 4)
+        #
+        #// Recovery param only
+        #i = i & 3
+        
+        r = BigInteger.fromBuffer buf.slice 1, 33
+        s = BigInteger.fromBuffer buf.slice 33
+        new Signature r, s, i
 
     toBuffer: () ->
-        # TODO, bitshares source code reference to 31
-        i = 31
-        compressed = !!(i & 4)
-        @ecsignature.toCompact i, compressed
+        buf = new Buffer 65
+        buf.writeUInt8(@i, 0)
+        @r.toBuffer(32).copy buf, 1
+        @s.toBuffer(32).copy buf, 33
+        buf
 
     ###
     @param {Buffer}
@@ -39,7 +54,7 @@ class Signature
     ###
     verifyBuffer: (buf, public_key) ->
         _hash = hash.sha256(buf)
-        ecdsa.verify secp256k1, _hash, @ecsignature, public_key.Q
+        ecdsa.verify secp256k1, _hash, {r:@r, s:@s}, public_key.Q
 
     ### <HEX> ###
      

@@ -1,5 +1,8 @@
 assert = require 'assert'
 
+Ecc = require '../ecc'
+PublicKey = Ecc.PublicKey
+
 ByteBuffer = require 'bytebuffer'
 # https://github.com/dcodeIO/ByteBuffer.js/issues/34
 ByteBuffer = ByteBuffer.dcodeIO.ByteBuffer if ByteBuffer.dcodeIO
@@ -12,13 +15,6 @@ class EncryptedMail
     @param {string} binary encoded encrypted_mail (converts to Mail)
     ###
     constructor: (@one_time_key,  @ciphertext) ->
-
-    EncryptedMail.fromHex = (hex) ->
-        b = ByteBuffer.fromHex hex
-        return EncryptedMail.fromByteBuffer b
-
-    toHex: ->
-        @toByteBuffer().toHex()
     
     toBinary: ->
         @toByteBuffer().toBinary()
@@ -28,29 +24,38 @@ class EncryptedMail
         
     toBuffer: ->
         b = @toByteBuffer()
-        new Buffer b.toString('hex'), 'hex'
+        new Buffer b.toBinary(), 'binary'
 
     EncryptedMail.fromByteBuffer = (b) ->
         # un-encrypted compressed public key
-        one_time_key = new Buffer(b.copy(b.offset, b.offset + 33).toBinary(), 'binary'); b.skip 33
+        otk_b = b.copy(b.offset, b.offset + 33); b.skip 33
+        otk_buffer = new Buffer otk_b.toBinary(), 'binary'
+        one_time_key = PublicKey.fromBuffer otk_buffer
         
         len = b.readVarint32()
-        ciphertext = new Buffer(b.copy(b.offset, b.offset + len).toBinary(), 'binary')
-        b.skip len
+        cipher_b = b.copy(b.offset, b.offset + len); b.skip len
+        ciphertext = new Buffer cipher_b.toBinary(), 'binary'
 
         assert.equal b.remaining(), 0, 'bytes unread '+b.remaining()
 
-        return new EncryptedMail one_time_key, ciphertext 
+        return new EncryptedMail one_time_key, ciphertext
 
     toByteBuffer: ->
         b = new ByteBuffer()
-        b.append @one_time_key, 'binary'
+        b.append @one_time_key.toBuffer().toString('binary'), 'binary'
         b.writeVarint32 @ciphertext.length
         b.append @ciphertext, 'binary'
         return b.copy 0, b.offset
         
     ### <HEX> ###
     
+    EncryptedMail.fromHex = (hex) ->
+        b = ByteBuffer.fromHex hex
+        return EncryptedMail.fromByteBuffer b
+
+    toHex: ->
+        @toByteBuffer().toHex()
+        
     ### </HEX> ###
 
 exports.EncryptedMail = EncryptedMail

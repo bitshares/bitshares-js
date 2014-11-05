@@ -116,7 +116,7 @@ onetimekey = ->
           "data": "020833bf65535826d249a4ff66ac4643ba6d9ae256790bf5d127f380cf3c5ce2f2a001636588df76269f78eda0d98453a5e16266317ed78ae9bb013898b4cbf52ddf54959aaf2a4b0ffa4ac4dcd52edcfe179c0127bd8b02e90ba60697a34ac2a40ed6a5adf997d5f49952a9c274f018f8d9331228749a9bd899b7bcf3f52bbb7a4c1ada1e062885767fc11ceb70f72751ce86a484096a1d2e32d7cafd23469d207da2ec535b9c971b9923ca2a7db902f627a47f654435a1ccf7d822293386d69d5f50"
         }
         ###
-        onetime_public_key_compressed = EncryptedMail.fromHex(message_data_hex).one_time_key.toString 'hex'
+        onetime_public_key_compressed = EncryptedMail.fromHex(message_data_hex).one_time_key.toHex()
         assert.equal onetime_public_key_calculated, onetime_public_key_compressed, "one-time keys do not match"
     setup_onetime_keys()
 

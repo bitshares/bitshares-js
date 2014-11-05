@@ -44,7 +44,7 @@ encrypted_mail_test = (msg) ->
 
         it "Decrypt", ->
             encrypted_mail = EncryptedMail.fromHex msg.data
-            one_time_key = PublicKey.fromBinary encrypted_mail.one_time_key
+            one_time_key = encrypted_mail.one_time_key
             one_time_key = one_time_key.toUncompressed()
             private_key = PrivateKey.fromHex msg.receiver_private_key
             assert.equal private_key.toPublicKey().toHex(), msg.receiver_public_key
@@ -87,28 +87,28 @@ email_test = (msg) ->
             assert.equal email.reply_to.toString('hex'), msg.reply_to_hex, "reply_to message id"
             assert.equal email.attachments.length, msg.attachments.length, "num of attachments"
             assert.equal email.attachments.length, 0, "attachments are not supported"
-            assert.equal email.signature.toString('hex'), msg.signature_hex, "signature"
+            assert.equal email.signature.toHex(), msg.signature_hex#, "signature"
 
-        describe "Signature", ->
-            it "Verifiy", ->
-                # remove the signature
-                email_hex = Email.fromHex(msg.hex).toHex(include_signature=false)
-                public_key = PrivateKey.fromHex(msg.private_key_hex).toPublicKey()
-                signature = Signature.fromHex msg.signature_hex
-                verify = signature.verifyHex email_hex, public_key
-                assert.equal verify, true, "signature did not verify"
+
+        it "Verifiy", ->
+            # remove the signature
+            email_hex = Email.fromHex(msg.hex).toHex(include_signature=false)
+            public_key = PrivateKey.fromHex(msg.private_key_hex).toPublicKey()
+            signature = Signature.fromHex msg.signature_hex
+            verify = signature.verifyHex email_hex, public_key
+            assert.equal verify, true, "signature did not verify"
+        
+        ###it "Sign", ->
+            private_key = PrivateKey.fromHex(msg.private_key_hex)
+            email = Email.fromHex(msg.hex)
+            email_hex = email.toHex(include_signature=false)
+            signature = Signature.signHex email_hex, private_key
+            # todo, insert and test with mail server w/new signature 
+            assert.equal signature.toHex(), msg.signature_hex
             
-            ###it "Sign", ->
-                private_key = PrivateKey.fromHex(msg.private_key_hex)
-                email = Email.fromHex(msg.hex)
-                email_hex = email.toHex(include_signature=false)
-                signature = Signature.signHex email_hex, private_key
-                # todo, insert and test with mail server w/new signature 
-                assert.equal signature.toHex(), msg.signature_hex
-                
-                #verify = signature.verifyHex email_hex, private_key.toPublicKey()
-                #assert.equal verify, true, "signature did not verify"
-            ###
+            #verify = signature.verifyHex email_hex, private_key.toPublicKey()
+            #assert.equal verify, true, "signature did not verify"
+        ###
 
 email_test
     hex: "077375626a656374c50231323334353637383930313233343536373839303132333435363738393031323334353637383930313233343536373839300a31323334353637383930313233343536373839303132333435363738393031323334353637383930313233343536373839300a31323334353637383930313233343536373839303132333435363738393031323334353637383930313233343536373839300a31323334353637383930313233343536373839303132333435363738393031323334353637383930313233343536373839300a31323334353637383930313233343536373839303132333435363738393031323334353637383930313233343536373839300a31323334353637383930313233343536373839303132333435363738393031323334353637383930313233343536373839300a656e64206f66207472616e736d697373696f6e0000000000000000000000000000000000000000001fef84ce41ed1ef17d7541845d0e5ef506f2a94c651c836e53dde7621fda8897890f0251e1f6dbc0e713b41f13e73c2cf031aea2e888fe54f3bd656d727a83fddb"

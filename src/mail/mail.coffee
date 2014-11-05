@@ -41,9 +41,7 @@ class Mail
         new Mail(type[_type], recipient, nonce, time, data)
 
     toByteBuffer: () ->
-        
         b = new ByteBuffer ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN
-        
         b.writeUint16 parseInt k for k,v of type when v is @type
         b.append @recipient.toString('binary'), 'binary'
         b.writeUint64 @nonce.low

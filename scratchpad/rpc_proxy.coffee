@@ -17,7 +17,7 @@ class RpcProxy
                 @payload = ""
             else
                 if /}\n+{/.test @payload
-                    s = @payload.split /}\n+{/
+                    s = @payload.split /}\n*{/
                     # incomplete
                     @payload = s[s.length]
                     # completed messages
