@@ -2,6 +2,9 @@ assert = require 'assert'
 {type} = require './type'
 {Email} = require './email'
 
+Ecc = require '../ecc'
+PublicKey = Ecc.PublicKey
+
 ByteBuffer = require 'bytebuffer'
 # https://github.com/dcodeIO/ByteBuffer.js/issues/34
 ByteBuffer = ByteBuffer.dcodeIO.ByteBuffer if ByteBuffer.dcodeIO
@@ -23,8 +26,8 @@ class Mail
         _type = b.readUint16() #; console.log 'type',type[_type],_type
 
         # blockchain::address === Id ripemd 160 (160 bits / 8 = 20 bytes)
-        recipient = new Buffer b.copy(b.offset, b.offset + 20).toBinary(), 'binary'; b.skip 20
-        #console.log 'recipient',recipient.toString 'hex'
+        recipient_b = b.copy(b.offset, b.offset + 20); b.skip 20
+        recipient = new Buffer(recipient_b.toBinary(), 'binary')
 
         nonce = b.readUint64() #; console.log 'nonce',nonce #uint64_t
 
@@ -43,9 +46,10 @@ class Mail
     toByteBuffer: () ->
         b = new ByteBuffer ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN
         b.writeUint16 parseInt k for k,v of type when v is @type
+        assert.equal 20, @recipient.length
         b.append @recipient.toString('binary'), 'binary'
         b.writeUint64 @nonce.low
-        b.writeInt32 @time.getTime() / 1000
+        b.writeInt32 Math.round @time.getTime() / 1000
         b.writeVarint32 @data.length
         b.append @data.toString('binary'), 'binary'
         return b.copy 0, b.offset

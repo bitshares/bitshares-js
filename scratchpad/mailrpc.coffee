@@ -16,6 +16,7 @@ EncryptedMail = _Mail.EncryptedMail
 {Rpc} = require "./rpc_json"
 {RpcCommon} = require "./rpc_common"
 
+ByteBuffer = require 'bytebuffer'
 common = require "../src/common"
 q = require 'q'
 
@@ -106,7 +107,7 @@ class MailTest
             timestamp: now
             data: "020833bf65535826d249a4ff66ac4643ba6d9ae256790bf5d127f380cf3c5ce2f2a001636588df76269f78eda0d98453a5e16266317ed78ae9bb013898b4cbf52ddf54959aaf2a4b0ffa4ac4dcd52edcfe179c0127bd8b02e90ba60697a34ac2a40ed6a5adf997d5f49952a9c274f018f8d9331228749a9bd899b7bcf3f52bbb7a4c1ada1e062885767fc11ceb70f72751ce86a484096a1d2e32d7cafd23469d207da2ec535b9c971b9923ca2a7db902f627a47f654435a1ccf7d822293386d69d5f50"
 
-        #enc = EncryptedMail.fromHex encrypted_mail_test.data
+        #enc = EncryptedMail.fromHex encrypted_mail.data
         @rpc.run "mail_store_message", [encrypted_mail]
         
     mail_store_message: (msg) ->
@@ -120,9 +121,12 @@ class MailTest
         aes = Aes.fromSecret 'Password00'
         otk_private = PrivateKey.fromHex aes.decrypt_hex msg.otk_encrypted
         otk_public_compressed = otk_private.toPublicKey()
-        #otk_public_uncompressed = otk_public_compressed.toUncompressed()
+        console.log 'otk\t',otk_public_compressed.toBtsPublic()
+        otk_public_uncompressed = otk_public_compressed.toUncompressed()
         
-        d0_private = PrivateKey.fromHex aes.decrypt_hex msg.delegate0_private_key_encrypted
+        d0_private = PrivateKey.fromHex aes.decrypt_hex  msg.delegate0_private_key_encrypted
+        
+        d1_private = PrivateKey.fromHex aes.decrypt_hex  msg.delegate1_private_key_encrypted
         
         # blockchain::address
         delegate0 = "XTS8DvGQqzbgCR5FHiNsFf8kotEXr8VKD3mR"
@@ -132,23 +136,29 @@ class MailTest
         email.signature = Signature.signHex email.toHex(include_signature=false), d0_private
         console.log "email\t\t",email.toHex(include_signature=true)
         
-        aes = Aes.fromSecret otk_private.toBuffer().toString('binary')
-        
         encrypted_mail = ->
-            cipher_hex = aes.encrypt_hex email.toHex(include_signature=true)
+            S = d1_private.sharedSecret otk_public_uncompressed
+            aes = Aes.fromSha512 S.toString('hex')
+            #aes = Aes.fromSecret otk_private.toBuffer().toString('binary')
+            #aes = Aes.fromSecret PublicKey.fromBtsPublic(msg.delegate1_active_key).toBuffer().toString('binary')
+            
+            ## todo what format is recipient?
+            recipient = new Buffer("0e87650518d645c797b83f50af19515e295398d2","hex")
+            Mail mail = new Mail 'email', recipient, {low: 1234}, new Date(), email.toBuffer()
+            mail_hex = mail.toHex()
+            cipher_hex = aes.encrypt_hex mail_hex
             console.log "cipher_hex\t",cipher_hex
             cipher_buffer = new Buffer(cipher_hex, 'hex')
             new EncryptedMail otk_public_compressed, cipher_buffer
         encrypted_mail = encrypted_mail()
-        
         console.log "encrypted_mail\t",encrypted_mail.toHex()
-        #Mail mail = new Mail 'encrypted', delegate1, 1234, @time(), enc_mail_data
         mail_json =
             type: "encrypted"
             recipient: delegate1
             nonce: 1234
             timestamp: @time()
             data: encrypted_mail.toHex()
+        
         @rpc.run "mail_store_message", [mail_json]
         
     ## Authenticated
@@ -196,8 +206,9 @@ Test = =>
         pow: '000baf5bff3e8e45522e11c4780b7e93d1fb5a54'
         delegate0_private_key_encrypted: '5e1ae410919c450dce1c476ae3ed3e5fe779ad248081d85b3dcf2888e698744d0a4b60efb7e854453bec3f6883bcbd1d'
         otk_encrypted: '71121a664417626851da46f3faab898cb800012461763a07efe0e90844a48755a30e08d41cd552a6bb8ddd0afba845d3'
-        delegate0_active_key: 'XTS7jDPoMwyjVH5obFmqzFNp4Ffp7G2nvC7FKFkrMBpo7Sy4uq5Mj'
-    
+        otk_bts_public: 'XTS6W974oE6TmGfZZxR53znSD88ozq8zVRoD5UiPfErYYuCMsjS5K'
+        delegate1_private_key_encrypted: "7b23c16519ed6bb0bbbdec47c71fdcc7881a9628c06aa9520067a49ad0ab9c0f1cb6793d2059fc15480a21abde039220"
+
     tn=new TestNet(@rpc, @rpc_common)
     tn.unlock()
 

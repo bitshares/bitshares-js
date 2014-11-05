@@ -30,7 +30,14 @@ encrypted_mail_test = (msg) ->
         it "Parse and regenerate", ->
             mail = Mail.fromHex msg.decrypted_mail
             assert.equal mail.toHex(), msg.decrypted_mail
+            assert.equal "email", mail.type
+            # TODO, what format is this in?
+            assert.equal msg.msg_recepient, mail.recipient.toString('hex')
+            assert.equal 0, mail.nonce.low
+            assert.equal 1414509511000, mail.time.getTime()
+            # parses data:
             email = mail.toEmail()
+            assert.equal "Subject", email.subject
 
         it "Matching one_time_key", ->
             aes = Aes.fromSecret 'Password00'
@@ -57,6 +64,9 @@ encrypted_mail_test = (msg) ->
             aes = aes()
             plaintext = aes.decrypt_hex encrypted_mail.ciphertext.toString 'hex'
             assert.equal plaintext, msg.decrypted_mail
+            mail = Mail.fromHex msg.decrypted_mail
+            email = mail.toEmail()
+            assert.equal "Subject", email.subject
         
         it "Encrypt", ->
             encrypted_mail = EncryptedMail.fromHex msg.data
@@ -80,6 +90,7 @@ encrypted_mail_test
     data: "020833bf65535826d249a4ff66ac4643ba6d9ae256790bf5d127f380cf3c5ce2f2a001" + #one time key
         #ciphertext
         "636588df76269f78eda0d98453a5e16266317ed78ae9bb013898b4cbf52ddf54959aaf2a4b0ffa4ac4dcd52edcfe179c0127bd8b02e90ba60697a34ac2a40ed6a5adf997d5f49952a9c274f018f8d9331228749a9bd899b7bcf3f52bbb7a4c1ada1e062885767fc11ceb70f72751ce86a484096a1d2e32d7cafd23469d207da2ec535b9c971b9923ca2a7db902f627a47f654435a1ccf7d822293386d69d5f50"
+    msg_recepient: "0e87650518d645c797b83f50af19515e295398d2"
     receiver_private_key: "8db25cb71976d0ee768ae602050b2afde072b32d9151405478dff0eba87f73ac"
     receiver_public_key: "029d1e307b2a774af1ddd18646be6b493b2cf176fc6bb6d031b6150339d9016721"
     encrypted_onetime_private_key: "c49c51a696060e1dbb9960aba931dfdc0f7202d2bcfdcb57b52b771b80729c2b6fd6489148b218b655c16d600b3d96ee"
