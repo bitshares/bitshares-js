@@ -139,11 +139,7 @@ class MailTest
         encrypted_mail = ->
             S = d1_private.sharedSecret otk_public_uncompressed
             aes = Aes.fromSha512 S.toString('hex')
-            #aes = Aes.fromSecret otk_private.toBuffer().toString('binary')
-            #aes = Aes.fromSecret PublicKey.fromBtsPublic(msg.delegate1_active_key).toBuffer().toString('binary')
-            
-            ## todo what format is recipient?
-            recipient = new Buffer("0e87650518d645c797b83f50af19515e295398d2","hex")
+            recipient = d1_private.toPublicKey().toBlockchainAddress()
             Mail mail = new Mail 'email', recipient, {low: 1234}, new Date(), email.toBuffer()
             mail_hex = mail.toHex()
             cipher_hex = aes.encrypt_hex mail_hex

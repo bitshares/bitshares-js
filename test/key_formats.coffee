@@ -15,6 +15,9 @@ test = (key) ->
             public_key = private_key.toPublicKey()
             assert.equal key.bts_address, public_key.toBtsAddy() 
 
+        it "Blockchain Address", ->
+            public_key = PublicKey.fromBtsPublic key.public_key
+            assert.equal key.blockchain_address, public_key.toBlockchainAddress().toString('hex')
             
         it "BTS public key import / export", ->
             public_key = PublicKey.fromBtsPublic key.public_key
@@ -50,4 +53,4 @@ test
     bts_address: "XTS8DvGQqzbgCR5FHiNsFf8kotEXr8VKD3mR"
     pts_address: "Po3mqkgMzBL4F1VXJArwQxeWf3fWEpxUf3"
     encrypted_private_key: "5e1ae410919c450dce1c476ae3ed3e5fe779ad248081d85b3dcf2888e698744d0a4b60efb7e854453bec3f6883bcbd1d"
-    
+    blockchain_address: "4f3a560442a05e4fbb257e8dc5859b736306bace"

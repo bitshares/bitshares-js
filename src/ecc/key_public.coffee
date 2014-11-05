@@ -38,7 +38,13 @@ class PublicKey
         checksum = hash.ripemd160 pub_buf
         addy = Buffer.concat [pub_buf, checksum.slice 0, 4]
         config.bts_address_prefix + base58.encode addy
-        
+    
+    ###* bts::blockchain::address ###
+    toBlockchainAddress: ->
+        pub_buf = @toBuffer()
+        pub_sha = hash.sha512 pub_buf
+        hash.ripemd160 pub_sha
+
     ###*
     {param1} public_key string
     {return} PublicKey
