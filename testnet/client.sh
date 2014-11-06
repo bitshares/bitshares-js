@@ -8,10 +8,10 @@
 client_num=${1-000}
 delegate_num=${2-000}
 
-BTS_BUILD=${BTS_BUILD-~/bitshares/bitshares_toolkit}
-BTS_WEBKIT=${BTS_WEBKIT-~/bitshares/bitshares_webkit}
+BTS_BUILD=${BTS_BUILD-~/bitshares/bitshares}
+BTS_JS=${BTS_JS-~/bitshares/BitShares-JS}
 
-testnet_datadir="$BTS_WEBKIT/testnet/tmp/client${client_num}"
+testnet_datadir="$BTS_JS/testnet/tmp/client${client_num}"
 
 HTTP_PORT=${HTTP_PORT-44${client_num}}	# 44000
 RPC_PORT=${RPC_PORT-45${client_num}}	# 45000
@@ -40,7 +40,7 @@ function init {
   else
     sleep 3
     echo "Creating default wallet..."
-    rpc wallet_backup_restore '"'$BTS_WEBKIT'/testnet/config/wallet.json", "default", "Password00"'
+    rpc wallet_backup_restore '"'$BTS_JS'/testnet/config/wallet.json", "default", "Password00"'
   fi
 }
 init&
@@ -50,7 +50,7 @@ set -o xtrace
 ${GDB-} \
 "${BTS_BUILD}/programs/client/bitshares_client"\
  --data-dir "$testnet_datadir"\
- --genesis-config "$BTS_WEBKIT/testnet/config/genesis.json"\
+ --genesis-config "$BTS_JS/testnet/config/genesis.json"\
  --server\
  --httpport=$HTTP_PORT\
  --rpcport=$RPC_PORT\

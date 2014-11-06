@@ -1,11 +1,7 @@
 ## SETUP
 
-export INVICTUS_ROOT=~/bitshares/bitshares_toolkit
-
-# In-source build OR out-of-source build
-export BTS_BUILD=~/bitshares/bitshares_toolkit
-export BTS_BUILD=~/bitshares/bitshares_toolkit/4nbuild
-export BTS_WEB=~/bitshares/bitshares_toolkit/programs/web_wallet
+export BTS_JS=~/bitshares/BitShares-JS
+export BTS_BUILD=~/bitshares/bitshares
 
 ## RUN
 
