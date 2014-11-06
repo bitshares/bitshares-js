@@ -1,4 +1,4 @@
 module.exports =
-  Mail: require "./mail"
-  Ecc: require "./ecc"
-  Common: require "./common"
+  mail: require "./mail"
+  ecc: require "./ecc"
+  common: require "./common"
