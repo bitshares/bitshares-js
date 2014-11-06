@@ -15,7 +15,7 @@ class Email
         @attachments = [] unless @attachments
 
     Email.fromBuffer = (buf) ->
-        b = ByteBuffer.fromBinary buf.toString 'binary'
+        b = ByteBuffer.fromBinary buf.toString('binary'), ByteBuffer.LITTLE_ENDIAN
         Email.fromByteBuffer b
 
     toBuffer: (include_signature) ->
@@ -43,7 +43,7 @@ class Email
         new Email(subject, body, reply_to, attachments, signature)
 
     toByteBuffer: (include_signature = true) ->
-        b = new ByteBuffer()
+        b = new ByteBuffer ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN
         b.writeVString @subject
         b.writeVString @body
         b.append @reply_to.toString('binary'), 'binary'

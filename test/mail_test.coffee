@@ -11,6 +11,8 @@ Mail = _Mail.Mail
 Email = _Mail.Email
 EncryptedMail = _Mail.EncryptedMail
 
+ByteBuffer = require 'bytebuffer'
+
 ###
 = Buffer verses HEX
 
@@ -119,7 +121,6 @@ email_test = (msg) ->
             assert.equal email.attachments.length, 0, "attachments are not supported"
             assert.equal email.signature.toHex(), msg.signature_hex#, "signature"
 
-
         it "Verifiy", ->
             # remove the signature
             email_hex = Email.fromHex(msg.hex).toHex(include_signature=false)
@@ -148,3 +149,4 @@ email_test
     attachments: []
     signature_hex: "1fef84ce41ed1ef17d7541845d0e5ef506f2a94c651c836e53dde7621fda8897890f0251e1f6dbc0e713b41f13e73c2cf031aea2e888fe54f3bd656d727a83fddb"
     private_key_hex: "52173306ca0f862e8fbf8e7479e749b9859fa78588e0e5414ec14fc8ae51a58b"
+    

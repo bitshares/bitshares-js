@@ -20,7 +20,7 @@ class EncryptedMail
         @toByteBuffer().toBinary()
 
     EncryptedMail.fromBuffer = (buf) ->
-        EncryptedMail.fromByteBuffer ByteBuffer.fromHex buf.toString 'hex'
+        EncryptedMail.fromByteBuffer ByteBuffer.fromHex(buf.toString('hex'), ByteBuffer.LITTLE_ENDIAN)
         
     toBuffer: ->
         b = @toByteBuffer()
@@ -41,7 +41,7 @@ class EncryptedMail
         return new EncryptedMail one_time_key, ciphertext
 
     toByteBuffer: ->
-        b = new ByteBuffer()
+        b = new ByteBuffer ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN
         b.append @one_time_key.toBuffer().toString('binary'), 'binary'
         b.writeVarint32 @ciphertext.length
         b.append @ciphertext.toString('binary'), 'binary'

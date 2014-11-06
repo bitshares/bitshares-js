@@ -81,15 +81,28 @@ class MailTest
                 console.log("mail_cancel_message #{x[1]}")
                 @rpc.run("mail_cancel_message #{x[1]}")
 
-    publish_mail_server: ->
+    configure_mail_servers: ->
         #TODO, merge public_data
-        # blockchain_get_account delegate1
+        ###
+        open default
+        unlock 9999 Password00
+        
+        mail_send delegate0 delegate1 subject body
+        wallet_set_preferred_mail_servers "delegate0"  ["delegate1"] "delegate0"
+        
+        blockchain_get_account delegate0
+        blockchain_get_account delegate1
+        ###
+        
+        # Setup for this>>> mail_send delegate0 delegate1 subject body
         public_data =
             mail_servers: ["delegate1"]
             mail_server_endpoint: "127.0.0.1:#{RPC_PORT}"
 
-        @rpc.run("wallet_account_update_registration", ["delegate1", "delegate1", public_data, "44"]).then () ->
-            @rpc.run "blockchain_list_pending_transactions"
+        delegate_pay_rate="100"
+        @rpc.run("wallet_account_update_registration", ["delegate1", "delegate1", public_data, delegate_pay_rate]).then () ->
+            # !!! this did not run ???
+            @rpc.run("wallet_set_preferred_mail_servers", ["delegate0", ["delegate1"], "delegate0"])
 
     time: () ->
         now = new Date()
@@ -134,20 +147,22 @@ class MailTest
         
         Email email = new Email msg.subject, msg.body
         email.signature = Signature.signHex email.toHex(include_signature=false), d0_private
-        console.log "email\t\t",email.toHex(include_signature=true)
+        email.subject = "Break Signature!!"
+        #console.log "email\t\t",email.toHex(include_signature=true)
         
         encrypted_mail = ->
             S = d1_private.sharedSecret otk_public_uncompressed
             aes = Aes.fromSha512 S.toString('hex')
             recipient = d1_private.toPublicKey().toBlockchainAddress()
+            #console.log "recipient\t",recipient.toString('hex')
             Mail mail = new Mail 'email', recipient, {low: 1234}, new Date(), email.toBuffer()
             mail_hex = mail.toHex()
             cipher_hex = aes.encrypt_hex mail_hex
-            console.log "cipher_hex\t",cipher_hex
+            #console.log "cipher_hex\t",cipher_hex
             cipher_buffer = new Buffer(cipher_hex, 'hex')
             new EncryptedMail otk_public_compressed, cipher_buffer
         encrypted_mail = encrypted_mail()
-        console.log "encrypted_mail\t",encrypted_mail.toHex()
+        #console.log "encrypted_mail\t",encrypted_mail.toHex()
         mail_json =
             type: "encrypted"
             recipient: delegate1
@@ -179,12 +194,13 @@ class MailTest
 open default
 unlock 9999 Password00
 
-mail_send delegate0 delegate1 subject body
+mail_send delegate0 init0 subject body
 
 mail_get_processing_messages
 mail_check_new_messages 
 
-wallet_set_preferred_mail_servers "delegate1"  ["delegate1"] "delegate1"
+wallet_set_preferred_mail_servers "delegate0"  ["init0"] "delegate0"
+wallet_set_preferred_mail_servers "delegate1"  ["init0"] "delegate1"
 blockchain_get_account delegate1
 
 mail_inbox
@@ -212,9 +228,9 @@ Test = =>
 
     m=new MailTest(@rpc, @rpc_common)
     #m.send()
-    #m.publish_mail_server()
+    m.configure_mail_servers()
     #m.mail_store_message()
-    m.mail_store_message msg
+    #m.mail_store_message msg
     
     #m.processing_cancel_all()
     

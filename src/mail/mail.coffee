@@ -13,14 +13,6 @@ class Mail
 
     constructor: (@type, @recipient, @nonce, @time, @data) ->
 
-    Mail.fromHex= (hex) ->
-        b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
-        return Mail.fromByteBuffer b
-
-    toHex: () ->
-        b=@toByteBuffer()
-        b.toHex()
-
     Mail.fromByteBuffer= (b) ->
         #console.log "=Mail"; b.printDebug()
         _type = b.readUint16() #; console.log 'type',type[_type],_type
@@ -48,8 +40,8 @@ class Mail
         b.writeUint16 parseInt k for k,v of type when v is @type
         assert.equal 20, @recipient.length
         b.append @recipient.toString('binary'), 'binary'
-        b.writeUint64 @nonce.low
-        b.writeInt32 Math.round @time.getTime() / 1000
+        b.writeUint64 @nonce
+        b.writeInt32 Math.ceil @time.getTime() / 1000
         b.writeVarint32 @data.length
         b.append @data.toString('binary'), 'binary'
         return b.copy 0, b.offset
@@ -58,4 +50,16 @@ class Mail
         assert.equal @type, 'email'
         Email.fromBuffer @data
 
+    ### <HEX> ###
+    
+    Mail.fromHex= (hex) ->
+        b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
+        return Mail.fromByteBuffer b
+
+    toHex: () ->
+        b=@toByteBuffer()
+        b.toHex()
+        
+    ### </HEX> ###
+    
 exports.Mail = Mail

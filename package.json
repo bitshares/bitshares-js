@@ -11,7 +11,7 @@
     "bitcore": "~0.1.39"
   },
   "scripts": {
-    "test": "./node_modules/.bin/mocha --compilers coffee:coffee-script --require coffee-script/register --watch"
+    "test": "./node_modules/.bin/mocha --compilers coffee:coffee-script --require coffee-script/register"
   },
   "devDependencies": {
     "mocha": "1.21.5",
