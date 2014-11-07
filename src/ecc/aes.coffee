@@ -38,13 +38,13 @@ class Aes
 
     ### <HEX> ###
     
-    decrypt_hex: (cipher) ->
+    decryptHex: (cipher) ->
         # Convert data into word arrays (used by Crypto)
         cipher_array = CryptoJS.enc.Hex.parse cipher
         plainwords = @decrypt_word_array cipher_array
         CryptoJS.enc.Hex.stringify plainwords
         
-    encrypt_hex: (plainhex) ->
+    encryptHex: (plainhex) ->
         plain_array = CryptoJS.enc.Hex.parse plainhex
         cipher_array = @encrypt_word_array plain_array
         CryptoJS.enc.Hex.stringify cipher_array

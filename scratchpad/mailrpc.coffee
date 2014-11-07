@@ -132,14 +132,14 @@ class MailTest
         ###
         
         aes = Aes.fromSecret 'Password00'
-        otk_private = PrivateKey.fromHex aes.decrypt_hex msg.otk_encrypted
+        otk_private = PrivateKey.fromHex aes.decryptHex msg.otk_encrypted
         otk_public_compressed = otk_private.toPublicKey()
         console.log 'otk\t',otk_public_compressed.toBtsPublic()
         otk_public_uncompressed = otk_public_compressed.toUncompressed()
         
-        d0_private = PrivateKey.fromHex aes.decrypt_hex  msg.delegate0_private_key_encrypted
+        d0_private = PrivateKey.fromHex aes.decryptHex  msg.delegate0_private_key_encrypted
         
-        d1_private = PrivateKey.fromHex aes.decrypt_hex  msg.delegate1_private_key_encrypted
+        d1_private = PrivateKey.fromHex aes.decryptHex  msg.delegate1_private_key_encrypted
         
         # blockchain::address
         delegate0 = "XTS8DvGQqzbgCR5FHiNsFf8kotEXr8VKD3mR"
@@ -157,7 +157,7 @@ class MailTest
             #console.log "recipient\t",recipient.toString('hex')
             Mail mail = new Mail 'email', recipient, {low: 1234}, new Date(), email.toBuffer()
             mail_hex = mail.toHex()
-            cipher_hex = aes.encrypt_hex mail_hex
+            cipher_hex = aes.encryptHex mail_hex
             #console.log "cipher_hex\t",cipher_hex
             cipher_buffer = new Buffer(cipher_hex, 'hex')
             new EncryptedMail otk_public_compressed, cipher_buffer

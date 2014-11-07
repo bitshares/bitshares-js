@@ -29,7 +29,7 @@ describe "Crypto", ->
     
     it "Decrypts master key", ->
         aes = Aes.fromSecret "Password01"
-        d = aes.decrypt_hex encrypted_key
+        d = aes.decryptHex encrypted_key
         assert.equal decrypted_key, d, "decrypted key does not match"
     
     ###it "Computes public key", ->

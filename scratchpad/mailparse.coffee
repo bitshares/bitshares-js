@@ -98,7 +98,7 @@ onetimekey = ->
     setup_onetime_keys = ->
         # backup wallet after sending a message, this is the last encrypted private key (one-time-key)
         encrypted_onetime_private_key = "c49c51a696060e1dbb9960aba931dfdc0f7202d2bcfdcb57b52b771b80729c2b6fd6489148b218b655c16d600b3d96ee"
-        onetime_private_key = aes.decrypt_hex encrypted_onetime_private_key
+        onetime_private_key = aes.decryptHex encrypted_onetime_private_key
 
         ## find one-time public key
         BigInteger = require('bigi')
@@ -226,7 +226,7 @@ onetimekey = ->
         console.log "elliptic shared_secret kdf\t",shared_secret_sha512
 
         aes = Aes.fromSha512(shared_secret_sha512)
-        plainhex = aes.decrypt_hex cipherbuf.toString('hex')
+        plainhex = aes.decryptHex cipherbuf.toString('hex')
         b = ByteBuffer.fromHex(plainhex)
         b.printDebug()
         

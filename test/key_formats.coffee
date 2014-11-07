@@ -43,7 +43,7 @@ test = (key) ->
             
         it "Decrypt private key", ->
             aes = Aes.fromSecret "Password00"
-            d = aes.decrypt_hex key.encrypted_private_key
+            d = aes.decryptHex key.encrypted_private_key
             assert.equal key.private_key, d
 
 test

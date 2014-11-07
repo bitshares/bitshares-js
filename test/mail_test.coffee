@@ -43,7 +43,7 @@ encrypted_mail_test = (msg) ->
 
         it "Matching one_time_key", ->
             aes = Aes.fromSecret 'Password00'
-            onetime_private_key = aes.decrypt_hex msg.encrypted_onetime_private_key
+            onetime_private_key = aes.decryptHex msg.encrypted_onetime_private_key
             private_key= PrivateKey.fromHex onetime_private_key
             assert.equal private_key.toHex(), msg.otk_private
             public_key = private_key.toPublicKey()
@@ -64,7 +64,7 @@ encrypted_mail_test = (msg) ->
                 assert.equal shared_secret.toString('hex'), msg.shared_secret
                 Aes.fromSha512 shared_secret.toString('hex')
             aes = aes()
-            plaintext = aes.decrypt_hex encrypted_mail.ciphertext.toString 'hex'
+            plaintext = aes.decryptHex encrypted_mail.ciphertext.toString 'hex'
             assert.equal plaintext, msg.decrypted_mail
             mail = Mail.fromHex msg.decrypted_mail
             email = mail.toEmail()
@@ -81,7 +81,7 @@ encrypted_mail_test = (msg) ->
                 shared_secret = private_key.sharedSecret one_time_key
                 Aes.fromSha512 shared_secret.toString('hex')
             aes = aes()
-            cipher_hex = aes.encrypt_hex msg.decrypted_mail
+            cipher_hex = aes.encryptHex msg.decrypted_mail
             assert.equal encrypted_mail.ciphertext.toString('hex'), cipher_hex
 
 encrypted_mail_test
