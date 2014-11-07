@@ -1,0 +1,91 @@
+{
+  "trx": {
+    "expiration": "20141106T152602",
+    "delegate_slate_id": null,
+    "operations": [{
+        "type": "deposit_op_type",
+        "data": {
+          "amount": 1000000000,
+          "condition": {
+            "asset_id": 0,
+            "delegate_slate_id": 0,
+            "type": "withdraw_signature_type",
+            "data": {
+              "owner": "XTSPy3aQQS4NDepCkKsqCA7ELAtdC8Xba1gY",
+              "memo": {
+                "one_time_key": "XTS57rPNtkwivRd6TxzhaKQ3sPMb7ZP2txFtF3Y5B1kRLdhV83qwN",
+                "encrypted_memo_data": "6919ae3585d8e313dfd9eb20fbe2087ad985e975230ce1cafa34da3e59767bb83459366c8b5f6eea13a32ae3f020648c2137eace9d8849a3b6a4202e1dd7d6c5"
+              }
+            }
+          }
+        }
+      },{
+        "type": "withdraw_op_type",
+        "data": {
+          "balance_id": "XTS4pca7BPiQqnQLXUZp8ojTxfXo2g4EzBLP",
+          "amount": 1000050000,
+          "claim_input_data": ""
+        }
+      }
+    ],
+    "signatures": [
+      "1f97c090a74d4eef92df48777a807d0205b7da5a13e8e4d80ec7c57cdbc6ff870dddedfd9a4a2307e9225b7a199c0fe10ef6755dfac7ea6df5a1d2ffd125382d16"
+    ]
+  },
+  "signed_keys": [],
+  "validation_error": null,
+  "required_deposits": [],
+  "provided_deposits": [[
+      "XTSDDLP8wKhsk7i73ste4hN4oY3EaLfw8B8Y",{
+        "amount": 1000000000,
+        "asset_id": 0
+      }
+    ]
+  ],
+  "deposits": [[
+      0,{
+        "amount": 1000000000,
+        "asset_id": 0
+      }
+    ]
+  ],
+  "withdraws": [[
+      0,{
+        "amount": 1000050000,
+        "asset_id": 0
+      }
+    ]
+  ],
+  "yield": [],
+  "deltas": [[
+      0,{
+        "amount": 1000000000,
+        "asset_id": 0
+      }
+    ],[
+      1,{
+        "amount": -1000050000,
+        "asset_id": 0
+      }
+    ]
+  ],
+  "required_fees": {
+    "amount": 0,
+    "asset_id": 0
+  },
+  "alt_fees_paid": {
+    "amount": 0,
+    "asset_id": 0
+  },
+  "balance": [[
+      0,
+      50000
+    ]
+  ],
+  "net_delegate_votes": [],
+  "chain_location": {
+    "block_num": 59,
+    "trx_num": 0
+  }
+}
+

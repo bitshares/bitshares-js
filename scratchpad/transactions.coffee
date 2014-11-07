@@ -11,7 +11,7 @@ Mail = _Mail.Mail
 Email = _Mail.Email
 EncryptedMail = _Mail.EncryptedMail
 
-operations = require '../src/blockchain/operations'
+types = require '../src/blockchain/types'
 
 ByteBuffer = require 'bytebuffer'
 
@@ -41,82 +41,95 @@ tx_notification = (msg) ->
             mail = Mail.fromHex mail_hex
             console.log "type\t",mail.type
             console.log "rcpnt\t",mail.recipient.toString('hex')
-            console.log "nonce\t",mail.nonce
+            console.log "nonce\t",mail.nonce.toString()
             console.log "time\t",mail.time
             
-            b = ByteBuffer.fromBinary mail.data.toString('binary'), ByteBuffer.LITTLE_ENDIAN
             ###
             bts::mail::transaction_notice_message, (trx)(extended_memo)(memo_signature)(one_time_key)
             bts::blockchain::signed_transaction               trx
             bts::blockchain::signed_transaction, (bts::blockchain::transaction), (signatures)
             bts::blockchain::transaction, (expiration)(delegate_slate_id)(operations)
+                fc::time_ _sec expiration
+                optional slait_id_type uint64_t
+                vector<operation>           operations
+                
             bts::blockchain::operation, (type)(data)
                 fc::enum_type<uint8_t,operation_type_enum> type;
                 std::vector<char> data;
             ###
+            b = ByteBuffer.fromBinary mail.data.toString('binary'), ByteBuffer.LITTLE_ENDIAN
             console.log '\nbts::blockchain::transaction'
+            
             
             epoch = b.readInt32() # fc::time_point_sec
             expiration = new Date(epoch * 1000)
             console.log 'expiration',expiration
             
-            
-            #blockchain types.hpp slait_id_type uint64_t
-            #   optional<slate_id_type>
+            # Delegate slate ID
             boolean = b.readUint8()
             assert.equal 0, boolean, "Delegate slate is not implemented"
-            #delegate_slait_id = b.readUint64() 
-            #console.log "delegate_slait_id",delegate_slait_id
+            #delegate_slait_id = b.readVarint64() 
+            #console.log "delegate_slait_id",delegate_slait_id.toString()
             
-            # vector<operation>           operations
             operations_count = b.readVarint32()
             console.log 'operations_count',operations_count
             
             operation = ->
-                # fc::enum_type<uint8_t,operation_type_enum> type
                 _type = b.readUint8()
-                console.log 'operation type',operations[_type]
+                console.log 'operation type',types.operation[_type]
                 
-                # std::vector<char> data
                 len = b.readVarint32()
                 console.log 'operation len',len
                 b_copy = b.copy(b.offset, b.offset + len); b.skip len
-                operation_data = new Buffer(b_copy.toBinary(), 'binary')
                 
-                switch operations[_type]
-                    when "deposit_op_type"
-                        ###
-                        bts::blockchain::deposit_operation, (amount)(condition)
-                            int64_t share_type amount
-                            withdraw_condition
+                operation_data = (b) ->
+                    switch types.operation[_type]
+                        when "deposit_op_type"
+                            ###
+                            bts::blockchain::deposit_operation, (amount)(condition)
+                                ?? address balance_id_type Bts
+                                int64_t share_type amount
+                                withdraw_condition // condition that the funds may be withdrawn
+                                
+                            bts::blockchain::withdraw_condition, (asset_id)(delegate_slate_id)(type)(data)
+                                varint32 fc::signed_int asset_id_type asset_id
+                                uint64_t slate_id_type delegate_slate_id
+                                fc::enum_type<uint8_t, withdraw_condition_types> type
+                                std::vector<char> data
+                            ###
+                            amount = b.readInt64()
+                            console.log 'amount',amount.toString()
                             
-                        bts::blockchain::withdraw_condition, (asset_id)(delegate_slate_id)(type)(data)
-                            varint32 fc::signed_int asset_id_type asset_id
-                            uint64_t slate_id_type delegate_slate_id
-                            fc::enum_type<uint8_t, withdraw_condition_types> type
-                            std::vector<char> data
-                        ###
-                        amount = b.readInt64()
-                        console.log 'amount',amount
+                            asset_id = b.readVarint32()
+                            console.log 'asset_id',asset_id
+                            
+                            delegate_slate_id = b.readVarint64()
+                            console.log 'delegate_slate_id',delegate_slate_id.toString()
+                            
+                            condition_type = b.readUint8()
+                            console.log types.withdraw[condition_type]
+                            
+                            len = b.readVarint32()
+                            if len isnt 0
+                                console.log 'additional withdraw_condition data',len
+                                b_copy = b.copy(b.offset, b.offset + len); b.skip len
+                                data = new Buffer(b_copy.toBinary(), 'binary')
+                                ByteBuffer.fromBinary(data.toString('binary')).printDebug()
+                                assert.equal true, false, 'Not implemented'
+                                
+                        when "withdraw_op_type"
+                            ###
+                            
+                            ###
+                            
+                            
+                operation_data(b_copy)
                         
-                        asset_id = b.readVarint32()
-                        console.log 'asset_id',asset_id
-                        
-                        delegate_slate_id = b.readUint64()
-                        console.log 'delegate_slate_id',delegate_slate_id
-                        
-                        condition_type = b.readUint8()
-                        console.log 'condition_type',condition_type
-                        
-                        len = b.readVarint32()
-                        b_copy = b.copy(b.offset, b.offset + len); b.skip len
-                        data = new Buffer(b_copy.toBinary(), 'binary')
-                        ByteBuffer.fromBinary(data.toString('binary')).printDebug()
-                        
-            for i in [0..operations_count]
+            for i in [1..operations_count]#
                 console.log '\noperation',i
-                operation()##
-            b.printDebug()
+                operation()
+                
+            throw "#{b.remaining()} unknown bytes" unless b.remaining() is 0
             
 ##
 tx_notification
@@ -129,3 +142,8 @@ tx_notification
     otk_bts_public: "XTS62Jb3rL2vjV43eMgN9CvQogAxzm2SwSmkxNCRKyptQAae2zCCQ"
     delegate1_private_key_encrypted: "7b23c16519ed6bb0bbbdec47c71fdcc7881a9628c06aa9520067a49ad0ab9c0f1cb6793d2059fc15480a21abde039220"
 ####
+###
+bb = new ByteBuffer ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN
+bb.writeInt64(ByteBuffer.Long.fromString("1000000000"))
+bb.printDebug()
+###
