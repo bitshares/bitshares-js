@@ -14,6 +14,7 @@ EncryptedMail = _Mail.EncryptedMail
 types = require '../src/blockchain/types'
 
 ByteBuffer = require 'bytebuffer'
+base58 = require 'bs58'
 
 tx = (msg) ->
     describe "Transaction", ->
@@ -24,8 +25,8 @@ tx
     data: "49ae5b540002028a0100ca9a3b000000000000000000000000000177708b16ae5739ceb3310b2e1223ca5d6e4434af7d0102dc17ae44224e9336a1f3f4875e60dd29fce9fc5b10f0bc67cf3f63259c9f52e840ce44d0e05be6c5b48a3b9a656e5e16773318fe4f8dd8f933606dfcddf463b8cdfb76c8597c473f5c4a2fd85a68f9f857bbe5045ceb7087448ea45b6a95521f7c011d29e99edd68694b46faab47b2bd38604c085a399d508d9b3b0000000000011f1bb12156d45ba53c2a897a72c5a8312b6ba6ce7e178814e8c83681d8a1ad12221d5e93a5c51cb505bb46c5a79752f3239a9ee85de6e4de582e8240d143ab0e2300011f4ad1e2d05877189bd88bab945c8d9f4b92be9ee63689e00cfbc0331c76020d756629fa81cf48cd29a6c1f2c802cfcdcbf63e7d27d09136c7f1e225af000520710102dc17ae44224e9336a1f3f4875e60dd29fce9fc5b10f0bc67cf3f63259c9f52e8"
 
 tx_notification = (msg) ->
-    describe "Transaction Notification", ->
-        it "Parse", ->
+    describe "Transactions", ->
+        it "transaction_notice_message", ->
             encrypted_mail = EncryptedMail.fromHex msg.data
             mail_hex_decrypt = ->
                 aes = Aes.fromSecret 'Password00'
@@ -46,8 +47,14 @@ tx_notification = (msg) ->
             
             ###
             bts::mail::transaction_notice_message, (trx)(extended_memo)(memo_signature)(one_time_key)
-            bts::blockchain::signed_transaction               trx
+                bts::blockchain::signed_transaction trx
+                std::string extended_memo
+                fc::array<unsigned char,65> fc::optional<fc::ecc::compact_signature> memo_signature
+                fc::optional<bts::blockchain::public_key_type> one_time_key
+            
             bts::blockchain::signed_transaction, (bts::blockchain::transaction), (signatures)
+                fc::array<unsigned char,65> vector<fc::ecc::compact_signature> signatures
+                
             bts::blockchain::transaction, (expiration)(delegate_slate_id)(operations)
                 fc::time_ _sec expiration
                 optional slait_id_type uint64_t
@@ -87,7 +94,6 @@ tx_notification = (msg) ->
                         when "deposit_op_type"
                             ###
                             bts::blockchain::deposit_operation, (amount)(condition)
-                                ?? address balance_id_type Bts
                                 int64_t share_type amount
                                 withdraw_condition // condition that the funds may be withdrawn
                                 
@@ -115,12 +121,31 @@ tx_notification = (msg) ->
                                 b_copy = b.copy(b.offset, b.offset + len); b.skip len
                                 data = new Buffer(b_copy.toBinary(), 'binary')
                                 ByteBuffer.fromBinary(data.toString('binary')).printDebug()
-                                assert.equal true, false, 'Not implemented'
+                                throw 'Not implemented'
                                 
                         when "withdraw_op_type"
                             ###
-                            
+                            bts::blockchain::withdraw_operation, (balance_id)(amount)(claim_input_data)
+                                fc::ripemd160 address balance_id_type balance_id
+                                int64_t share_type amount
+                                std::vector<char> claim_input_data
                             ###
+                            # blockchain::address balance_id ripemd 160 (160 bits / 8 = 20 bytes)
+                            console.log 'Py3aQQS4NDepCkKsqCA7ELAtdC8Xba1gY',base58.decode ('Py3aQQS4NDepCkKsqCA7ELAtdC8Xba1gY').toString('hex')
+                            
+                            b_copy = b.copy(b.offset, b.offset + 20); b.skip 20
+                            b_copy.printDebug()
+                            balance_owner = new Buffer(b_copy.toBinary(), 'binary')
+                            balance_owner = base58.encode balance_owner
+                            console.log "balance_id", balance_owner
+                            
+                            amount = b.readInt64()
+                            console.log 'amount',amount.toString()
+                            
+                            len = b.readVarint32()
+                            if len isnt 0
+                                console.log 'claim_input_data data',len
+                                throw 'Not implemented'
                             
                             
                 operation_data(b_copy)
@@ -129,6 +154,38 @@ tx_notification = (msg) ->
                 console.log '\noperation',i
                 operation()
                 
+            signature_count = b.readVarint32()
+            console.log '\nsignature_count',signature_count
+            
+            signature = () ->
+                b_copy = b.copy(b.offset, b.offset + 65); b.skip 65
+                signature_buffer = new Buffer(b_copy.toBinary(), 'binary')
+                Signature.fromBuffer signature_buffer
+            for i in [1..signature_count]
+                console.log 'signature',i,signature().toHex(),'\n'
+            
+            
+            len = b.readVarint32()
+            
+            b_copy = b.copy(b.offset, b.offset + len); b.skip len
+            extended_memo = new Buffer(b_copy.toBinary(), 'binary')
+            console.log 'extended_memo (enrypted)',"'#{extended_memo.toString()}'"
+            
+            # optional? 999
+            boolean = b.readUint8()
+            if boolean is 1
+                memo_signature = signature() 
+                console.log 'memo_signature',memo_signature.toHex()
+            
+            #b.printDebug()
+            # optional? 999
+            boolean = b.readUint8()
+            if boolean is 1 # 999 out of data?
+                # un-encrypted compressed public key
+                b_copy = b.copy(b.offset, b.offset + 33); b.skip 33
+                one_time_key = new Buffer(b_copy.toBinary(), 'binary')
+                one_time_key = PublicKey.fromBuffer one_time_key
+            
             throw "#{b.remaining()} unknown bytes" unless b.remaining() is 0
             
 ##
@@ -142,8 +199,11 @@ tx_notification
     otk_bts_public: "XTS62Jb3rL2vjV43eMgN9CvQogAxzm2SwSmkxNCRKyptQAae2zCCQ"
     delegate1_private_key_encrypted: "7b23c16519ed6bb0bbbdec47c71fdcc7881a9628c06aa9520067a49ad0ab9c0f1cb6793d2059fc15480a21abde039220"
 ####
-###
+##
 bb = new ByteBuffer ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN
 bb.writeInt64(ByteBuffer.Long.fromString("1000000000"))
-bb.printDebug()
-###
+#bb.printDebug()
+
+
+console.log base58.encode ('Py3aQQS4NDepCkKsqCA7ELAtdC8Xba1gY').toString('hex')
+####
