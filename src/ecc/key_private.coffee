@@ -56,12 +56,16 @@ class PrivateKey
     toBuffer: ->
         @d.toBuffer()
         
+    ###* {return} Buffer S, 15 bytes ###
     sharedSecret: (public_key) ->
         ot_pubkey = public_key.toBuffer()
         ecies = new ECIES.encryptObj ot_pubkey, new Buffer(''), @toBuffer()
         S = ecies.getSfromPubkey()
-        ECIES.kdf(S)
     
+    PrivateKey.fromSharedSecret_ecies = (S) ->
+        _hash = hash.sha512 S
+        PrivateKey.fromBuffer S.slice 0, 32
+
     ### <HEX> ###
     
     PrivateKey.fromHex = (hex) ->

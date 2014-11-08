@@ -21,11 +21,10 @@ tx_notification = (msg) ->
         it "transaction_notice_message", ->
             encrypted_mail = EncryptedMail.fromHex msg.data
             
-            _aes_shared_secret = (private_key, one_time_key) ->
+            _shared_secret = (private_key, one_time_key) ->
                 one_time_key = one_time_key.toUncompressed()
                 S = private_key.sharedSecret one_time_key
-                Aes.fromSha512 S.toString('hex')
-                
+
             _d1_private = ->
                 aes = Aes.fromSecret 'Password00'
                 PrivateKey.fromHex aes.decryptHex  msg.helper.delegate1_private_key_encrypted
@@ -34,7 +33,7 @@ tx_notification = (msg) ->
             mail_hex_decrypt = ->
                 otk_public_compressed = PublicKey.fromBtsPublic msg.helper.otk_bts_public
                 assert.equal otk_public_compressed.toHex(), encrypted_mail.one_time_key.toHex()
-                aes_shared_secret = _aes_shared_secret(d1_private, otk_public_compressed)
+                aes_shared_secret = Aes.fromSharedSecret_ecies _shared_secret(d1_private, otk_public_compressed)
                 aes_shared_secret.decryptHex encrypted_mail.ciphertext.toString('hex')
             mail_hex = mail_hex_decrypt()
             
@@ -135,34 +134,54 @@ tx_notification = (msg) ->
             signature_count = b.readVarint32()
             console.log '\nsignature_count',signature_count
             
-            signature = () ->
+            signatures = []
+            _signature = () ->
                 b_copy = b.copy(b.offset, b.offset + 65); b.skip 65
                 signature_buffer = new Buffer(b_copy.toBinary(), 'binary')
                 Signature.fromBuffer signature_buffer
             for i in [1..signature_count]
-                console.log 'signature',i,signature().toHex(),'\n'
+                signature = _signature()
+                signatures.push signature
+                console.log 'signature',i,signature.toHex(),'\n'
             
             len = b.readVarint32()
             b_copy = b.copy(b.offset, b.offset + len); b.skip len
             extended_memo = new Buffer(b_copy.toBinary(), 'binary')
-            console.log 'extended_memo (encrypted)',"'#{extended_memo.toString()}'"
+            console.log 'extended_memo',"'#{extended_memo.toString()}'"
             
+            memo_signature = null
             boolean_int = b.readUint8() # optional
             if boolean_int is 1
-                memo_signature = signature() 
+                memo_signature = _signature() 
                 console.log 'memo_signature',memo_signature.toHex()
+                
             
-            boolean_int = b.readUint8() # optional
-            if boolean_int is 1
+            boolean = b.readUint8() is 1 # optional
+            if boolean
                 # un-encrypted compressed public key
                 b_copy = b.copy(b.offset, b.offset + 33); b.skip 33
                 one_time_key = new Buffer(b_copy.toBinary(), 'binary')
                 one_time_key = PublicKey.fromBuffer one_time_key
                 console.log "one_time_key",one_time_key.toBtsPublic()
                 
-                aes_shared_secret = _aes_shared_secret(d1_private, one_time_key)
+                
+                S = _shared_secret(d1_private, one_time_key)
+                aes_shared_secret = Aes.fromSharedSecret_ecies S
+                
+                # peek at encrypted_memo_data from native transaction
                 helper_memo = aes_shared_secret.decryptHex msg.helper.encrypted_memo
-                console.log "helper_memo",helper_memo
+                helper_memo = new Buffer(helper_memo, 'hex')
+                console.log "helper_memo"
+                ByteBuffer.fromBinary(helper_memo.toString('hex')).printDebug()
+                
+                # verify memo
+                if memo_signature 
+                    private_key = PrivateKey.fromSharedSecret_ecies S
+                    public_key = private_key.toPublicKey()
+                    verify = memo_signature.verifyBuffer(helper_memo, public_key)
+                    #fails, ...?
+                    #assert.equal verify,true
+                
                 
             
             throw "#{b.remaining()} unknown bytes" unless b.remaining() is 0

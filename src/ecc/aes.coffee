@@ -17,9 +17,13 @@ class Aes
 
     Aes.fromSecret = (password) ->
         assert password, true, "password is required"
-        pw_hash = hash.sha512 password
-        pw_hash = pw_hash.toString('hex')
-        Aes.fromSha512(pw_hash)
+        _hash = hash.sha512 password
+        _hash = _hash.toString('hex')
+        Aes.fromSha512(_hash)
+        
+    Aes.fromSharedSecret_ecies = (S) ->
+        Aes.fromSha512 hash.sha512(S).toString('hex')
+        
 
     decrypt_word_array: (cipher) ->
         # https://code.google.com/p/crypto-js/#Custom_Key_and_IV

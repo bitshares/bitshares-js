@@ -12,6 +12,7 @@ Email = _Mail.Email
 EncryptedMail = _Mail.EncryptedMail
 
 ByteBuffer = require 'bytebuffer'
+hash = require '../src/ecc/hash'
 
 ###
 = Buffer verses HEX
@@ -60,9 +61,9 @@ encrypted_mail_test = (msg) ->
             aes = ->
                 private_key = PrivateKey.fromHex msg.receiver_private_key
                 assert.equal private_key.toPublicKey().toHex(), msg.receiver_public_key
-                shared_secret = private_key.sharedSecret one_time_key
-                assert.equal shared_secret.toString('hex'), msg.shared_secret
-                Aes.fromSha512 shared_secret.toString('hex')
+                S = private_key.sharedSecret one_time_key
+                assert.equal (hash.sha512(S)).toString('hex'), msg.shared_secret
+                Aes.fromSharedSecret_ecies S
             aes = aes()
             plaintext = aes.decryptHex encrypted_mail.ciphertext.toString 'hex'
             assert.equal plaintext, msg.decrypted_mail
@@ -78,8 +79,8 @@ encrypted_mail_test = (msg) ->
             one_time_key = one_time_key()
             aes = ->
                 private_key = PrivateKey.fromHex msg.receiver_private_key
-                shared_secret = private_key.sharedSecret one_time_key
-                Aes.fromSha512 shared_secret.toString('hex')
+                S = private_key.sharedSecret one_time_key
+                Aes.fromSharedSecret_ecies S
             aes = aes()
             cipher_hex = aes.encryptHex msg.decrypted_mail
             assert.equal encrypted_mail.ciphertext.toString('hex'), cipher_hex

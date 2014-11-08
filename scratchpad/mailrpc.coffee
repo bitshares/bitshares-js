@@ -152,7 +152,7 @@ class MailTest
         
         encrypted_mail = ->
             S = d1_private.sharedSecret otk_public_uncompressed
-            aes = Aes.fromSha512 S.toString('hex')
+            aes = Aes.fromSharedSecret_ecies S
             recipient = d1_private.toPublicKey().toBlockchainAddress()
             #console.log "recipient\t",recipient.toString('hex')
             Mail mail = new Mail 'email', recipient, {low: 1234}, new Date(), email.toBuffer()
