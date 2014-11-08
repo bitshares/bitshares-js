@@ -46,6 +46,8 @@ tx_notification = (msg) ->
             b = ByteBuffer.fromBinary mail.data.toString('binary'), ByteBuffer.LITTLE_ENDIAN
             console.log '\nbts::blockchain::transaction'
             
+            transaction_begin = b.offset
+            
             epoch = b.readInt32() # fc::time_point_sec
             expiration = new Date(epoch * 1000)
             console.log 'expiration',expiration
@@ -130,7 +132,9 @@ tx_notification = (msg) ->
             for i in [1..operations_count]#
                 console.log '\noperation',i
                 operation()
-                
+              
+            transaction_end = b.offset
+            
             signature_count = b.readVarint32()
             console.log '\nsignature_count',signature_count
             
@@ -144,26 +148,38 @@ tx_notification = (msg) ->
                 signatures.push signature
                 console.log 'signature',i,signature.toHex(),'\n'
             
+            
+            _verify_sigs = ->
+                assert.equal true, signatures.length isnt 0, 'Missing signature'
+                public_key_sender = PublicKey.fromBtsPublic(msg.helper.public_btskey_sender)
+                trx_b = b.copy(transaction_begin, transaction_end)
+                trx_buffer = new Buffer(b.toBinary(), 'binary')
+                for signature in signatures
+                    public_key = signature.recoverPublicKeyFromBuffer trx_buffer
+                    console.log "sig1 recover public key", public_key.toBtsPublic()
+                    verify = signature.verifyBuffer(trx_buffer, public_key_sender)
+                    #assert.equal verify,true, 'Transaction did not verify'
+                    console.log 'Transaction did not verify' unless verify
+                
+            _verify_sigs()
+            
             len = b.readVarint32()
             b_copy = b.copy(b.offset, b.offset + len); b.skip len
             extended_memo = new Buffer(b_copy.toBinary(), 'binary')
             console.log 'extended_memo',"'#{extended_memo.toString()}'"
             
             memo_signature = null
-            boolean_int = b.readUint8() # optional
-            if boolean_int is 1
+            if b.readUint8() is 1 # optional
                 memo_signature = _signature() 
                 console.log 'memo_signature',memo_signature.toHex()
                 
             
-            boolean = b.readUint8() is 1 # optional
-            if boolean
+            if b.readUint8() is 1 # optional
                 # un-encrypted compressed public key
                 b_copy = b.copy(b.offset, b.offset + 33); b.skip 33
                 one_time_key = new Buffer(b_copy.toBinary(), 'binary')
                 one_time_key = PublicKey.fromBuffer one_time_key
                 console.log "one_time_key",one_time_key.toBtsPublic()
-                
                 
                 S = _shared_secret(d1_private, one_time_key)
                 aes_shared_secret = Aes.fromSharedSecret_ecies S
@@ -175,14 +191,14 @@ tx_notification = (msg) ->
                 ByteBuffer.fromBinary(helper_memo.toString('hex')).printDebug()
                 
                 # verify memo
-                if memo_signature 
-                    private_key = PrivateKey.fromSharedSecret_ecies S
-                    public_key = private_key.toPublicKey()
-                    verify = memo_signature.verifyBuffer(helper_memo, public_key)
-                    #fails, ...?
-                    #assert.equal verify,true
-                
-                
+                if memo_signature
+                    public_key_sender = PublicKey.fromBtsPublic(msg.helper.public_btskey_sender)
+                    verify = memo_signature.verifyBuffer(helper_memo, public_key_sender)
+                    
+                    public_key = signature.recoverPublicKeyFromBuffer helper_memo
+                    console.log "sig2 recover public key", public_key.toBtsPublic()
+                    #assert.equal verify,true, 'Memo did not verify'
+                    console.log 'Memo did not verify' unless verify
             
             throw "#{b.remaining()} unknown bytes" unless b.remaining() is 0
             
@@ -217,6 +233,9 @@ tx_notification
         otk_bts_public: "XTS62Jb3rL2vjV43eMgN9CvQogAxzm2SwSmkxNCRKyptQAae2zCCQ"
         delegate1_private_key_encrypted: "7b23c16519ed6bb0bbbdec47c71fdcc7881a9628c06aa9520067a49ad0ab9c0f1cb6793d2059fc15480a21abde039220"
         encrypted_memo: "6919ae3585d8e313dfd9eb20fbe2087ad985e975230ce1cafa34da3e59767bb83459366c8b5f6eea13a32ae3f020648c2137eace9d8849a3b6a4202e1dd7d6c5"
+        public_btskey_sender: "XTS7jDPoMwyjVH5obFmqzFNp4Ffp7G2nvC7FKFkrMBpo7Sy4uq5Mj"
+        memo_signer: "XTS57rPNtkwivRd6TxzhaKQ3sPMb7ZP2txFtF3Y5B1kRLdhV83qwN"
+
 ###
 bb = new ByteBuffer ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN
 bb.writeInt64(ByteBuffer.Long.fromString("1000000000"))

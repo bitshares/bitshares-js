@@ -1,4 +1,4 @@
-var assert = require('assert') // Copied from https://github.com/bitcoinjs/bitcoinjs-lib
+var assert = require('assert') // from github.com/bitcoinjs/bitcoinjs-lib from github.com/cryptocoinjs/ecdsa
 var crypto = require('./hash')
 var enforceType = require('./types')
 

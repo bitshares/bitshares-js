@@ -125,13 +125,13 @@ email_test = (msg) ->
         it "Verifiy", ->
             # remove the signature
             email_hex = Email.fromHex(msg.hex).toHex(include_signature=false)
-            public_key = PrivateKey.fromHex(msg.private_key_hex).toPublicKey()
+            public_key = PrivateKey.fromHex(msg.private_key_sender_hex).toPublicKey()
             signature = Signature.fromHex msg.signature_hex
             verify = signature.verifyHex email_hex, public_key
             assert.equal verify, true, "signature did not verify"
         
         it "Sign & Verify", ->
-            private_key = PrivateKey.fromHex(msg.private_key_hex)
+            private_key = PrivateKey.fromHex(msg.private_key_sender_hex)
             email = Email.fromHex(msg.hex)
             email_hex = email.toHex(include_signature=false)
             signature = Signature.signHex email_hex, private_key
@@ -149,5 +149,5 @@ email_test
     reply_to_hex: "0000000000000000000000000000000000000000"
     attachments: []
     signature_hex: "1fef84ce41ed1ef17d7541845d0e5ef506f2a94c651c836e53dde7621fda8897890f0251e1f6dbc0e713b41f13e73c2cf031aea2e888fe54f3bd656d727a83fddb"
-    private_key_hex: "52173306ca0f862e8fbf8e7479e749b9859fa78588e0e5414ec14fc8ae51a58b"
+    private_key_sender_hex: "52173306ca0f862e8fbf8e7479e749b9859fa78588e0e5414ec14fc8ae51a58b"
     

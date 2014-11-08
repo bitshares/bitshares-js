@@ -62,9 +62,11 @@ class PrivateKey
         ecies = new ECIES.encryptObj ot_pubkey, new Buffer(''), @toBuffer()
         S = ecies.getSfromPubkey()
     
-    PrivateKey.fromSharedSecret_ecies = (S) ->
-        _hash = hash.sha512 S
-        PrivateKey.fromBuffer S.slice 0, 32
+    
+    #this could be a man-in-the-middle... verify sender instead
+    #PrivateKey.fromSharedSecret_ecies = (S) ->
+    #    _hash = hash.sha512 S
+    #    PrivateKey.fromBuffer S.slice 0, 32
 
     ### <HEX> ###
     

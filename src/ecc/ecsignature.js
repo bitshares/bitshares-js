@@ -1,4 +1,4 @@
-var assert = require('assert') // Copied from https://github.com/bitcoinjs/bitcoinjs-lib
+var assert = require('assert') // from https://github.com/bitcoinjs/bitcoinjs-lib
 var enforceType = require('./types')
 
 var BigInteger = require('bigi')

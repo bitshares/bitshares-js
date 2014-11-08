@@ -10,12 +10,9 @@ class PublicKey
     config = require '../config'
     assert = require 'assert'
 
-    ###*
-    @param {BigInteger} public key
-    @param {boolean}
-    ###
+    ###* @param {ecurve.Point} public key ###
     constructor: (@Q) ->
-
+    
     PublicKey.fromBinary = (bin) ->
         PublicKey.fromBuffer new Buffer bin, 'binary'
 

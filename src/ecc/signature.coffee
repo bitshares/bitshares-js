@@ -4,10 +4,13 @@ class Signature
 
     ecdsa = require './ecdsa'
     hash = require './hash'
-    secp256k1 = require('ecurve').getCurveByName 'secp256k1'
+    curve = require('ecurve').getCurveByName 'secp256k1'
     #ECSignature = require "./ecsignature"
     assert = require 'assert'
     BigInteger = require 'bigi'
+    
+    Ecc = require './key_public'
+    PublicKey = Ecc.PublicKey
 
     constructor: (@r, @s, @i) ->
         assert.equal @r isnt null, true, 'Missing parameter'
@@ -23,9 +26,6 @@ class Signature
         assert.equal i - 27, i - 27 & 7, 'Invalid signature parameter'
         
         #compressed = !!(i & 4)
-        #
-        #// Recovery param only
-        #i = i & 3
         
         r = BigInteger.fromBuffer buf.slice 1, 33
         s = BigInteger.fromBuffer buf.slice 33
@@ -37,7 +37,17 @@ class Signature
         @r.toBuffer(32).copy buf, 1
         @s.toBuffer(32).copy buf, 33
         buf
-
+    
+    recoverPublicKeyFromBuffer: (buffer) ->
+        @recoverPublicKey hash.sha256 buffer
+        
+    recoverPublicKey: (sha256_buffer) ->
+        e = BigInteger.fromBuffer(sha256_buffer)
+        i = @i
+        i = i & 3 # Recovery param only
+        Q = ecdsa.recoverPubKey(curve, e, this, i)
+        PublicKey.fromPoint Q
+        
     ###
     @param {Buffer}
     @param {./PrivateKey}
@@ -45,7 +55,7 @@ class Signature
     ###
     Signature.signBuffer = (buf, private_key) ->
         _hash = hash.sha256 buf
-        ecsignature = ecdsa.sign secp256k1, _hash, private_key.d
+        ecsignature = ecdsa.sign curve, _hash, private_key.d
         new Signature ecsignature.r, ecsignature.s
         
     ###*
@@ -55,7 +65,7 @@ class Signature
     ###
     verifyBuffer: (buf, public_key) ->
         _hash = hash.sha256(buf)
-        ecdsa.verify secp256k1, _hash, {r:@r, s:@s}, public_key.Q
+        ecdsa.verify curve, _hash, {r:@r, s:@s}, public_key.Q
 
     ### <HEX> ###
     
