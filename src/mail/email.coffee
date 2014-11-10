@@ -1,7 +1,5 @@
 assert = require 'assert'
 ByteBuffer = require 'bytebuffer'
-# https://github.com/dcodeIO/ByteBuffer.js/issues/34
-ByteBuffer = ByteBuffer.dcodeIO.ByteBuffer if ByteBuffer.dcodeIO
 
 Ecc = require '../ecc'
 Signature = Ecc.Signature
