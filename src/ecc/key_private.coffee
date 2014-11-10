@@ -59,7 +59,11 @@ class PrivateKey
     ###* {return} Buffer S, 15 bytes ###
     sharedSecret: (public_key) ->
         ot_pubkey = public_key.toBuffer()
-        ecies = new ECIES.encryptObj ot_pubkey, new Buffer(''), @toBuffer()
+        #ecies = new ECIES.encryptObj ot_pubkey, new Buffer(''), @toBuffer()
+        #S = ecies.getSfromPubkey()
+        ecies = new ECIES()
+        ecies.KB = ot_pubkey
+        ecies.r = @toBuffer()
         S = ecies.getSfromPubkey()
     
     

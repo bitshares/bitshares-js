@@ -52,7 +52,7 @@ encrypted_mail_test = (msg) ->
             public_key = public_key.toUncompressed()
             assert.equal public_key.toHex(), msg.otk_uncompressed
 
-        it "Decrypt", ->
+        it "Decrypt using shared secret", ->
             encrypted_mail = EncryptedMail.fromHex msg.data
             one_time_key = ->
                 one_time_key = encrypted_mail.one_time_key
@@ -71,7 +71,7 @@ encrypted_mail_test = (msg) ->
             email = mail.toEmail()
             assert.equal "Subject", email.subject
         
-        it "Encrypt", ->
+        it "Encrypt using shared secret", ->
             encrypted_mail = EncryptedMail.fromHex msg.data
             one_time_key = ->
                 one_time_key = encrypted_mail.one_time_key
