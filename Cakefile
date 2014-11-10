@@ -21,7 +21,7 @@ task "test", "run tests", ->
 
 task "browserify", "package for the browser", ->
     exec "
-        browserify --transform coffeeify -s bitshares src/index.coffee --debug > bitshares-debug.js
+        browserify --transform coffeeify --extension=.coffee -s bitshares src/index.coffee --debug > bitshares-debug.js
     ", (err, output) ->
         throw err if err
         console.log output
