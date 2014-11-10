@@ -32,16 +32,13 @@ function init {
     echo "Login..."
     # the process may be gone, re-indexing, etc. just error silently
     rpc open '"default"' > /dev/null 2>&1
-    rpc unlock '9999, "Password00"' > /dev/null 2>&1
+    rpc unlock '99999, "Password00"' > /dev/null 2>&1
   else
     sleep 3
     echo "Creating default wallet..."
     rpc wallet_backup_restore '"'$BTS_JS'/testnet/config/wallet.json", "default", "Password00"'
   fi
-  for i in $(seq 0 100)
-  do
-    rpc wallet_delegate_set_block_production '"delegate'$i'", "true"'
-  done
+  rpc wallet_delegate_set_block_production '"ALL", "true"'
 }
 init&
 

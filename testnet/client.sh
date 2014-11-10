@@ -36,7 +36,7 @@ function init {
     echo "Login..."
     # the process may be gone, re-indexing, etc. just error silently
     rpc open '"default"' > /dev/null 2>&1
-    rpc unlock '9999, "Password00"' > /dev/null 2>&1
+    rpc unlock '99999, "Password00"' > /dev/null 2>&1
   else
     sleep 3
     echo "Creating default wallet..."
@@ -59,3 +59,4 @@ ${GDB-} \
  --upnp=false\
  --connect-to=$P2P_HOST\
  --disable-default-peers
+
