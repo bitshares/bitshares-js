@@ -17,10 +17,15 @@ class Deposit
         withdraw_condition = WithdrawCondition.fromByteBuffer b
         new Deposit(amount, withdraw_condition)
         
-    toByteBuffer: () ->
-        b = new ByteBuffer ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN
-        throw 'Not Implemented'
-        return b.copy 0, b.offset
+    appendByteBuffer: (b) ->
+        b.writeInt64(@amount)
+        @withdraw_condition.appendByteBuffer(b)
+        
+    toBuffer: ->
+        b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
+        @appendByteBuffer(b)
+        b_copy = b.copy(0, b.offset)
+        return new Buffer(b_copy.toBinary(), 'binary')
         
     ### <HEX> ###
     

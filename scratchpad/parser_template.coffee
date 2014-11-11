@@ -1,6 +1,6 @@
 assert = require 'assert'
 ByteBuffer = require 'bytebuffer'
-{fc} = require '../common/fc_parser'
+{fp} = require '../common/fast_parser'
 
 ###
 bts::mail::transaction_notice_message, (trx)(extended_memo)(memo_signature)(one_time_key)
@@ -17,12 +17,14 @@ class TransactionNotice
         throw 'Not Implemented'
         new TransactionNotice(field1)
         
-        
-    toByteBuffer: () ->
-        b = new ByteBuffer ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN
+    appendByteBuffer: (b) ->
         throw 'Not Implemented'
-        return b.copy 0, b.offset
         
+    toBuffer: ->
+        b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
+        @appendByteBuffer(b)
+        return new Buffer(b.copy(0, b.offset).toBinary(), 'binary')
+
     ### <HEX> ###
     
     TransactionNotice.fromHex= (hex) ->

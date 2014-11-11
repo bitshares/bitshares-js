@@ -41,7 +41,7 @@ class Email
         new Email(subject, body, reply_to, attachments, signature)
 
     toByteBuffer: (include_signature = true) ->
-        b = new ByteBuffer ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN
+        b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
         b.writeVString @subject
         b.writeVString @body
         b.append @reply_to.toString('binary'), 'binary'

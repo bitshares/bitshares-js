@@ -38,8 +38,8 @@ class EncryptedMail
 
         return new EncryptedMail one_time_key, ciphertext
 
-    toByteBuffer: ->
-        b = new ByteBuffer ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN
+    toByteBuffer: () ->
+        b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
         b.append @one_time_key.toBuffer().toString('binary'), 'binary'
         b.writeVarint32 @ciphertext.length
         b.append @ciphertext.toString('binary'), 'binary'

@@ -1,6 +1,8 @@
 assert = require 'assert'
 ByteBuffer = require 'bytebuffer'
 {fp} = require '../common/fast_parser'
+{WithdrawSignatureType} = require './withdraw_signature_type'
+types = require './types'
 
 ###
 bts::blockchain::withdraw_condition, (asset_id)(delegate_slate_id)(type)(data)
@@ -11,22 +13,30 @@ bts::blockchain::withdraw_condition, (asset_id)(delegate_slate_id)(type)(data)
 ###
 class WithdrawCondition
 
-    constructor: (@asset_id, @delegate_slate_id, @type_id, @b_data) ->
+    constructor: (@asset_id, @delegate_slate_id, @type_id, @condition) ->
         
     type: () ->
         types.withdraw[@type_id]
 
     WithdrawCondition.fromByteBuffer= (b) ->
         asset_id = b.readVarint32()
-        delegate_slate_id = b.readVarint64()
+        delegate_slate_id = b.readInt64()
         type_id = b.readUint8()
-        b_data = fp.variable_data b
-        new WithdrawCondition(asset_id, delegate_slate_id, type_id, b_data)
+        data = fp.variable_bytebuffer b
+        switch types.withdraw[type_id]
+            when "withdraw_signature_type"
+                condition = WithdrawSignatureType.fromByteBuffer(data)
+            else
+                throw "Not Implemented"
         
-    toByteBuffer: () ->
-        b = new ByteBuffer ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN
-        throw 'Not Implemented'
-        return b.copy 0, b.offset
+        
+        new WithdrawCondition(asset_id, delegate_slate_id, type_id, condition)
+        
+    appendByteBuffer: (b) ->
+        b.writeVarint32(@asset_id)
+        b.writeInt64(@delegate_slate_id)
+        b.writeUint8(@type_id)
+        fp.variable_buffer b, @condition.toBuffer()
         
     ### <HEX> ###
     

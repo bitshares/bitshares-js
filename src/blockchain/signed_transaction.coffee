@@ -21,15 +21,11 @@ class SignedTransaction
         
         new SignedTransaction(transaction, signatures)
         
-        
-    toByteBuffer: () ->
-        b = new ByteBuffer ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN
-        
-        
-        return b.copy 0, b.offset
-        
-    toTransaction: ->
-        
+    appendByteBuffer: (b) ->
+        @transaction.appendByteBuffer(b)
+        b.writeVarint32(@signatures.length)
+        for signature in @signatures
+            fp.signature b, signature
         
     ### <HEX> ###
     

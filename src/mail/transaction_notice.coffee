@@ -21,20 +21,19 @@ class TransactionNotice
         
     TransactionNotice.fromByteBuffer= (b) ->
         signed_transaction = SignedTransaction.fromByteBuffer b
-        extended_memo = fp.variable_data b
+        extended_memo = fp.variable_buffer b
         memo_signature = fp.signature fp.optional b
         one_time_key = fp.public_key fp.optional b
         assert.equal b.remaining(), 0, "Error, #{b.remaining()} unparsed bytes"
         new TransactionNotice(signed_transaction, extended_memo, memo_signature, one_time_key)
         
     toByteBuffer: () ->
-        b = new ByteBuffer ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN
-        
-        
+        b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
+        @signed_transaction.appendByteBuffer(b)
+        fp.variable_buffer b, @extended_memo
+        fp.signature fp.optional(b, @memo_signature), @memo_signature
+        fp.public_key fp.optional(b, @one_time_key), @one_time_key
         return b.copy 0, b.offset
-        
-    toSignedTransaction: ->
-        SignedTransaction.fromBuffer @signed_transaction
         
     ### <HEX> ###
     

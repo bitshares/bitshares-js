@@ -2,8 +2,8 @@ assert = require 'assert'
 ByteBuffer = require 'bytebuffer'
 types = require './types'
 {fp} = require '../common/fast_parser'
-Deposit = require './deposit'
-Withdraw = require './withdraw'
+{Deposit} = require './deposit'
+{Withdraw} = require './withdraw'
 
 ###
 bts::blockchain::operation, (type)(data)
@@ -12,28 +12,27 @@ bts::blockchain::operation, (type)(data)
 ###
 class Operation
 
-    constructor: (@type_id, @b_data) ->
+    constructor: (@type_id, @operation) ->
         
     type: () ->
         types.operation[@type_id]
     
     Operation.fromByteBuffer= (b) ->
         type_id = b.readUint8()
-        b_data = fp.variable_data b
-        new Operation(type_id, b_data)
+        data_b = fp.variable_bytebuffer b
+        operation = switch types.operation[type_id]
+            when "deposit_op_type"
+                Deposit.fromByteBuffer data_b
+            when "withdraw_op_type"
+                Withdraw.fromByteBuffer data_b
+            else
+                throw "Not Implemented"
         
-    toByteBuffer: () ->
-        b = new ByteBuffer ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN
-        throw 'Not Implemented'
-        return b.copy 0, b.offset
+        new Operation(type_id, operation)
         
-    toDeposit: ->
-        assert.equal "deposit_op_type", @type()
-        Deposit.fromByteBuffer @data
-        
-    toWithdraw: ->
-        assert.equal "withdraw_op_type", @type()
-        Withdraw.fromByteBuffer @data
+    appendByteBuffer: (b) ->
+        b.writeUint8(@type_id)
+        fp.variable_buffer b, @operation.toBuffer()
         
     ### <HEX> ###
     

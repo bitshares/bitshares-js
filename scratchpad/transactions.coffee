@@ -1,4 +1,5 @@
 assert = require("assert")
+ByteBuffer = require 'bytebuffer'
 
 Ecc = require '../src/ecc'
 Aes = Ecc.Aes
@@ -12,10 +13,9 @@ Email = _Mail.Email
 EncryptedMail = _Mail.EncryptedMail
 
 types = require '../src/blockchain/types'
-
-
-ByteBuffer = require 'bytebuffer'
 base58 = require 'bs58'
+config = require '../src/config'
+hash = require '../src/ecc/hash'
 
 ###
 bts::mail::transaction_notice_message, (trx)(extended_memo)(memo_signature)(one_time_key)
@@ -58,7 +58,7 @@ tx_notification = (msg) ->
             mail_hex = mail_hex_decrypt()
             
             mail = Mail.fromHex mail_hex
-            console.log "type\t",mail.type
+            console.log "type\t",mail.type()
             console.log "rcpnt\t",mail.recipient.toString('hex')
             console.log "nonce\t",mail.nonce.toString()
             console.log "time\t",mail.time
@@ -104,17 +104,18 @@ tx_notification = (msg) ->
                                 std::vector<char> data
                             ###
                             amount = b.readInt64()
-                            console.log 'amount',amount.toString()
+                            console.log 'amount\t\t\t',amount.toString()
                             
                             asset_id = b.readVarint32()
-                            console.log 'asset_id',asset_id
+                            console.log 'asset_id\t\t',asset_id
                             
-                            delegate_slate_id = b.readVarint64()
-                            console.log 'delegate_slate_id',delegate_slate_id.toString()
+                            delegate_slate_id = b.readInt64()
+                            console.log 'delegate_slate_id\t',delegate_slate_id.toString()
                             
                             condition_type = b.readUint8()
-                            console.log types.withdraw[condition_type]
+                            console.log 'withdraw_condition\t',types.withdraw[condition_type]
                             
+                            ####
                             len = b.readVarint32()
                             if len isnt 0
                                 console.log 'additional withdraw_condition data',len
@@ -122,7 +123,7 @@ tx_notification = (msg) ->
                                 data = new Buffer(b_copy.toBinary(), 'binary')
                                 ByteBuffer.fromBinary(data.toString('binary')).printDebug()
                                 throw 'Not implemented'
-                                
+                            ####
                         when "withdraw_op_type"
                             ###
                             bts::blockchain::withdraw_operation, (balance_id)(amount)(claim_input_data)
@@ -148,6 +149,12 @@ tx_notification = (msg) ->
                                 throw 'Not implemented'
                             
                 operation_data(b_copy)
+                if b_copy.remaining() isnt 0
+                    #bb = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
+                    #bb.writeVarint32(126)
+                    #bb.printDebug()
+                    b_copy.printDebug()
+                    throw "#{b_copy.remaining()} unread bytes"
 
             for i in [1..operations_count]#
                 console.log '\noperation',i
@@ -173,6 +180,7 @@ tx_notification = (msg) ->
                 public_key_sender = PublicKey.fromBtsPublic(msg.helper.public_btskey_sender)
                 _trx_hash = ->
                     trx_b = b.copy(transaction_begin, transaction_end)
+                    trx_b.printDebug()
                     trx_buffer = new Buffer(trx_b.toBinary(), 'binary')
                     chain_id_buffer = new Buffer(config.chain_id, 'hex')
                     hash.sha256(Buffer.concat([trx_buffer, chain_id_buffer]))
@@ -204,6 +212,7 @@ tx_notification = (msg) ->
                 S = _shared_secret(d1_private, one_time_key)
                 aes_shared_secret = Aes.fromSharedSecret_ecies S
                 
+                # encrypted_memo was in the trx (not in the mail trx) 
                 if msg.helper.encrypted_memo
                     # peek at encrypted_memo_data from native transaction
                     helper_memo = aes_shared_secret.decryptHex msg.helper.encrypted_memo

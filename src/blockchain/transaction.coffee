@@ -27,15 +27,21 @@ class Transaction
             operations.push Operation.fromByteBuffer b 
         
         new Transaction(expiration, delegate_slate_id, operations)
+      
+    appendByteBuffer: (b) ->
+        fp.time_point_sec b, @expiration
+        fp.optional b, null # delegate_slate_id
+        b.writeVarint32(@operations.length)
+        for operation in @operations
+            operation.appendByteBuffer(b)
         
     toByteBuffer: () ->
-        b = new ByteBuffer ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN
-        throw "Not Implemented"
-        
-        return b.copy 0, b.offset
-        
+        b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
+        @appendByteBuffer(b)
+        b.copy 0, b.offset
+    
     toBuffer: () ->
-        new Buffer(@toByteBuffer(), 'binary')
+        new Buffer(@toByteBuffer().toBinary(), 'binary')
     
     ### <HEX> ###
     

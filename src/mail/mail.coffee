@@ -9,11 +9,14 @@ ByteBuffer = require 'bytebuffer'
 
 class Mail
 
-    constructor: (@type, @recipient, @nonce, @time, @data) ->
+    constructor: (@type_id, @recipient, @nonce, @time, @data) ->
 
+    type: ->
+        type[@type_id]
+    
     Mail.fromByteBuffer= (b) ->
         #console.log "=Mail"; b.printDebug()
-        _type = b.readUint16() #; console.log 'type',type[_type],_type
+        type_id = b.readUint16() #; console.log 'type',type[_type],_type
 
         # blockchain::address === Id ripemd 160 (160 bits / 8 = 20 bytes)
         recipient_b = b.copy(b.offset, b.offset + 20); b.skip 20
@@ -31,11 +34,11 @@ class Mail
         #ByteBuffer.fromBinary(data.toString('binary')).printDebug()
 
         assert.equal b.remaining(), 0, "Error, #{b.remaining()} unparsed bytes"
-        new Mail(type[_type], recipient, nonce, time, data)
+        new Mail(type_id, recipient, nonce, time, data)
 
     toByteBuffer: () ->
-        b = new ByteBuffer ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN
-        b.writeUint16 parseInt k for k,v of type when v is @type
+        b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
+        b.writeUint16 @type_id
         assert.equal 20, @recipient.length
         b.append @recipient.toString('binary'), 'binary'
         b.writeUint64 @nonce
@@ -45,7 +48,7 @@ class Mail
         return b.copy 0, b.offset
 
     toEmail: ->
-        assert.equal @type, 'email'
+        assert.equal @type(), 'email'
         Email.fromBuffer @data
 
     ### <HEX> ###

@@ -1,42 +1,87 @@
 class CommonParser
     
-    CommonParser.optional = (b) ->
-        if b.readUint8() is 1 then b
+    CommonParser.optional = (b, value) ->
+        if value isnt undefined
+            if value is null
+                b.writeUint8(0)
+                return null
+            else
+                b.writeUint8(1)
+                return b
+        else
+            if b.readUint8() is 1 
+                b 
+            else 
+                null
     
-    CommonParser.variable_data = (b) ->
-        return unless b 
+    CommonParser.variable_buffer = (b, data_buffer) ->
+        return unless b
+        if data_buffer
+            b.writeVarint32(data_buffer.length)
+            b.append(data_buffer.toString('binary'), 'binary')
+            return
+        else
+            len = b.readVarint32()
+            b_copy = b.copy(b.offset, b.offset + len); b.skip len
+            new Buffer(b_copy.toBinary(), 'binary')
+            
+    CommonParser.variable_bytebuffer = (b, data_bytebuffer) ->
+        throw "Not Implemented" if data_bytebuffer
+        return unless b
         len = b.readVarint32()
         b_copy = b.copy(b.offset, b.offset + len); b.skip len
-        new Buffer(b_copy.toBinary(), 'binary')
+        b_copy
             
-    CommonParser.fixed_data = (b, len) ->
+    CommonParser.fixed_data = (b, len, buffer) ->
         return unless b 
-        b_copy = b.copy(b.offset, b.offset + len); b.skip len
-        new Buffer(b_copy.toBinary(), 'binary')
+        if buffer
+            b.append(buffer.slice(0, len).toString('binary'), 'binary')
+            return
+        else
+            b_copy = b.copy(b.offset, b.offset + len); b.skip len
+            new Buffer(b_copy.toBinary(), 'binary')
 
 class EccParser extends CommonParser
     
     {Signature} = require '../ecc/signature'
     {PublicKey} = require '../ecc/key_public'
     
-    EccParser.public_key = (b) ->
+    EccParser.public_key = (b, public_key) ->
         return unless b
-        buffer = CommonParser.fixed_data b, 33
-        PublicKey.fromBuffer buffer
+        if public_key
+            buffer = public_key.toBuffer()
+            b.append(buffer.toString('binary'), 'binary')
+            return
+        else
+            buffer = CommonParser.fixed_data b, 33
+            PublicKey.fromBuffer buffer
     
-    EccParser.signature = (b) ->
+    EccParser.signature = (b, signature) ->
         return unless b
-        buffer = CommonParser.fixed_data b, 65
-        Signature.fromBuffer buffer
+        if signature
+            buffer = signature.toBuffer()
+            CommonParser.fixed_data b, 65, buffer
+            return
+        else
+            buffer = CommonParser.fixed_data b, 65
+            Signature.fromBuffer buffer
         
-    EccParser.ripemd160 = (b) ->
+    EccParser.ripemd160 = (b, ripemd160) ->
         return unless b
-        CommonParser.fixed_data b, 20
+        if ripemd160
+            CommonParser.fixed_data b, 20, ripemd160
+            return
+        else
+            CommonParser.fixed_data b, 20
     
 class FastParser extends EccParser
     
-    FastParser.time_point_sec = (b) ->
-        epoch = b.readInt32() # fc::time_point_sec
-        new Date(epoch * 1000)
+    FastParser.time_point_sec = (b, epoch) ->
+        if epoch
+            b.writeInt32(epoch / 1000)
+            return
+        else
+            epoch = b.readInt32() # fc::time_point_sec
+            new Date(epoch * 1000)
         
 exports.fp = FastParser

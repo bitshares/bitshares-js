@@ -15,14 +15,19 @@ class Withdraw
     Withdraw.fromByteBuffer= (b) ->
         balance_id = fp.ripemd160 b
         amount = b.readInt64()
-        claim_input_data = fp.variable_data b
+        claim_input_data = fp.variable_buffer b
         new Withdraw(balance_id, amount, claim_input_data)
         
-    toByteBuffer: () ->
-        b = new ByteBuffer ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN
-        throw 'Not Implemented'
-        return b.copy 0, b.offset
+    appendByteBuffer: (b) ->
+        fp.ripemd160 b, @balance_id
+        b.writeInt64(@amount)
+        fp.variable_buffer b, @claim_input_data
         
+    toBuffer: ->
+        b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
+        @appendByteBuffer(b)
+        return new Buffer(b.copy(0, b.offset).toBinary(), 'binary')
+    
     ### <HEX> ###
     
     Withdraw.fromHex= (hex) ->

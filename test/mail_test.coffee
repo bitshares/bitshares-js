@@ -33,7 +33,7 @@ encrypted_mail_test = (msg) ->
         it "Parse and regenerate", ->
             mail = Mail.fromHex msg.decrypted_mail
             assert.equal mail.toHex(), msg.decrypted_mail
-            assert.equal "email", mail.type
+            assert.equal "email", mail.type()
             # TODO, what format is this in?
             assert.equal msg.msg_recepient, mail.recipient.toString('hex')
             assert.equal 0, mail.nonce.low
