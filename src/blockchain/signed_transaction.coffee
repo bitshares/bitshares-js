@@ -2,7 +2,7 @@ assert = require 'assert'
 ByteBuffer = require 'bytebuffer'
 {Transaction} = require './transaction'
 {Signature} = require '../ecc/signature'
-{fc} = require '../common/fc_parser'
+{fp} = require '../common/fast_parser'
 
 ###
 bts::blockchain::signed_transaction, (bts::blockchain::transaction), (signatures)
@@ -17,7 +17,7 @@ class SignedTransaction
         signature_count = b.readVarint32()
         signatures = []
         for i in [1..signature_count]
-            signatures.push fc.signature b
+            signatures.push fp.signature b
         
         new SignedTransaction(transaction, signatures)
         

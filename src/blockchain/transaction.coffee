@@ -1,7 +1,7 @@
 assert = require 'assert'
 ByteBuffer = require 'bytebuffer'
 {Operation} = require './operation'
-{fc} = require '../common/fc_parser'
+{fp} = require '../common/fast_parser'
 
 ###
 bts::blockchain::transaction, (expiration)(delegate_slate_id)(operations)
@@ -18,8 +18,8 @@ class Transaction
     constructor: (@expiration, @delegate_slate_id, @operations) ->
         
     Transaction.fromByteBuffer = (b) ->
-        expiration = fc.time_point_sec b
-        throw "Delegate slate is not implemented" if fc.optional b
+        expiration = fp.time_point_sec b
+        throw "Delegate slate is not implemented" if fp.optional b
         delegate_slate_id = null
         operations = []
         operations_count = b.readVarint32()
@@ -30,10 +30,13 @@ class Transaction
         
     toByteBuffer: () ->
         b = new ByteBuffer ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN
-        
+        throw "Not Implemented"
         
         return b.copy 0, b.offset
         
+    toBuffer: () ->
+        new Buffer(@toByteBuffer(), 'binary')
+    
     ### <HEX> ###
     
     Transaction.fromHex= (hex) ->

@@ -1,6 +1,6 @@
 assert = require 'assert'
 ByteBuffer = require 'bytebuffer'
-{fc} = require '../common/fc_parser'
+{fp} = require '../common/fast_parser'
 blockchain = require '../blockchain'
 SignedTransaction = blockchain.SignedTransaction
 
@@ -21,9 +21,9 @@ class TransactionNotice
         
     TransactionNotice.fromByteBuffer= (b) ->
         signed_transaction = SignedTransaction.fromByteBuffer b
-        extended_memo = fc.variable_data b
-        memo_signature = fc.signature fc.optional b
-        one_time_key = fc.public_key fc.optional b
+        extended_memo = fp.variable_data b
+        memo_signature = fp.signature fp.optional b
+        one_time_key = fp.public_key fp.optional b
         assert.equal b.remaining(), 0, "Error, #{b.remaining()} unparsed bytes"
         new TransactionNotice(signed_transaction, extended_memo, memo_signature, one_time_key)
         

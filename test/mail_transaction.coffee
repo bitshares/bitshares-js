@@ -1,4 +1,6 @@
 assert = require("assert")
+config = require '../src/config'
+hash = require '../src/ecc/hash'
 
 ecc = require '../src/ecc'
 Aes = ecc.Aes
@@ -19,8 +21,8 @@ ByteBuffer = require 'bytebuffer'
 base58 = require 'bs58'
 hash = require '../src/ecc/hash'
 ###
-bts::mail::transaction_notice_message, (trx)(extended_memo)(memo_signature)(one_time_key)
-    bts::blockchain::signed_transaction trx
+bts::mail::transaction_notice_message, (signed_transaction)(extended_memo)(memo_signature)(one_time_key)
+    bts::blockchain::signed_transaction signed_transaction
     std::string extended_memo
     fc::array<unsigned char,65> fc::optional<fc::ecc::compact_signature> memo_signature
     fc::optional<bts::blockchain::public_key_type> one_time_key
@@ -39,7 +41,7 @@ bts::blockchain::operation, (type)(data)
 ###
 tx_notification = (msg) ->
     describe "Transactions", ->
-        it "transaction_notice_message", ->
+        it "Decrypt", ->
             encrypted_mail = EncryptedMail.fromHex msg.data
             
             _shared_secret = (private_key, one_time_key) ->
@@ -52,18 +54,37 @@ tx_notification = (msg) ->
             d1_private = _d1_private()
             
             _mail_hex_decrypt = ->
-                otk_public_compressed = PublicKey.fromBtsPublic msg.helper.otk_bts_public
-                assert.equal otk_public_compressed.toHex(), encrypted_mail.one_time_key.toHex()
+                otk_public_compressed = encrypted_mail.one_time_key
                 aes_shared_secret = Aes.fromSharedSecret_ecies _shared_secret(d1_private, otk_public_compressed)
                 aes_shared_secret.decryptHex encrypted_mail.ciphertext.toString('hex')
             mail_hex = _mail_hex_decrypt()
             
             mail = Mail.fromHex mail_hex
             assert.equal "transaction_notice",mail.type
-            
-            b = ByteBuffer.fromBinary mail.data.toString('binary'), ByteBuffer.LITTLE_ENDIAN
+            msg.helper.trx_buffer = mail.data
+        
+        it "Parses transaction_notice_message", ->
+            trx_binary = msg.helper.trx_buffer.toString('binary')
+            b = ByteBuffer.fromBinary trx_binary, ByteBuffer.LITTLE_ENDIAN
             trx_notice = TransactionNotice.fromByteBuffer b
             throw "#{b.remaining()} unknown bytes" unless b.remaining() is 0
+            msg.helper.trx_notice = trx_notice
+        ###
+        it "Verify", ->
+            trx_notice = msg.helper.trx_notice
+            signed_transaction = trx_notice.signed_transaction
+            transaction = signed_transaction.transaction
+            trx_buffer = transaction.toBuffer()
+            chain_id_buffer = new Buffer(config.chain_id, 'hex')
+            trx_hash = hash.sha256(Buffer.concat([trx_buffer, chain_id_buffer]))
+            public_key_sender = PublicKey.fromBtsPublic(msg.helper.public_btskey_sender)
+            assert.equal true, signed_transaction.signatures.length > 0, "Missing signature(s)"
+            for signature in signed_transaction.signatures
+                verify = signature.verifyHash(trx_hash, public_key_sender)
+                assert.equal verify,true, 'Transaction did not verify'
+        ###
+            
+        
             
 tx_notification
     # transfer 1 XTS delegate0 delegate1 "my memo" vote_random
@@ -78,4 +99,3 @@ tx_notification
         public_btskey_sender: "XTS7jDPoMwyjVH5obFmqzFNp4Ffp7G2nvC7FKFkrMBpo7Sy4uq5Mj"
         tx_raw: "1f0b62540002028a01a0860100000000000000000000000000000177fbec361cb10cd18ede795a68e497f5674fea44f301021e576ccceba49a6239898e5512fcde996a67248b8afe715ffb9a701e88c4b3fc406919ae3585d8e313dfd9eb20fbe2087ad985e975230ce1cafa34da3e59767bb866b9cdfb8f9d77a438b1f3755acccd6d646fe9f68a3bfc55376885cbf623267e011d29e99edd68694b46faab47b2bd38604c085a399df04902000000000000"
         delegate1_private_key_encrypted: "7b23c16519ed6bb0bbbdec47c71fdcc7881a9628c06aa9520067a49ad0ab9c0f1cb6793d2059fc15480a21abde039220"
-        otk_bts_public: "XTS6D28eGR6xtvYH8xdFLpc1PmLR1NDEnges6Pg9PWCgukYT95oYi"

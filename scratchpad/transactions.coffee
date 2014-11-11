@@ -12,11 +12,11 @@ Email = _Mail.Email
 EncryptedMail = _Mail.EncryptedMail
 
 types = require '../src/blockchain/types'
-config = require '../src/config'
+
 
 ByteBuffer = require 'bytebuffer'
 base58 = require 'bs58'
-hash = require '../src/ecc/hash'
+
 ###
 bts::mail::transaction_notice_message, (trx)(extended_memo)(memo_signature)(one_time_key)
     bts::blockchain::signed_transaction trx

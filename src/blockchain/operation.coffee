@@ -1,7 +1,7 @@
 assert = require 'assert'
 ByteBuffer = require 'bytebuffer'
 types = require './types'
-{fc} = require '../common/fc_parser'
+{fp} = require '../common/fast_parser'
 Deposit = require './deposit'
 Withdraw = require './withdraw'
 
@@ -19,7 +19,7 @@ class Operation
     
     Operation.fromByteBuffer= (b) ->
         type_id = b.readUint8()
-        b_data = fc.variable_data b
+        b_data = fp.variable_data b
         new Operation(type_id, b_data)
         
     toByteBuffer: () ->

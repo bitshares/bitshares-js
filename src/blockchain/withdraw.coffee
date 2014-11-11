@@ -1,6 +1,6 @@
 assert = require 'assert'
 ByteBuffer = require 'bytebuffer'
-{fc} = require '../common/fc_parser'
+{fp} = require '../common/fast_parser'
 
 ###
 bts::blockchain::withdraw_operation, (balance_id)(amount)(claim_input_data)
@@ -13,9 +13,9 @@ class Withdraw
     constructor: (@balance_id, @amount, @claim_input_data) ->
         
     Withdraw.fromByteBuffer= (b) ->
-        balance_id = fc.ripemd160 b
+        balance_id = fp.ripemd160 b
         amount = b.readInt64()
-        claim_input_data = fc.variable_data b
+        claim_input_data = fp.variable_data b
         new Withdraw(balance_id, amount, claim_input_data)
         
     toByteBuffer: () ->

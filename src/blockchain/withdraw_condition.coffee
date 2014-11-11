@@ -1,6 +1,6 @@
 assert = require 'assert'
 ByteBuffer = require 'bytebuffer'
-{fc} = require '../common/fc_parser'
+{fp} = require '../common/fast_parser'
 
 ###
 bts::blockchain::withdraw_condition, (asset_id)(delegate_slate_id)(type)(data)
@@ -20,7 +20,7 @@ class WithdrawCondition
         asset_id = b.readVarint32()
         delegate_slate_id = b.readVarint64()
         type_id = b.readUint8()
-        b_data = fc.variable_data b
+        b_data = fp.variable_data b
         new WithdrawCondition(asset_id, delegate_slate_id, type_id, b_data)
         
     toByteBuffer: () ->

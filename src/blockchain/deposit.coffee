@@ -1,6 +1,6 @@
 assert = require 'assert'
 ByteBuffer = require 'bytebuffer'
-{fc} = require '../common/fc_parser'
+{fp} = require '../common/fast_parser'
 {WithdrawCondition} = require './withdraw_condition'
 
 ###
