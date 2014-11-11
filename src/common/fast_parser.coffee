@@ -33,10 +33,10 @@ class EccParser extends CommonParser
         return unless b
         CommonParser.fixed_data b, 20
     
-class FcParser extends EccParser
+class FastParser extends EccParser
     
-    FcParser.time_point_sec = (b) ->
+    FastParser.time_point_sec = (b) ->
         epoch = b.readInt32() # fc::time_point_sec
         new Date(epoch * 1000)
         
-exports.fc = FcParser
+exports.fp = FastParser
