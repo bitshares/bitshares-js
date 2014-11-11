@@ -15,7 +15,7 @@ class Signature
     constructor: (@r, @s, @i) ->
         assert.equal @r isnt null, true, 'Missing parameter'
         assert.equal @s isnt null, true, 'Missing parameter'
-        @i = 31 unless @i
+        assert.equal @i isnt null, true, 'Missing parameter'
 
     Signature.fromBuffer = (buf) ->
         assert.equal buf.length, 65, 'Invalid signature length'
@@ -56,16 +56,20 @@ class Signature
     Signature.signBuffer = (buf, private_key) ->
         _hash = hash.sha256 buf
         ecsignature = ecdsa.sign curve, _hash, private_key.d
-        new Signature ecsignature.r, ecsignature.s
+        new Signature ecsignature.r, ecsignature.s, 31
         
     ###*
-    @param {Buffer}
+    @param {Buffer} un-hashed
     @param {./PublicKey}
     @return {boolean}
     ###
     verifyBuffer: (buf, public_key) ->
         _hash = hash.sha256(buf)
-        ecdsa.verify curve, _hash, {r:@r, s:@s}, public_key.Q
+        @verifyHash(_hash, public_key)
+        
+    verifyHash: (hash, public_key) ->
+        assert.equal hash.length, 32, "A SHA 256 should be 32 bytes long, instead got #{hash.length}"
+        ecdsa.verify curve, hash, {r:@r, s:@s}, public_key.Q
 
     ### <HEX> ###
     

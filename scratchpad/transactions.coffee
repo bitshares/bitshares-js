@@ -12,9 +12,11 @@ Email = _Mail.Email
 EncryptedMail = _Mail.EncryptedMail
 
 types = require '../src/blockchain/types'
+config = require '../src/config'
 
 ByteBuffer = require 'bytebuffer'
 base58 = require 'bs58'
+hash = require '../src/ecc/hash'
 
 tx_notification = (msg) ->
     describe "Transactions", ->
@@ -148,19 +150,23 @@ tx_notification = (msg) ->
                 signatures.push signature
                 console.log 'signature',i,signature.toHex(),'\n'
             
-            
             _verify_sigs = ->
                 assert.equal true, signatures.length isnt 0, 'Missing signature'
                 public_key_sender = PublicKey.fromBtsPublic(msg.helper.public_btskey_sender)
-                trx_b = b.copy(transaction_begin, transaction_end)
-                trx_buffer = new Buffer(b.toBinary(), 'binary')
-                for signature in signatures
-                    public_key = signature.recoverPublicKeyFromBuffer trx_buffer
-                    console.log "sig1 recover public key", public_key.toBtsPublic()
-                    verify = signature.verifyBuffer(trx_buffer, public_key_sender)
-                    #assert.equal verify,true, 'Transaction did not verify'
-                    console.log 'Transaction did not verify' unless verify
+                _trx_hash = ->
+                    trx_b = b.copy(transaction_begin, transaction_end)
+                    trx_buffer = new Buffer(trx_b.toBinary(), 'binary')
+                    chain_id_buffer = new Buffer(config.chain_id, 'hex')
+                    hash.sha256(Buffer.concat([trx_buffer, chain_id_buffer]))
+                trx_hash=_trx_hash()
                 
+                console.log 'trx_hash',trx_hash.toString('hex')
+                for signature in signatures
+                    #public_key_recovered = signature.recoverPublicKeyFromBuffer trx_hash
+                    #console.log "sig1 recover public key", public_key_recovered.toBtsPublic()
+                    console.log 'signature',signature.toHex(),trx_hash.toString('hex'),public_key_sender.toBtsPublic()
+                    verify = signature.verifyHash(trx_hash, public_key_sender)
+                    assert.equal verify,true, 'Transaction did not verify'
             _verify_sigs()
             
             len = b.readVarint32()
@@ -173,7 +179,6 @@ tx_notification = (msg) ->
                 memo_signature = _signature() 
                 console.log 'memo_signature',memo_signature.toHex()
                 
-            
             if b.readUint8() is 1 # optional
                 # un-encrypted compressed public key
                 b_copy = b.copy(b.offset, b.offset + 33); b.skip 33
@@ -184,21 +189,18 @@ tx_notification = (msg) ->
                 S = _shared_secret(d1_private, one_time_key)
                 aes_shared_secret = Aes.fromSharedSecret_ecies S
                 
-                # peek at encrypted_memo_data from native transaction
-                helper_memo = aes_shared_secret.decryptHex msg.helper.encrypted_memo
-                helper_memo = new Buffer(helper_memo, 'hex')
-                console.log "helper_memo"
-                ByteBuffer.fromBinary(helper_memo.toString('hex')).printDebug()
+                if msg.helper.encrypted_memo
+                    # peek at encrypted_memo_data from native transaction
+                    helper_memo = aes_shared_secret.decryptHex msg.helper.encrypted_memo
+                    helper_memo = new Buffer(helper_memo, 'hex')
+                    console.log "helper_memo:"
+                    ByteBuffer.fromBinary(helper_memo.toString('hex')).printDebug()
                 
                 # verify memo
                 if memo_signature
                     public_key_sender = PublicKey.fromBtsPublic(msg.helper.public_btskey_sender)
-                    verify = memo_signature.verifyBuffer(helper_memo, public_key_sender)
-                    
-                    public_key = signature.recoverPublicKeyFromBuffer helper_memo
-                    console.log "sig2 recover public key", public_key.toBtsPublic()
-                    #assert.equal verify,true, 'Memo did not verify'
-                    console.log 'Memo did not verify' unless verify
+                    verify = memo_signature.verifyBuffer(extended_memo, public_key_sender)
+                    assert.equal verify,true, 'Memo did not verify'
             
             throw "#{b.remaining()} unknown bytes" unless b.remaining() is 0
             
@@ -222,6 +224,24 @@ bts::blockchain::operation, (type)(data)
     std::vector<char> data;
 ###
 tx_notification
+    type: "encrypted"
+    recipient: "XTS2Kpf4whNd3TkSi6BZ6it4RXRuacUY1qsj"
+    nonce: 68719479850
+    timestamp: "20141111T121159"
+    data: "02adc5b24a90fec15340ead27f2335071f9c17dad608bb149aa51f2829f56cc8aa90030955e4ad6f086f4cb0a8783b1aaf427a3d9d04180199557258a7a1a98b7a23e126964f7159ee97bfa2a6fbfa01c1f732944377d870b9cec83403c0bbc28f4b31d7e7512bb899d5b17b71e07b1fb7a8f1ea18dd9a8c2ff0ca897b4978bcb74586a1f17c137acd9767df0b9c8cebf6589f013a25c83b809f5238bd0e66145ff2ffb15d2e80ec80439e7b3a0b5b13c7fbd3fab2d2b7738233dfc5ede20328d39d7e562dcf4b632e9cda4302121da84b16b9fddc63c5a8039e643b1aab05ca03e5ea7e7e177675f0459eb7488357df176a576c3e440ab3ce1af753c59e120c95bde9e01993aad2dcf79fe4be27d73f41acff8f98d9ae717cdf0c55656ab013cbe87e5db8685ddda60cd5d6dfd5fb2e5f5df0bcc593c70b076c68a716a35b50d7d9260788db663f11869e179a3cabaebe9e503142cf10421085a0df97275f210e577e64217929dcf005d0ba939590d4340b46de233d1e34eaf384701fffe438ca9f814bc8a0d12a9a562bfbb8bbdbe123488d8d88a75faee96d98734578dc6c67f1dc5910ae38331614ecbe12bfc349756d5b"
+    helper:
+        tx_signer_privatekey: "20991828d456b389d0768ed7fb69bf26b9bb87208dd699ef49f10481c20d3e18"
+        memo_signer: "XTS7jDPoMwyjVH5obFmqzFNp4Ffp7G2nvC7FKFkrMBpo7Sy4uq5Mj"
+        public_btskey_sender: "XTS7jDPoMwyjVH5obFmqzFNp4Ffp7G2nvC7FKFkrMBpo7Sy4uq5Mj"
+        tx_raw: "1f0b62540002028a01a0860100000000000000000000000000000177fbec361cb10cd18ede795a68e497f5674fea44f301021e576ccceba49a6239898e5512fcde996a67248b8afe715ffb9a701e88c4b3fc406919ae3585d8e313dfd9eb20fbe2087ad985e975230ce1cafa34da3e59767bb866b9cdfb8f9d77a438b1f3755acccd6d646fe9f68a3bfc55376885cbf623267e011d29e99edd68694b46faab47b2bd38604c085a399df04902000000000000"
+        delegate1_private_key_encrypted: "7b23c16519ed6bb0bbbdec47c71fdcc7881a9628c06aa9520067a49ad0ab9c0f1cb6793d2059fc15480a21abde039220"
+        otk_bts_public: "XTS6D28eGR6xtvYH8xdFLpc1PmLR1NDEnges6Pg9PWCgukYT95oYi"
+        #chain_id: "251e17305faf94fe8ae8c61c1408051338bed4b162d81007c5ff930a54039c7c"
+        #trx_sha256: "721ca500cc72deffd68a4759891b80c67cd995ba56e3aa4718d5334efd76892d"
+        #otk_encrypted: "c4ba0fdc5a08412ef5d927f8f4d0f3dd1237c9fbd8d933199e57e48006758715ed4a16f29957886e7883861035deb474"
+        
+        
+tx_notification1=
     # wallet_transfer 10000 XTS delegate0 delegate1 "" vote_none
     "type": "encrypted",
     "recipient": "XTS2Kpf4whNd3TkSi6BZ6it4RXRuacUY1qsj",

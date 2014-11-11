@@ -87,11 +87,14 @@ class MailTest
         open default
         unlock 9999 Password00
         
-        mail_send delegate0 delegate1 subject body
+        # wallet_account_update_registration ....
         wallet_set_preferred_mail_servers "delegate0"  ["delegate1"] "delegate0"
         
         blockchain_get_account delegate0
         blockchain_get_account delegate1
+        
+        transfer 1 XTS delegate0 delegate1 "my memo" vote_random
+        mail_send delegate0 delegate1 subject body
         ###
         
         # Setup for this>>> mail_send delegate0 delegate1 subject body
