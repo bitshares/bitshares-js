@@ -17,7 +17,25 @@ config = require '../src/config'
 ByteBuffer = require 'bytebuffer'
 base58 = require 'bs58'
 hash = require '../src/ecc/hash'
+###
+bts::mail::transaction_notice_message, (trx)(extended_memo)(memo_signature)(one_time_key)
+    bts::blockchain::signed_transaction trx
+    std::string extended_memo
+    fc::array<unsigned char,65> fc::optional<fc::ecc::compact_signature> memo_signature
+    fc::optional<bts::blockchain::public_key_type> one_time_key
 
+bts::blockchain::signed_transaction, (bts::blockchain::transaction), (signatures)
+    fc::array<unsigned char,65> vector<fc::ecc::compact_signature> signatures
+    
+bts::blockchain::transaction, (expiration)(delegate_slate_id)(operations)
+    fc::time_ _sec expiration
+    optional slait_id_type uint64_t
+    vector<operation>           operations
+    
+bts::blockchain::operation, (type)(data)
+    fc::enum_type<uint8_t,operation_type_enum> type;
+    std::vector<char> data;
+###
 tx_notification = (msg) ->
     describe "Transactions", ->
         it "transaction_notice_message", ->
@@ -162,9 +180,6 @@ tx_notification = (msg) ->
                 
                 console.log 'trx_hash',trx_hash.toString('hex')
                 for signature in signatures
-                    #public_key_recovered = signature.recoverPublicKeyFromBuffer trx_hash
-                    #console.log "sig1 recover public key", public_key_recovered.toBtsPublic()
-                    console.log 'signature',signature.toHex(),trx_hash.toString('hex'),public_key_sender.toBtsPublic()
                     verify = signature.verifyHash(trx_hash, public_key_sender)
                     assert.equal verify,true, 'Transaction did not verify'
             _verify_sigs()
@@ -204,26 +219,8 @@ tx_notification = (msg) ->
             
             throw "#{b.remaining()} unknown bytes" unless b.remaining() is 0
             
-###
-bts::mail::transaction_notice_message, (trx)(extended_memo)(memo_signature)(one_time_key)
-    bts::blockchain::signed_transaction trx
-    std::string extended_memo
-    fc::array<unsigned char,65> fc::optional<fc::ecc::compact_signature> memo_signature
-    fc::optional<bts::blockchain::public_key_type> one_time_key
-
-bts::blockchain::signed_transaction, (bts::blockchain::transaction), (signatures)
-    fc::array<unsigned char,65> vector<fc::ecc::compact_signature> signatures
-    
-bts::blockchain::transaction, (expiration)(delegate_slate_id)(operations)
-    fc::time_ _sec expiration
-    optional slait_id_type uint64_t
-    vector<operation>           operations
-    
-bts::blockchain::operation, (type)(data)
-    fc::enum_type<uint8_t,operation_type_enum> type;
-    std::vector<char> data;
-###
 tx_notification
+    # transfer 1 XTS delegate0 delegate1 "my memo" vote_random
     type: "encrypted"
     recipient: "XTS2Kpf4whNd3TkSi6BZ6it4RXRuacUY1qsj"
     nonce: 68719479850
