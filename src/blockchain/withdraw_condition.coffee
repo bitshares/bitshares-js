@@ -29,7 +29,6 @@ class WithdrawCondition
             else
                 throw "Not Implemented"
         
-        
         new WithdrawCondition(asset_id, delegate_slate_id, type_id, condition)
         
     appendByteBuffer: (b) ->
@@ -40,8 +39,8 @@ class WithdrawCondition
         
     toJson: (o) ->
         o.asset_id = @asset_id
-        o.delegate_slate_id = @delegate_slate_id
-        o.type_id = @type_id
+        o.delegate_slate_id = @delegate_slate_id.toString()
+        o.type = @type()
         @condition.toJson(o.data = {})
         
     ### <HEX> ###

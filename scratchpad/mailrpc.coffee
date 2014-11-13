@@ -20,7 +20,7 @@ ByteBuffer = require 'bytebuffer'
 common = require "../src/common"
 q = require 'q'
 
-@rpc=new Rpc(on, RPC_PORT, "localhost", "test", "test")
+@rpc=new Rpc(debug=on, RPC_PORT, "localhost", "test", "test")
 @rpc_common=new RpcCommon(@rpc)
 
 class TestNet

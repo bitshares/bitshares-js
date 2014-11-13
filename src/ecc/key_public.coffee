@@ -37,10 +37,12 @@ class PublicKey
         hash.ripemd160 pub_sha
         
     PublicKey.test = (buffer) ->
+        pk = PublicKey.fromBtsPublic("XTS6D28eGR6xtvYH8xdFLpc1PmLR1NDEnges6Pg9PWCgukYT95oYi")
+        pk_hash = hash.ripemd160 pk.toBuffer()
+        #assert.deepEqual buffer, pk_hash
+        pk_hash.toString('hex')
         # XTSPy3aQQS4NDepCkKsqCA7ELAtdC8Xba1gY
         #    4WEb8HQ3jxYnXn2jtj5Hse4vXjoCn....
-        pk = PublicKey.fromBuffer buffer
-        pk.toBtsPublic()
     
     ###*
     Full public key 

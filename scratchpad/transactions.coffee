@@ -19,6 +19,7 @@ config = require '../src/config'
 hash = require '../src/ecc/hash'
 {WithdrawSignatureType} = require '../src/blockchain/withdraw_signature_type'
 {fp} = require '../src/common/fast_parser'
+q = require 'q'
 
 ###
 bts::mail::transaction_notice_message, (trx)(extended_memo)(memo_signature)(one_time_key)
@@ -223,8 +224,9 @@ parse_mail_transaction = (msg) ->
 
 refund_mail_transfer = (msg) ->
     
-    describe "Refund", ->
-        it "Using transaction_notice", ->
+    describe "Transfer", ->
+        it "TITAN", (done) ->
+            ###
             assert.equal "transaction_notice", msg.mail.type()
             tn = TransactionNotice.fromBuffer(msg.mail.data)
             
@@ -237,21 +239,100 @@ refund_mail_transfer = (msg) ->
             assert.equal 138, ops[0].operation.toBuffer().length
             assert.equal 'withdraw_op_type', ops[1].type()
             
-            time: () ->
+            time = (offset_seconds) ->
                 now = new Date()
-                now.setSeconds now.getSeconds() - 1 # timestamp_in_future
+                now.setSeconds now.getSeconds() + offset_seconds # timestamp_in_future
                 now = now.toISOString()
                 now = now.replace /[-:]/g, ''
                 now = now.split('.')[0]
                 
-            # network_broadcast_transaction signed_transaction
-            stJson={}
+            #  signed_transaction
+            console.log msg.d0_otk_private.toPublicKey().toBtsAddy()
+            trx={}
             try
-                st.toJson(stJson)
+                st.toJson(trx)
             catch error
-                console.log JSON.stringify(stJson, undefined, 2)
+                console.log JSON.stringify(trx, undefined, 2)
                 throw error
+            
+            trx.expiration = time(60 * 60)
+            trx.operations[0].data.condition.data.owner = "XTSPy3aQQS4NDepCkKsqCA7ELAtdC8Xba1gY"
+            trx.operations[1].data.balance_id = "XTS4pca7BPiQqnQLXUZp8ojTxfXo2g4EzBLP"
+            ###
+            try
+                {Rpc} = require "./rpc_json"
+                @rpc=new Rpc(debug=on, 45000, "localhost", "test", "test")
+                sender_name = "delegate0"
+                recipient_name = "delegate1"
+                q.all([
+                    @rpc.run("blockchain_get_account", [sender_name])
+                    @rpc.run("blockchain_get_account", [recipient_name])
+                ]).then ((result) ->
+                    [sender_account, recipient_account] = result
+
+                    encrypted_activekey_orThrow = (sender_account) ->
+                        wallet = require '../testnet/wal.json'
+                        
+                        [...,[...,sender_key]] = sender_account.active_key_history
+                        for rec in wallet
+                            if rec.type is 'key_record_type' and rec.data.public_key is sender_key
+                                sender_keyrecord = rec.data
+                                break
     
+                        unless sender_keyrecord and sender_keyrecord.encrypted_private_key
+                            throw "Sender (#{sender_name}) active key was not found in this wallet"
+                            
+                        sender_keyrecord.encrypted_private_key
+                    
+                    encrypted_senderkey = encrypted_activekey_orThrow(sender_account)
+                    is_recipient_public = recipient_account.meta_data?.type is "public_account"
+                    [...,[...,recipient_key]] = recipient_account.active_key_history
+                    recipient = PublicKey.fromBtsPublic(recipient_key)
+                    
+                    deposit_asset = (payer, recipient, amount) ->
+                        throw "Can only deposit positive amount" if amount.amount <= 0
+                        # slate_id = wallet.select_slate(trx, amount.asset_id, vote_method)
+                        memo_sender = payer.active_key
+                        if is_recipient_public
+                            throw "Not Implemented"
+                            deposit
+                                recipient_active_key: 'xy'
+                                amount: amount
+                                slate_id: 0
+                        else
+                            one_time_key = wallet.newPrivateKey(payer)
+                            deposit_to_account
+                                recipient_active_key: "xyx"
+                                amount: amount
+                                memo_sender:
+                                    private_key: 'abc'
+                                    message: 'msg'
+                                slate_id: 0 
+                                #memo sender (pub)
+                                one_time_key: one_time_key
+                                from_memo_type: 0
+                                    
+                            trx.deposit(recipient.active_key, amount, memo_sender.private_key, slate, memo_sender, one_time_key)
+                            #@rpc.run "network_broadcast_transaction", [trx]
+                        
+                    deposit_asset(msg.d1_private, recipient, {amount: 1000000, asset_id: 0})
+                    done()
+                )
+                .done()
+            finally
+                @rpc.close()
+            ###
+            wallet_key_record:
+            
+                # delegate0
+                account_address: "XTS8DvGQqzbgCR5FHiNsFf8kotEXr8VKD3mR"
+                
+                # d0's one-time-key
+                public_key: "XTS8DTWtMemdKUupjmsJYnFfxmrEpWNCGNSkhnHvzuCTx3JNioGYQ"
+                encrypted_private_key: "0bf201077e854a3ac54d2b40c11577e4a5e9f1cd156d42791e8303b28cbb2514678e725ea55f0d6da7f819fb4cb97cdf"
+            
+            ###
+                
 mail_transfer_notice =
     # transfer 1 XTS delegate0 delegate1 "my memo" vote_random
     type: "encrypted"
@@ -263,8 +344,11 @@ mail_transfer_notice =
         #tx_signer_privatekey: "20991828d456b389d0768ed7fb69bf26b9bb87208dd699ef49f10481c20d3e18"
         #memo_signer: "XTS7jDPoMwyjVH5obFmqzFNp4Ffp7G2nvC7FKFkrMBpo7Sy4uq5Mj"
         #public_btskey_sender: "XTS7jDPoMwyjVH5obFmqzFNp4Ffp7G2nvC7FKFkrMBpo7Sy4uq5Mj"
-        delegate1_private_key_encrypted: "7b23c16519ed6bb0bbbdec47c71fdcc7881a9628c06aa9520067a49ad0ab9c0f1cb6793d2059fc15480a21abde039220"
-        otk_bts_public: "XTS6D28eGR6xtvYH8xdFLpc1PmLR1NDEnges6Pg9PWCgukYT95oYi"
+        # encrypted
+        delegate1_private_key: "7b23c16519ed6bb0bbbdec47c71fdcc7881a9628c06aa9520067a49ad0ab9c0f1cb6793d2059fc15480a21abde039220"
+        d0_otk_public: "XTS6D28eGR6xtvYH8xdFLpc1PmLR1NDEnges6Pg9PWCgukYT95oYi"
+        # encrypted
+        d0_otk_private: "c4ba0fdc5a08412ef5d927f8f4d0f3dd1237c9fbd8d933199e57e48006758715ed4a16f29957886e7883861035deb474"
     
 decrypt = (msg) ->
     
@@ -277,23 +361,26 @@ decrypt = (msg) ->
                 S = private_key.sharedSecret one_time_key
             msg.shared_secret = shared_secret
             
-            d1_private = ->
+            decrypt_private = (hex) ->
                 aes = Aes.fromSecret 'Password00'
-                PrivateKey.fromHex aes.decryptHex  msg.helper.delegate1_private_key_encrypted
-            msg.d1_private = d1_private()
+                PrivateKey.fromHex aes.decryptHex hex
+            msg.d1_private = decrypt_private(msg.helper.delegate1_private_key)
+            msg.d0_otk_private = decrypt_private(msg.helper.d0_otk_private)
             
             mail_hex_decrypt = ->
-                otk_public_compressed = PublicKey.fromBtsPublic msg.helper.otk_bts_public
+                otk_public_compressed = PublicKey.fromBtsPublic msg.helper.d0_otk_public
                 assert.equal otk_public_compressed.toHex(), encrypted_mail.one_time_key.toHex()
                 aes_shared_secret = Aes.fromSharedSecret_ecies msg.shared_secret(msg.d1_private, otk_public_compressed)
                 aes_shared_secret.decryptHex encrypted_mail.ciphertext.toString('hex')
             mail_hex = mail_hex_decrypt()
             
             mail = Mail.fromHex mail_hex
-            #console.log "type\t",mail.type()
-            #console.log "rcpnt\t",mail.recipient.toString('hex')
-            #console.log "nonce\t",mail.nonce.toString()
-            #console.log "time\t",mail.time
+            ###
+            console.log "type\t",mail.type()
+            console.log "rcpnt\t",mail.recipient.toString('hex')
+            console.log "nonce\t",mail.nonce.toString()
+            console.log "time\t",mail.time
+            ####
             msg.mail = mail
         
 decrypt(mail_transfer_notice)

@@ -24,7 +24,9 @@ class Withdraw
         fp.variable_buffer b, @claim_input_data
         
     toJson: (o) ->
+        o.balance_id = @balance_id.toString('hex')
         o.amount = @amount.toString()
+        o.claim_input_data = @claim_input_data.toString()
     
     ### <helper_functions> ###   
     

@@ -31,8 +31,7 @@ class SignedTransaction
         @transaction.toJson(o)
         o.signatures=[]
         for signature in @signatures
-            signature.toJson(sig={})
-            o.signatures.push sig
+            o.signatures.push signature.toHex()
     
     ### <HEX> ###
     

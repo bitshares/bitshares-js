@@ -23,7 +23,7 @@ class WithdrawSignatureType
         owner = fp.ripemd160 b
         one_time_key = null
         encrypted_memo = null
-        if fp.optional b
+        if fp.optional b # titan_memo
             one_time_key = fp.public_key b
             encrypted_memo = fp.variable_buffer b
         
@@ -37,7 +37,13 @@ class WithdrawSignatureType
             fp.variable_buffer b, @encrypted_memo
             
     toJson: (o) ->
-        o.owner = PublicKey.test(@owner)
+        o.owner = @owner.toString('hex')
+        if @one_time_key and @encrypted_memo
+            memo = o.memo = {}
+            memo.one_time_key = @one_time_key.toBtsPublic()
+            memo.encrypted_memo_data = @encrypted_memo.toString('hex')
+            
+        
     
     ### <helper_functions> ###        
     
@@ -45,7 +51,6 @@ class WithdrawSignatureType
         b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
         @appendByteBuffer(b)
         return new Buffer(b.copy(0, b.offset).toBinary(), 'binary')
-
     
     WithdrawSignatureType.fromHex= (hex) ->
         b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
