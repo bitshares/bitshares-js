@@ -16,6 +16,8 @@ types = require '../src/blockchain/types'
 base58 = require 'bs58'
 config = require '../src/config'
 hash = require '../src/ecc/hash'
+{WithdrawSignatureType} = require '../src/blockchain/withdraw_signature_type'
+{fp} = require '../src/common/fast_parser'
 
 ###
 bts::mail::transaction_notice_message, (trx)(extended_memo)(memo_signature)(one_time_key)
@@ -112,18 +114,25 @@ tx_notification = (msg) ->
                             delegate_slate_id = b.readInt64()
                             console.log 'delegate_slate_id\t',delegate_slate_id.toString()
                             
-                            condition_type = b.readUint8()
-                            console.log 'withdraw_condition\t',types.withdraw[condition_type]
+                            type_id = b.readUint8()
+                            console.log 'withdraw_condition\t',types.withdraw[type_id]
+                            assert.equal "withdraw_signature_type",types.withdraw[type_id]
                             
-                            ####
-                            len = b.readVarint32()
-                            if len isnt 0
-                                console.log 'additional withdraw_condition data',len
-                                b_copy = b.copy(b.offset, b.offset + len); b.skip len
-                                data = new Buffer(b_copy.toBinary(), 'binary')
-                                ByteBuffer.fromBinary(data.toString('binary')).printDebug()
-                                throw 'Not implemented'
-                            ####
+                            data = fp.variable_bytebuffer b
+                            switch types.withdraw[type_id]
+                                when "withdraw_signature_type"
+                                    condition = WithdrawSignatureType.fromByteBuffer(data)
+                                    S = _shared_secret(d1_private, condition.one_time_key)
+                                    aes = Aes.fromSharedSecret_ecies S
+                                    memo = aes.decrypt condition.encrypted_memo
+                                    
+                                    memo_b = ByteBuffer.fromHex(memo.toString('hex'))
+                                    fp.public_key memo_b
+                                    console.log 'memo:'
+                                    memo_b.printDebug()
+                                else
+                                    throw "Not Implemented"
+
                         when "withdraw_op_type"
                             ###
                             bts::blockchain::withdraw_operation, (balance_id)(amount)(claim_input_data)

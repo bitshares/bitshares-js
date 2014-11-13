@@ -1,24 +1,29 @@
 
-## ENVIRONMENT
-
-export BTS_JS=~/bitshares/BitShares-JS
-export BTS_BUILD=~/bitshares/bitshares
-
 ## INSTALL
 
 npm install
 npm install -g coffee-script
 
-## RUN
+## TEST
 
 npm test
 
 
 ## DEVELOP
 
-coffee -w scratchpad_... .coffee
+coffee -w scratchpad/... .coffee
 
-## BROWSER DEPLOY
+## BROWSER TESTS
 
-cake browserify
+npm run-script deploy-test
+
+Open: test/index.html
+
+## TESTNET ENVIRONMENT (./scratchpad)
+
+export BTS_JS=~/bitshares/BitShares-JS
+export BTS_BUILD=~/bitshares/develop
+export BTS_BUILD=~/bitshares/toolkit
+export BTS_BUILD=~/bitshares/master
+...
 

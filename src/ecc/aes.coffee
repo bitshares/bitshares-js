@@ -40,6 +40,16 @@ class Aes
         cipher = CryptoJS.AES.encrypt plaintext, @key, {iv: @iv}
         CryptoJS.enc.Base64.parse cipher.toString()
 
+    decrypt: (cipher_buffer) ->
+        # hex is the only common format
+        hex = @decryptHex(cipher_buffer.toString('hex'))
+        new Buffer(hex, 'hex')
+        
+    encrypt: (plaintext_buffer) ->
+        # hex is the only common format
+        hex = @encryptHex(plaintext_buffer.toString('hex'))
+        new Buffer(hex, 'hex')
+
     ### <HEX> ###
     
     decryptHex: (cipher) ->
