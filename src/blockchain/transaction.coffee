@@ -35,6 +35,16 @@ class Transaction
         for operation in @operations
             operation.appendByteBuffer(b)
         
+    toJson: (o) ->
+        o.expiration = @expiration
+        o.delegate_slate_id = @delegate_slate_id
+        o.operations = []
+        for operation in @operations
+            operation.toJson(op={}) 
+            o.operations.push(op)
+        
+    ### <BASIC_CONVERTS> ###
+    
     toByteBuffer: () ->
         b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
         @appendByteBuffer(b)
@@ -42,8 +52,6 @@ class Transaction
     
     toBuffer: () ->
         new Buffer(@toByteBuffer().toBinary(), 'binary')
-    
-    ### <HEX> ###
     
     Transaction.fromHex= (hex) ->
         b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
@@ -53,6 +61,6 @@ class Transaction
         b=@toByteBuffer()
         b.toHex()
         
-    ### </HEX> ###
+    ### </BASIC_CONVERTS> ###
     
 exports.Transaction = Transaction

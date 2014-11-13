@@ -21,13 +21,18 @@ class Deposit
         b.writeInt64(@amount)
         @withdraw_condition.appendByteBuffer(b)
         
+    toJson: (o) ->
+        o.amount = @amount.toString()
+        o.condition = {}
+        @withdraw_condition.toJson(o.condition)
+        
+    ### <helper_functions> ###
+    
     toBuffer: ->
         b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
         @appendByteBuffer(b)
         b_copy = b.copy(0, b.offset)
         return new Buffer(b_copy.toBinary(), 'binary')
-        
-    ### <HEX> ###
     
     Deposit.fromHex= (hex) ->
         b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
@@ -37,6 +42,6 @@ class Deposit
         b=@toByteBuffer()
         b.toHex()
         
-    ### </HEX> ###
+    ### </helper_functions> ###
 
 exports.Deposit = Deposit

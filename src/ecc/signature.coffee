@@ -37,7 +37,7 @@ class Signature
         @r.toBuffer(32).copy buf, 1
         @s.toBuffer(32).copy buf, 33
         buf
-    
+        
     recoverPublicKeyFromBuffer: (buffer) ->
         @recoverPublicKey hash.sha256 buffer
         

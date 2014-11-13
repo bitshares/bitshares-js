@@ -4,10 +4,6 @@ ByteBuffer = require 'bytebuffer'
 blockchain = require '../blockchain'
 SignedTransaction = blockchain.SignedTransaction
 
-ecc = require '../ecc'
-Signature = ecc.Signature
-
-
 ###
 bts::mail::transaction_notice_message, (trx)(extended_memo)(memo_signature)(one_time_key)
     bts::blockchain::signed_transaction trx
@@ -24,7 +20,7 @@ class TransactionNotice
         extended_memo = fp.variable_buffer b
         memo_signature = fp.signature fp.optional b
         one_time_key = fp.public_key fp.optional b
-        assert.equal b.remaining(), 0, "Error, #{b.remaining()} unparsed bytes"
+        throw "Error, #{b.remaining()} unparsed bytes" if b.remaining() isnt 0
         new TransactionNotice(signed_transaction, extended_memo, memo_signature, one_time_key)
         
     toByteBuffer: () ->
@@ -35,7 +31,12 @@ class TransactionNotice
         fp.public_key fp.optional(b, @one_time_key), @one_time_key
         return b.copy 0, b.offset
         
-    ### <HEX> ###
+    
+    ### <CONVERSION_FUNCTIONS> ###
+    
+    TransactionNotice.fromBuffer= (buffer) ->
+        b = ByteBuffer.fromBinary buffer.toString('binary'), ByteBuffer.LITTLE_ENDIAN
+        return TransactionNotice.fromByteBuffer(b)
     
     TransactionNotice.fromHex= (hex) ->
         b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
@@ -45,6 +46,6 @@ class TransactionNotice
         b=@toByteBuffer()
         b.toHex()
         
-    ### </HEX> ###
+    ### </CONVERSION_FUNCTIONS> ###
 
 exports.TransactionNotice = TransactionNotice

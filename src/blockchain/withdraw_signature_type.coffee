@@ -1,6 +1,7 @@
 assert = require 'assert'
 ByteBuffer = require 'bytebuffer'
 {fp} = require '../common/fast_parser'
+{PublicKey} = require '../ecc/key_public'
 
 ###
 bts::blockchain::withdraw_with_signature, (owner)(memo)
@@ -34,13 +35,17 @@ class WithdrawSignatureType
             fp.optional b, true
             fp.public_key b, @one_time_key
             fp.variable_buffer b, @encrypted_memo
+            
+    toJson: (o) ->
+        o.owner = PublicKey.test(@owner)
+    
+    ### <helper_functions> ###        
     
     toBuffer: ->
         b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
         @appendByteBuffer(b)
         return new Buffer(b.copy(0, b.offset).toBinary(), 'binary')
-    
-    ### <HEX> ###
+
     
     WithdrawSignatureType.fromHex= (hex) ->
         b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
@@ -50,6 +55,6 @@ class WithdrawSignatureType
         b=@toByteBuffer()
         b.toHex()
         
-    ### </HEX> ###
+    ### </helper_functions> ###
 
 exports.WithdrawSignatureType = WithdrawSignatureType

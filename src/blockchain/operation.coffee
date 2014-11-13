@@ -34,6 +34,11 @@ class Operation
         b.writeUint8(@type_id)
         fp.variable_buffer b, @operation.toBuffer()
         
+    toJson: (o) ->
+        o.type = @type()
+        o.data = {}
+        @operation.toJson(o.data)
+        
     ### <HEX> ###
     
     Operation.fromHex= (hex) ->

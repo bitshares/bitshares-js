@@ -23,12 +23,16 @@ class Withdraw
         b.writeInt64(@amount)
         fp.variable_buffer b, @claim_input_data
         
+    toJson: (o) ->
+        o.amount = @amount.toString()
+    
+    ### <helper_functions> ###   
+    
     toBuffer: ->
         b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
         @appendByteBuffer(b)
         return new Buffer(b.copy(0, b.offset).toBinary(), 'binary')
-    
-    ### <HEX> ###
+
     
     Withdraw.fromHex= (hex) ->
         b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
@@ -38,6 +42,6 @@ class Withdraw
         b=@toByteBuffer()
         b.toHex()
         
-    ### </HEX> ###
+    ### </helper_functions> ###
 
 exports.Withdraw = Withdraw

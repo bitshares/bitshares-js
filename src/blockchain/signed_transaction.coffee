@@ -26,7 +26,14 @@ class SignedTransaction
         b.writeVarint32(@signatures.length)
         for signature in @signatures
             fp.signature b, signature
-        
+            
+    toJson: (o) ->
+        @transaction.toJson(o)
+        o.signatures=[]
+        for signature in @signatures
+            signature.toJson(sig={})
+            o.signatures.push sig
+    
     ### <HEX> ###
     
     SignedTransaction.fromHex= (hex) ->

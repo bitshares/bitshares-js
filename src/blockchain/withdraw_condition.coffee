@@ -38,6 +38,12 @@ class WithdrawCondition
         b.writeUint8(@type_id)
         fp.variable_buffer b, @condition.toBuffer()
         
+    toJson: (o) ->
+        o.asset_id = @asset_id
+        o.delegate_slate_id = @delegate_slate_id
+        o.type_id = @type_id
+        @condition.toJson(o.data = {})
+        
     ### <HEX> ###
     
     WithdrawCondition.fromHex= (hex) ->

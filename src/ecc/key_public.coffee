@@ -36,6 +36,12 @@ class PublicKey
         pub_sha = hash.sha512 pub_buf
         hash.ripemd160 pub_sha
         
+    PublicKey.test = (buffer) ->
+        # XTSPy3aQQS4NDepCkKsqCA7ELAtdC8Xba1gY
+        #    4WEb8HQ3jxYnXn2jtj5Hse4vXjoCn....
+        pk = PublicKey.fromBuffer buffer
+        pk.toBtsPublic()
+    
     ###*
     Full public key 
     {return} string

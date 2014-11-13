@@ -68,16 +68,6 @@ tx_notification = (msg) ->
             b = ByteBuffer.fromBinary(trx_binary, ByteBuffer.LITTLE_ENDIAN)
             tn = TransactionNotice.fromByteBuffer b
             throw "#{b.remaining()} unknown bytes" unless b.remaining() is 0
-            
-            st = tn.signed_transaction
-            tr = tn.signed_transaction.transaction
-            ops = tn.signed_transaction.transaction.operations
-            
-            assert.equal 2, ops.length, 'expecting two operations'
-            assert.equal 'deposit_op_type', ops[0].type()
-            assert.equal 138, ops[0].operation.toBuffer().length
-            assert.equal 'withdraw_op_type', ops[1].type()
-            
             trx_notice_object = tn
             
         it "Regenerates transaction_notice_message", ->
