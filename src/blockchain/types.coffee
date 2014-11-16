@@ -1,5 +1,9 @@
 # sync with blockchain operations.hpp
 types = module.exports
+types.type_id = (array, name) ->
+    for i in [0..array.length]
+        if array[i] is name
+            return i
 
 operation = types.operation = []
 operation[0] = "null_op_type"

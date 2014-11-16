@@ -50,6 +50,10 @@ class WithdrawCondition
         @appendByteBuffer(b)
         return b.copy 0, b.offset
         
+    toBuffer: () ->
+        b = @toByteBuffer()
+        new Buffer(b.toBinary(), 'binary')
+        
     WithdrawCondition.fromHex= (hex) ->
         b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
         return SignedTransaction.fromByteBuffer b

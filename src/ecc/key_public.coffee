@@ -32,6 +32,8 @@ class PublicKey
     
     ###* bts::blockchain::address (unique but not a full public key) ###
     toBlockchainAddress: ->
+        #address = Address.fromBuffer(@toBuffer())
+        #assert.deepEqual address.toBuffer(), h
         pub_buf = @toBuffer()
         pub_sha = hash.sha512 pub_buf
         hash.ripemd160 pub_sha

@@ -16,12 +16,13 @@ class Aes
         new Aes(iv, key)
 
     Aes.fromSecret = (password) ->
-        assert password, true, "password is required"
+        assert password, "password is required"
         _hash = hash.sha512 password
         _hash = _hash.toString('hex')
         Aes.fromSha512(_hash)
         
     Aes.fromSharedSecret_ecies = (S) ->
+        assert S, "Shared secret is required"
         Aes.fromSha512 hash.sha512(S).toString('hex')
         
 
@@ -41,29 +42,33 @@ class Aes
         CryptoJS.enc.Base64.parse cipher.toString()
 
     decrypt: (cipher_buffer) ->
+        assert cipher_buffer, "Missing cipher text"
         # hex is the only common format
         hex = @decryptHex(cipher_buffer.toString('hex'))
         new Buffer(hex, 'hex')
         
     encrypt: (plaintext_buffer) ->
+        assert plaintext_buffer, "Missing plain text"
         # hex is the only common format
         hex = @encryptHex(plaintext_buffer.toString('hex'))
         new Buffer(hex, 'hex')
 
-    ### <HEX> ###
+    ### <helper_functions> ###
     
     decryptHex: (cipher) ->
+        assert cipher, "Missing cipher text"
         # Convert data into word arrays (used by Crypto)
         cipher_array = CryptoJS.enc.Hex.parse cipher
         plainwords = @_decrypt_word_array cipher_array
         CryptoJS.enc.Hex.stringify plainwords
         
     encryptHex: (plainhex) ->
+        assert plainhex, "Missing plain text"
         plain_array = CryptoJS.enc.Hex.parse plainhex
         cipher_array = @_encrypt_word_array plain_array
         CryptoJS.enc.Hex.stringify cipher_array
         
-    ### </HEX> ###
+    ### </helper_functions> ###
 
 exports.Aes = Aes
 
