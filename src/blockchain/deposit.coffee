@@ -2,6 +2,7 @@ assert = require 'assert'
 ByteBuffer = require 'bytebuffer'
 {fp} = require '../common/fast_parser'
 {WithdrawCondition} = require './withdraw_condition'
+types = require './types'
 
 ###
 bts::blockchain::deposit_operation, (amount)(condition)
@@ -9,6 +10,8 @@ bts::blockchain::deposit_operation, (amount)(condition)
     withdraw_condition // condition that the funds may be withdrawn
 ###
 class Deposit
+
+    type_id = types.operation["deposit_op_type"]
 
     constructor: (@amount, @withdraw_condition) ->
         

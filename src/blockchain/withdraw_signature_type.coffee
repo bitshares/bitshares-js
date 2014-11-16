@@ -42,8 +42,6 @@ class WithdrawSignatureType
             memo = o.memo = {}
             memo.one_time_key = @one_time_key.toBtsPublic()
             memo.encrypted_memo_data = @encrypted_memo.toString('hex')
-            
-        
     
     ### <helper_functions> ###        
     

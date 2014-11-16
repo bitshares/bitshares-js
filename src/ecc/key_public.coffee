@@ -35,14 +35,6 @@ class PublicKey
         pub_buf = @toBuffer()
         pub_sha = hash.sha512 pub_buf
         hash.ripemd160 pub_sha
-        
-    PublicKey.test = (buffer) ->
-        pk = PublicKey.fromBtsPublic("XTS6D28eGR6xtvYH8xdFLpc1PmLR1NDEnges6Pg9PWCgukYT95oYi")
-        pk_hash = hash.ripemd160 pk.toBuffer()
-        #assert.deepEqual buffer, pk_hash
-        pk_hash.toString('hex')
-        # XTSPy3aQQS4NDepCkKsqCA7ELAtdC8Xba1gY
-        #    4WEb8HQ3jxYnXn2jtj5Hse4vXjoCn....
     
     ###*
     Full public key 
@@ -90,6 +82,7 @@ class PublicKey
         
         addy = Buffer.concat [addy, checksum.slice 0, 4]
         base58.encode addy
+        
 
     ### <HEX> ###
     

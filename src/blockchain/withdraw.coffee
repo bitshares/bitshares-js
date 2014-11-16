@@ -1,6 +1,7 @@
 assert = require 'assert'
 ByteBuffer = require 'bytebuffer'
 {fp} = require '../common/fast_parser'
+types = require './types'
 
 ###
 bts::blockchain::withdraw_operation, (balance_id)(amount)(claim_input_data)
@@ -10,6 +11,8 @@ bts::blockchain::withdraw_operation, (balance_id)(amount)(claim_input_data)
 ###
 class Withdraw
 
+    type_id = types.operation["withdraw_op_type"]
+        
     constructor: (@balance_id, @amount, @claim_input_data) ->
         
     Withdraw.fromByteBuffer= (b) ->

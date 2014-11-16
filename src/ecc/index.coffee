@@ -3,3 +3,4 @@ module.exports =
     PublicKey: require('./key_public').PublicKey
     Aes: require('./aes').Aes
     Signature: require('./signature').Signature
+    Address : require('./address').Address

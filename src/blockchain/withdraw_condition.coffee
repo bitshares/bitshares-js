@@ -43,8 +43,13 @@ class WithdrawCondition
         o.type = @type()
         @condition.toJson(o.data = {})
         
-    ### <HEX> ###
+    ### <helper_functions> ###
     
+    toByteBuffer: () ->
+        b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
+        @appendByteBuffer(b)
+        return b.copy 0, b.offset
+        
     WithdrawCondition.fromHex= (hex) ->
         b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
         return SignedTransaction.fromByteBuffer b
@@ -53,6 +58,6 @@ class WithdrawCondition
         b=@toByteBuffer()
         b.toHex()
         
-    ### </HEX> ###
+    ### </helper_functions> ###
 
 exports.WithdrawCondition = WithdrawCondition
