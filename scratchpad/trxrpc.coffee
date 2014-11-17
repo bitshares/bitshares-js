@@ -57,7 +57,7 @@ describe "Transfer", ->
         console.log 'alice addy',PublicKey.fromBtsPublic(recipient_key).toBtsAddy()
         
         tim_key = "XTS7xoaCqFbbScs8ePLZPcSK79FXrx6ST9fRYKstjfuAhymQoT5dF"
-        console.log 'tim addy',PublicKey.fromBtsPublic(tim_key).toBtsAddy()
+        console.log 'tim addy',Address.fromBuffer(PublicKey.fromBtsPublic(tim_key).toBuffer()).toString()
         console.log 'tim addy',Address.fromString(tim_key).toString()
         
         sender_private = wallet.getActiveKeyPrivate(sender_name)

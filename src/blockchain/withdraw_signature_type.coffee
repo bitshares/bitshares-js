@@ -2,6 +2,7 @@ assert = require 'assert'
 ByteBuffer = require 'bytebuffer'
 {fp} = require '../common/fast_parser'
 {PublicKey} = require '../ecc/key_public'
+types = require './types'
 
 ###
 bts::blockchain::withdraw_with_signature, (owner)(memo)
@@ -18,6 +19,8 @@ bts::blockchain::public_key_type, (key_data)
 class WithdrawSignatureType
 
     constructor: (@owner, @one_time_key, @encrypted_memo) ->
+        @type_name = "withdraw_signature_type"
+        @type_id = types.withdraw[@type_name]
         
     WithdrawSignatureType.fromByteBuffer= (b) ->
         owner = fp.ripemd160 b

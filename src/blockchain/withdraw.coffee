@@ -11,7 +11,8 @@ bts::blockchain::withdraw_operation, (balance_id)(amount)(claim_input_data)
 ###
 class Withdraw
 
-    type_id = types.operation["withdraw_op_type"]
+    type = "withdraw_op_type"
+    type_id = types.operation[type]
         
     constructor: (@balance_id, @amount, @claim_input_data) ->
         

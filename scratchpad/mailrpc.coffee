@@ -88,7 +88,6 @@ class MailTest
         unlock 9999 Password00
         
         # wallet_account_update_registration ....
-        wallet_set_preferred_mail_servers "delegate0"  ["delegate1"] "delegate0"
         
         blockchain_get_account delegate0
         blockchain_get_account delegate1

@@ -1,4 +1,4 @@
-assert = require("assert")
+assert = require 'assert'
 config = require '../src/config'
 hash = require '../src/ecc/hash'
 types = require '../src/blockchain/types'
@@ -10,6 +10,7 @@ Aes = ecc.Aes
 Signature = ecc.Signature
 PrivateKey = ecc.PrivateKey
 PublicKey = ecc.PublicKey
+Address = ecc.Address
 
 mail = require '../src/mail'
 Mail = mail.Mail
@@ -40,6 +41,7 @@ tx_notification = (msg) ->
     
     trx_buffer = ""
     trx_notice_object = ""
+    d1_private = ""
     
     describe "Transactions", ->
         it "Decrypt", ->
@@ -85,7 +87,7 @@ tx_notification = (msg) ->
             
             trx_hash = hash.sha256(Buffer.concat([trx_buffer, chain_id_buffer]))
             public_key_sender = PublicKey.fromBtsPublic(msg.helper.public_btskey_sender)
-            assert.equal true, signed_transaction.signatures.length > 0, "Missing signature(s)"
+            assert signed_transaction.signatures.length > 0, "Missing signature(s)"
             for signature in signed_transaction.signatures
                 verify = signature.verifyHash(trx_hash, public_key_sender)
                 assert.equal verify,true, 'Transaction did not verify'
@@ -93,13 +95,60 @@ tx_notification = (msg) ->
         it "Verify memo signature", ->
             extended_memo = trx_notice_object.extended_memo
             memo_signature = trx_notice_object.memo_signature
-            one_time_key = trx_notice_object.one_time_key
+            throw "Missing extended_memo" unless extended_memo
             throw "Missing memo_signature" unless memo_signature
-            throw "Missing one_time_key" unless one_time_key
             
             public_key_sender = PublicKey.fromBtsPublic(msg.helper.public_btskey_sender)
             verify = memo_signature.verifyBuffer(extended_memo, public_key_sender)
-            assert.equal verify,true, 'Memo did not verify'
+            assert verify, 'Memo did not verify'
+        
+        it "Extended owner key", ->
+            signed_transaction = trx_notice_object.signed_transaction
+            transaction = signed_transaction.transaction
+            operations = transaction.operations
+            deposit = operations[0].operation
+            assert.equal "deposit_op_type", deposit.type_name
+            withdraw_condition = deposit.withdraw_condition
+            condition = withdraw_condition.condition
+            assert.equal "withdraw_signature_type", condition.type_name
+            assert one_time_key = condition.one_time_key
+            
+            S = hash.sha512 d1_private.sharedSecret one_time_key.toUncompressed()
+            d1_public = d1_private.toPublicKey()
+            
+            child_index = hash.sha256 S
+            #chain_code = hash.sha256  ??
+            derivePublic = (public_key, child_index, chain_code) ->
+                chain_code = chain_code || new Buffer("0000000000000000000000000000000000000000000000000000000000000000", 'hex')
+                I = hash.sha512 Buffer.concat [
+                    public_key.toBuffer()
+                    child_index
+                    chain_code
+                ]
+                IL = I.slice 0, 32 # left
+                IR = I.slice 32, 64 # right
+                
+                # Public parent key -> public child key
+                BigInteger = require 'bigi'
+                curve =  require('ecurve').getCurveByName 'secp256k1'
+                
+                pIL = BigInteger.fromBuffer(IL)
+                
+                #public_key = new PrivateKey(pIL).toPublicKey()
+                
+                # Ki = point(parse256(IL)) + Kpar
+                #    = G*IL + Kpar
+                Ki = curve.G.multiply(pIL).add(public_key.Q)
+                
+                # In case parse256(IL) >= n or Ki is the point at infinity, one should proceed with the next value for i
+                if curve.isInfinity Ki
+                    throw 'Point at infinity' #derive(index + 1)
+                
+                PublicKey.fromPoint Ki
+            public_key = derivePublic(d1_public, child_index)
+            derive_owner = Address.fromBuffer(public_key.toBuffer()).toString()
+            condition_owner = new Address(condition.owner).toString()
+            assert.equal condition_owner, derive_owner
             
 tx_notification
     # transfer 1 XTS delegate0 delegate1 "my memo" vote_random

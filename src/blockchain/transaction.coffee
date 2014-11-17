@@ -43,7 +43,7 @@ class Transaction
             operation.toJson(op={}) 
             o.operations.push(op)
         
-    ### <BASIC_CONVERTS> ###
+    ### <helper_functions> ###
     
     toByteBuffer: () ->
         b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
@@ -61,6 +61,6 @@ class Transaction
         b=@toByteBuffer()
         b.toHex()
         
-    ### </BASIC_CONVERTS> ###
+    ### </helper_functions> ###
     
 exports.Transaction = Transaction

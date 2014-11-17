@@ -11,9 +11,9 @@ bts::blockchain::deposit_operation, (amount)(condition)
 ###
 class Deposit
 
-    type_id = types.operation["deposit_op_type"]
-
     constructor: (@amount, @withdraw_condition) ->
+        @type_name = "deposit_op_type"
+        @type_id = types.operation[@type_name]
         
     Deposit.fromByteBuffer= (b) ->
         amount = b.readInt64()
