@@ -3,6 +3,10 @@ ByteBuffer = require 'bytebuffer'
 {fp} = require '../common/fast_parser'
 {WithdrawSignatureType} = require './withdraw_signature_type'
 types = require './types'
+type_id = types.type_id
+ecc = require '../ecc'
+PublicKey = ecc.PublicKey
+Address = ecc.Address
 
 ###
 bts::blockchain::withdraw_condition, (asset_id)(delegate_slate_id)(type)(data)
@@ -43,6 +47,21 @@ class WithdrawCondition
         o.type = @type()
         @condition.toJson(o.data = {})
         
+    WithdrawCondition.fromJson= (o) ->
+        assert.equal "withdraw_signature_type", o.type
+        assert data = o.data, 'Missing data property'
+        assert memo = data.memo, 'Missing memo property'
+        new WithdrawCondition(
+            o.asset_id, 
+            o.delegate_slate_id=0, 
+            type_id(types.withdraw, "withdraw_signature_type"), 
+            new WithdrawSignatureType(
+                Address.fromString(data.owner).toBuffer(), 
+                PublicKey.fromBtsPublic(memo.one_time_key),
+                new Buffer(memo.encrypted_memo_data, 'hex')
+            )
+        )
+    
     ### <helper_functions> ###
     
     toByteBuffer: () ->
