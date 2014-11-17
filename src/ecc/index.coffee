@@ -4,3 +4,4 @@ module.exports =
     Aes: require('./aes').Aes
     Signature: require('./signature').Signature
     Address : require('./address').Address
+    ExtendedAddress: require('./extended_address').ExtendedAddress
