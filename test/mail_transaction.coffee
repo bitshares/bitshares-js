@@ -119,6 +119,17 @@ tx_notification = (msg) ->
             condition_owner = new Address(condition.owner).toString()
             assert.equal condition_owner, derive_owner
             
+        it "Extended one-time-key", ->
+            sender_private = PrivateKey.fromHex "ff726224b757cc2d06cf4a7045bc425fb4e173127f481cb9325cbd1438de33c6"
+            one_time_key = (seq) ->
+                sender_extended = ExtendedAddress.private_key sender_private, seq
+                sender_extended.toPublicKey()
+            one_time_key = one_time_key(21)
+            expected_otc = "XTS7u48VQqffX6di8vz36ndLRxpFDVFT8yq5fHNK3rbQUxogbZWqg" 
+            actual_otc = one_time_key.toBtsPublic()
+            assert.equal expected_otc, actual_otc
+            
+            
 tx_notification
     # transfer 1 XTS delegate0 delegate1 "my memo" vote_random
     type: "encrypted"

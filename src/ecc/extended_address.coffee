@@ -5,6 +5,7 @@ curve =  require('ecurve').getCurveByName 'secp256k1'
 PublicKey = require('./key_public').PublicKey
 PrivateKey = require('./key_private').PrivateKey
 
+# https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki
 class ExtendedAddress
     
     ###*  Shared Secret public parent key -> public child key  ###
@@ -12,7 +13,7 @@ class ExtendedAddress
         S = hash.sha512 private_key.sharedSecret one_time_key.toUncompressed()
         public_key = private_key.toPublicKey()
         child_index = hash.sha256 S
-        chain_code = new Buffer("0000000000000000000000000000000000000000000000000000000000000000", 'hex')
+        chain_code = _private.PAD
         I = hash.sha512 Buffer.concat [
             public_key.toBuffer()
             child_index
@@ -22,31 +23,43 @@ class ExtendedAddress
         IR = I.slice 32, 64 # right
         pIL = BigInteger.fromBuffer(IL)
         Ki = curve.G.multiply(pIL).add(public_key.Q)
-        if curve.isInfinity Ki
-            throw 'Point at infinity' #derive(index + 1)
+        # https://github.com/cryptocoinjs/hdkey/issues/1
+        if pIL.compareTo(curve.n) >= 0 or curve.isInfinity Ki
+            throw 'Unable to produce a valid key (very rare)'
         
         PublicKey.fromPoint Ki
         
-    ExtendedAddress.extended_private_key= ( private_key, index ) ->
-        child_idx = hash.sha256 new Buffer(index, 'binary')
-        chain_code = new Buffer("0000000000000000000000000000000000000000000000000000000000000000", 'hex')
+    ExtendedAddress.private_key= ( private_key, index ) ->
+        child_idx = hash.sha256 _private.uint32_buffer index
+        chain_code = _private.PAD
         I = hash.sha512 Buffer.concat [
-            new Buffer(0)
+            _private.pad0
             private_key.toBuffer()
             child_idx
             chain_code
         ]
         IL = I.slice 0, 32 # left
-        #from seed: private_key, IL
         pIL = BigInteger.fromBuffer(IL)
         ki = pIL.add(private_key.d).mod(curve.n)
         if pIL.compareTo(curve.n) >= 0 or ki.signum() is 0
-            # ? truncate lower order values (skip extra bytes)
-            # https://github.com/BitShares/fc/blob/master/src/crypto/elliptic.cpp#L308-L312
-            # or increment: https://github.com/cryptocoinjs/hdkey/blob/master/lib/hdkey.js#L131-L134
-            ExtendedAddress.extended_private_key(private_key, index + 1)
-        else
-            private_key: PrivateKey.fromBuffer ki.toBuffer(32)
-            index: index
+            # invalid key (probability of < 2^127
+            throw 'Unable to produce a valid key (very rare)'
+        
+        PrivateKey.fromBuffer ki.toBuffer(32)
             
+class _private
+    
+    @PAD = new Buffer("0000000000000000000000000000000000000000000000000000000000000000", 'hex')
+    
+    _private.uint32_buffer = (uint) ->
+        buffer = new Buffer(4)
+        buffer.writeUInt32LE(uint, 0)
+        buffer
+    
+    _pad0 = () ->
+        buffer = new Buffer(1)
+        buffer.writeUInt8(0, 0)
+        buffer
+    @pad0 = _pad0()
+
 exports.ExtendedAddress = ExtendedAddress

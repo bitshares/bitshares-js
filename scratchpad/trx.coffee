@@ -70,10 +70,12 @@ describe "Transfer", ->
         sender_private = wallet.getActiveKeyPrivate "alice"
         payer_private = wallet.getActiveKeyPrivate "alice"
         
-        seq_num = 1
-        sender_extended = ExtendedAddress.extended_private_key( sender_private, seq_num )
-        assert seq_num, sender_extended.index
-        one_time_key = sender_extended.private_key.toPublicKey()
+        
+        one_time_key = (seq) ->
+            sender_extended = ExtendedAddress.private_key sender_private, seq
+            sender_extended.toPublicKey()
+        one_time_key = one_time_key(23)
+        
         owner = ->
             S_public_key = ExtendedAddress.deriveS_PublicKey sender_private, one_time_key
             S_public_key.toBuffer()
