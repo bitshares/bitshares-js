@@ -108,9 +108,18 @@ describe "Transfer", ->
         
         wc = WithdrawCondition.fromJson wc_out
         ###
-        enc_memo = new Buffer("000d3e187a65cc0348d6c782fabc66de3b6bdb33a1b2bfa6e58713a32632ab5d63a9eceb5f5c584c72b61f064dfff91b7a27aeac882c9682b8734b7f3020ffdc", 'hex')
-        exp = new Date()#"2014-11-19T18:30:51")
-        exp.setSeconds exp.getSeconds() + (60 * 60 * 24 )
+        enc_memo = new Buffer("", 'hex')
+
+        
+        exp = new Date()
+        exp.setSeconds(exp.getSeconds() + (60 * 60 * 24))
+        
+        # removing seconds causes the epoch value 
+        # the time_point_sec conversion Math.ceil(epoch / 1000)
+        # to always come out as a odd number.  With the 
+        # seconds, the result will always be even and 
+        # the transaction will not be valid (missing signature)
+        exp = new Date(exp.toISOString().split('.')[0])
         
         wc = new WithdrawCondition(
             asset_id = 0, 
@@ -138,7 +147,6 @@ describe "Transfer", ->
         operations.push new Operation deposit.type_id, deposit
         operations.push new Operation withdraw.type_id, withdraw
         
-        
         transaction = new Transaction(
             expiration = exp.getTime()
             delegate_slate_id = null
@@ -154,11 +162,9 @@ describe "Transfer", ->
         console.log 'sign key sender_private',sender_private.toHex()
         #dkey = ExtendedAddress.deriveS_PublicKey sender_private, otk_derived.public_key
         #console.log dkey.private_key.toHex()
-        sign_key = PrivateKey.fromHex('20991828d456b389d0768ed7fb69bf26b9bb87208dd699ef49f10481c20d3e18')
         signed_transaction = new SignedTransaction(
             transaction
             [ 
-                #Signature.fromHex "1faaae5852e8439cb53627e633608be084b7937e59d1e84792ad519e751fa5e3a17633446392a954cde70c220d2fa778e4fee9f35c31380892562aa764a91ca8f5"
                 Signature.signBuffer trx_sign, sender_private
             ]
         )
