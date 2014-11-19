@@ -56,7 +56,11 @@ class Signature
     Signature.signBuffer = (buf, private_key) ->
         _hash = hash.sha256 buf
         ecsignature = ecdsa.sign curve, _hash, private_key.d
-        new Signature ecsignature.r, ecsignature.s, 31
+        e = BigInteger.fromBuffer(_hash);
+        i = ecdsa.calcPubKeyRecoveryParam curve, e, ecsignature, private_key.toPublicKey().Q
+        i += 4 #compressed
+        i += 27 #compact
+        new Signature ecsignature.r, ecsignature.s, i
         
     ###*
     @param {Buffer} un-hashed

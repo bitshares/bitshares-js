@@ -29,8 +29,9 @@ class ExtendedAddress
         if pIL.compareTo(curve.n) >= 0 or curve.isInfinity Ki
             throw 'Unable to produce a valid key' # very rare
         
-        public_key: PublicKey.fromPoint Ki
-        private_key: new PrivateKey(pIL)
+        #public_key: PublicKey.fromPoint Ki
+        #private_key: new PrivateKey(pIL)
+        PublicKey.fromPoint Ki
         
     ExtendedAddress.private_key= ( private_key, index ) ->
         child_idx = hash.sha256 _private.uint32_buffer index
@@ -43,6 +44,7 @@ class ExtendedAddress
         ]
         IL = I.slice 0, 32 # left
         pIL = BigInteger.fromBuffer(IL)
+        #console.log "IL",new PrivateKey(pIL).toHex()
         ki = pIL.add(private_key.d).mod(curve.n)
         if pIL.compareTo(curve.n) >= 0 or ki.signum() is 0
             # invalid key (probability of < 2^127
@@ -72,8 +74,9 @@ class ExtendedAddress
         if pIL.compareTo(curve.n) >= 0 or curve.isInfinity Ki
             throw 'Unable to produce a valid key' # very rare
         
-        public_key: PublicKey.fromPoint Ki
-        private_key: new PrivateKey(pIL)
+        #public_key: 
+        #private_key: new PrivateKey(pIL)
+        PublicKey.fromPoint Ki
             
 class _private
     

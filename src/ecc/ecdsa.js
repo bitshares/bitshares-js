@@ -38,7 +38,13 @@ function deterministicGenerateK(curve, hash, d) {
   // Step H1/H2a, ignored as tlen === qlen (256 bit)
   // Step H2b
   v = crypto.HmacSHA256(v, k)
-
+ /* https://github.com/cryptocoinjs/ecdsa/blob/master/lib/ecdsa.js
+  var kB = BigInteger.fromBuffer(v).mod(curve.n);
+  assert(kB.compareTo(BigInteger.ONE) > 0, 'Invalid k value')
+  assert(kB.compareTo(curve.n) < 0, 'Invalid k value')
+  
+  return kB
+   */
   var T = BigInteger.fromBuffer(v)
 
   // Step H3, repeat until T is within the interval [1, n - 1]
@@ -50,6 +56,7 @@ function deterministicGenerateK(curve, hash, d) {
   }
 
   return T
+
 }
 
 function sign(curve, hash, d) {

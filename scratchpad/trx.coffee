@@ -44,10 +44,11 @@ wallet.unlock(Aes.fromSecret('Password00'))
 describe "Transfer", ->
     
     before ->
-        @rpc=new Rpc(debug=on, 45000, "localhost", "test", "test")
+        @rpc_on = on
+        @rpc=new Rpc(debug=on, 45000, "localhost", "test", "test") if @rpc_on
         
     after ->
-        @rpc.close()
+        @rpc.close() if @rpc_on
     
     it "Spend money", () ->
         
@@ -80,7 +81,7 @@ describe "Transfer", ->
         otk_private = ExtendedAddress.private_key sender_private, 10001
         console.log 'one_time_private_key',otk_private.toHex()
         otk_derived = ExtendedAddress.derivePublic_outbound otk_private, receiver_public
-        owner = otk_derived.public_key
+        owner = otk_derived
         
         #console.log 'secret_ext_public_key\t',owner.toHex()
         console.log 'owner\t',Address.fromBuffer(owner.toBuffer()).toString()
@@ -88,8 +89,6 @@ describe "Transfer", ->
         one_time_key = otk_private.toPublicKey()
         console.log 'one_time_key',one_time_key.toBtsPublic()
         
-        sign_key = PrivateKey.fromHex('20991828d456b389d0768ed7fb69bf26b9bb87208dd699ef49f10481c20d3e18')
-        #console.log 'sign key',Address.fromBuffer(sign_key.toBuffer()).toString()
         #S_sender = ExtendedAddress._deriveS_PublicKey sender_private, one_time_key
         #console.log 'owner2\t',Address.fromBuffer(S_sender.toBuffer()).toString()
         
@@ -110,6 +109,8 @@ describe "Transfer", ->
         wc = WithdrawCondition.fromJson wc_out
         ###
         enc_memo = new Buffer("000d3e187a65cc0348d6c782fabc66de3b6bdb33a1b2bfa6e58713a32632ab5d63a9eceb5f5c584c72b61f064dfff91b7a27aeac882c9682b8734b7f3020ffdc", 'hex')
+        exp = new Date()#"2014-11-19T18:30:51")
+        exp.setSeconds exp.getSeconds() + (60 * 60 * 24 )
         
         wc = new WithdrawCondition(
             asset_id = 0, 
@@ -137,8 +138,7 @@ describe "Transfer", ->
         operations.push new Operation deposit.type_id, deposit
         operations.push new Operation withdraw.type_id, withdraw
         
-        exp = new Date("2014-11-19T14:24:20")
-        #exp.setSeconds exp.getSeconds() + (60 * 60 * 24 )
+        
         transaction = new Transaction(
             expiration = exp.getTime()
             delegate_slate_id = null
@@ -151,15 +151,18 @@ describe "Transfer", ->
             Buffer.concat([trx_buffer, chain_id_buffer])
         trx_sign = trx_sign()
         console.log 'digest',hash.sha256(trx_sign).toString('hex')
-        dkey = ExtendedAddress.deriveS_PublicKey sender_private, otk_derived.public_key
+        console.log 'sign key sender_private',sender_private.toHex()
+        #dkey = ExtendedAddress.deriveS_PublicKey sender_private, otk_derived.public_key
+        #console.log dkey.private_key.toHex()
+        sign_key = PrivateKey.fromHex('20991828d456b389d0768ed7fb69bf26b9bb87208dd699ef49f10481c20d3e18')
         signed_transaction = new SignedTransaction(
             transaction
             [ 
-                Signature.signBuffer trx_sign, sign_key
-                
+                #Signature.fromHex "1faaae5852e8439cb53627e633608be084b7937e59d1e84792ad519e751fa5e3a17633446392a954cde70c220d2fa778e4fee9f35c31380892562aa764a91ca8f5"
+                Signature.signBuffer trx_sign, sender_private
             ]
         )
         signed_transaction.toJson(trx_signed = {})
         console.log JSON.stringify trx_signed, undefined, 4
 
-        @rpc.run "blockchain_broadcast_transaction", [trx_signed]
+        @rpc.run "blockchain_broadcast_transaction", [trx_signed] if @rpc_on
