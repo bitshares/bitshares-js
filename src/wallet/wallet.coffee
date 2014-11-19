@@ -6,7 +6,7 @@ ecc = require '../ecc'
 #Aes = ecc.Aes
 #Signature = ecc.Signature
 PrivateKey = ecc.PrivateKey
-#PublicKey = ecc.PublicKey
+PublicKey = ecc.PublicKey
 #Address = ecc.Address
 
 ###* Public ###
@@ -34,7 +34,7 @@ class Wallet
     getActiveKey: (account_name) ->
         active_key = @db.account_activeKey[account_name]
         throw "Account #{account_name} not found" unless active_key
-        active_key
+        PublicKey.fromBtsPublic active_key
     
     getActiveKeyPrivate: (account_name) ->
         @unlocked()
@@ -83,12 +83,13 @@ class Db
         assert @master_key_encrypted, 'Invalid wallet format'
     
     keyRecord: (public_key) ->
+        bts_address = public_key.toBtsPublic()
         for entry in @wallet_object
             data = entry.data
             switch entry.type
                 when "key_record_type"
-                    return data if data.public_key is public_key
-        throw "Not found"
+                    return data if data.public_key is bts_address
+        throw "Key record not found"
                         
     
     

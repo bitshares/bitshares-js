@@ -2,6 +2,8 @@ assert = require 'assert'
 ByteBuffer = require 'bytebuffer'
 {fp} = require '../common/fast_parser'
 types = require './types'
+type_id = types.type_id
+{Address} = require '../ecc/address'
 
 ###
 bts::blockchain::withdraw_operation, (balance_id)(amount)(claim_input_data)
@@ -10,11 +12,10 @@ bts::blockchain::withdraw_operation, (balance_id)(amount)(claim_input_data)
     std::vector<char> claim_input_data
 ###
 class Withdraw
-
-    type = "withdraw_op_type"
-    type_id = types.operation[type]
         
     constructor: (@balance_id, @amount, @claim_input_data) ->
+        @type_name = "withdraw_op_type"
+        @type_id = type_id types.operation, @type_name
         
     Withdraw.fromByteBuffer= (b) ->
         balance_id = fp.ripemd160 b
@@ -28,7 +29,7 @@ class Withdraw
         fp.variable_buffer b, @claim_input_data
         
     toJson: (o) ->
-        o.balance_id = @balance_id.toString('hex')
+        o.balance_id = new Address(@balance_id).toString()
         o.amount = @amount.toString()
         o.claim_input_data = @claim_input_data.toString()
     

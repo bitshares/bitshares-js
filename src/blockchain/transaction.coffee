@@ -36,13 +36,28 @@ class Transaction
             operation.appendByteBuffer(b)
         
     toJson: (o) ->
-        o.expiration = @expiration
+        exp = new Date(@expiration).toISOString()
+        #exp = exp.replace /[-:]/g, ''
+        exp = exp.split('.')[0]
+        o.expiration = exp
         o.delegate_slate_id = @delegate_slate_id
         o.operations = []
         for operation in @operations
             operation.toJson(op={}) 
             o.operations.push(op)
-        
+            
+    #Transaction.fromJson= (o) ->
+    #    operations = []
+    #    for operation in o.operations
+    #        op = Operation.fromJson(op) 
+    #        operations.push(op)
+    #    
+    #    new Transaction(
+    #        new Date(o.expiration)
+    #        o.delegate_slate_id
+    #        operations
+    #    )
+
     ### <helper_functions> ###
     
     toByteBuffer: () ->

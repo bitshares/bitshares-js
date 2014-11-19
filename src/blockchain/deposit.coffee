@@ -3,6 +3,7 @@ ByteBuffer = require 'bytebuffer'
 {fp} = require '../common/fast_parser'
 {WithdrawCondition} = require './withdraw_condition'
 types = require './types'
+type_id = types.type_id
 
 ###
 bts::blockchain::deposit_operation, (amount)(condition)
@@ -13,7 +14,7 @@ class Deposit
 
     constructor: (@amount, @withdraw_condition) ->
         @type_name = "deposit_op_type"
-        @type_id = types.operation[@type_name]
+        @type_id = type_id types.operation, @type_name        
         
     Deposit.fromByteBuffer= (b) ->
         amount = b.readInt64()

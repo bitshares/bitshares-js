@@ -53,7 +53,7 @@ class WithdrawCondition
         assert memo = data.memo, 'Missing memo property'
         new WithdrawCondition(
             o.asset_id, 
-            o.delegate_slate_id=0, 
+            o.delegate_slate_id, 
             type_id(types.withdraw, "withdraw_signature_type"), 
             new WithdrawSignatureType(
                 Address.fromString(data.owner).toBuffer(), 

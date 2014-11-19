@@ -78,10 +78,10 @@ class FastParser extends EccParser
     
     FastParser.time_point_sec = (b, epoch) ->
         if epoch
-            b.writeInt32(epoch / 1000)
+            b.writeInt32 Math.ceil epoch / 1000
             return
         else
             epoch = b.readInt32() # fc::time_point_sec
-            new Date(epoch * 1000)
+            new Date epoch * 1000
         
 exports.fp = FastParser

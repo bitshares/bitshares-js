@@ -38,7 +38,7 @@ class Operation
         o.type = @type()
         o.data = {}
         @operation.toJson(o.data)
-        
+
     ### <HEX> ###
     
     Operation.fromHex= (hex) ->

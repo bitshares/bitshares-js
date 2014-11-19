@@ -4,6 +4,8 @@ ByteBuffer = require 'bytebuffer'
 {PublicKey} = require '../ecc/key_public'
 types = require './types'
 
+{Address} = require '../ecc/address'
+
 ###
 bts::blockchain::withdraw_with_signature, (owner)(memo)
     fc::ripemd160 address owner
@@ -40,7 +42,7 @@ class WithdrawSignatureType
             fp.variable_buffer b, @encrypted_memo
             
     toJson: (o) ->
-        o.owner = @owner.toString('hex')
+        o.owner = new Address(@owner).toString()
         if @one_time_key and @encrypted_memo
             memo = o.memo = {}
             memo.one_time_key = @one_time_key.toBtsPublic()

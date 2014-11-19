@@ -48,7 +48,7 @@ class Aes
         new Buffer(hex, 'hex')
         
     encrypt: (plaintext_buffer) ->
-        assert plaintext_buffer, "Missing plain text"
+        #assert plaintext_buffer, "Missing plain text"
         # hex is the only common format
         hex = @encryptHex(plaintext_buffer.toString('hex'))
         new Buffer(hex, 'hex')
@@ -63,7 +63,7 @@ class Aes
         CryptoJS.enc.Hex.stringify plainwords
         
     encryptHex: (plainhex) ->
-        assert plainhex, "Missing plain text"
+        #assert plainhex, "Missing plain text"
         plain_array = CryptoJS.enc.Hex.parse plainhex
         cipher_array = @_encrypt_word_array plain_array
         CryptoJS.enc.Hex.stringify cipher_array

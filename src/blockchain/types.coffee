@@ -52,3 +52,6 @@ withdraw[4]="withdraw_option_type"
 withdraw[5]="withdraw_escrow_type"
 withdraw[6]="withdraw_vesting_type"
 
+#memo = types.memo = []
+#memo[0]="from_memo"
+#memo[1]="to_memo"

@@ -14,20 +14,23 @@ class ExtendedAddress
         public_key = private_key.toPublicKey()
         child_index = hash.sha256 S
         chain_code = _private.PAD
+        #console.log 'public_key.toBuffer()',one_time_key.toBuffer().toString 'hex'
         I = hash.sha512 Buffer.concat [
             public_key.toBuffer()
             child_index
             chain_code
         ]
+        #console.log 'I',I.toString 'hex'
         IL = I.slice 0, 32 # left
         IR = I.slice 32, 64 # right
         pIL = BigInteger.fromBuffer(IL)
         Ki = curve.G.multiply(pIL).add(public_key.Q)
         # https://github.com/cryptocoinjs/hdkey/issues/1
         if pIL.compareTo(curve.n) >= 0 or curve.isInfinity Ki
-            throw 'Unable to produce a valid key (very rare)'
+            throw 'Unable to produce a valid key' # very rare
         
-        PublicKey.fromPoint Ki
+        public_key: PublicKey.fromPoint Ki
+        private_key: new PrivateKey(pIL)
         
     ExtendedAddress.private_key= ( private_key, index ) ->
         child_idx = hash.sha256 _private.uint32_buffer index
@@ -43,9 +46,34 @@ class ExtendedAddress
         ki = pIL.add(private_key.d).mod(curve.n)
         if pIL.compareTo(curve.n) >= 0 or ki.signum() is 0
             # invalid key (probability of < 2^127
-            throw 'Unable to produce a valid key (very rare)'
+            throw 'Unable to produce a valid key' # very rare
         
         PrivateKey.fromBuffer ki.toBuffer(32)
+    
+    # TODO, why is this different from deriveS_PublicKey?
+    ExtendedAddress.derivePublic_outbound = (private_key, one_time_key) ->
+        S = hash.sha512 private_key.sharedSecret one_time_key.toUncompressed()
+        #console.log 'secret\t',S.toString 'hex'
+        ##public_key = private_key.toPublicKey()
+        child_index = hash.sha256 S
+        chain_code = _private.PAD
+        I = hash.sha512 Buffer.concat [
+            one_time_key.toBuffer()
+            child_index
+            chain_code
+        ]
+        #console.log 'ext ikey\t',I.toString 'hex'
+        IL = I.slice 0, 32 # left
+        IR = I.slice 32, 64 # right
+        pIL = BigInteger.fromBuffer(IL) # private key
+
+        Ki = curve.G.multiply(pIL).add(one_time_key.Q)
+        # https://github.com/cryptocoinjs/hdkey/issues/1
+        if pIL.compareTo(curve.n) >= 0 or curve.isInfinity Ki
+            throw 'Unable to produce a valid key' # very rare
+        
+        public_key: PublicKey.fromPoint Ki
+        private_key: new PrivateKey(pIL)
             
 class _private
     
