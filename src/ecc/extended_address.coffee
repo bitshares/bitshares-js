@@ -24,6 +24,7 @@ class ExtendedAddress
         IL = I.slice 0, 32 # left
         IR = I.slice 32, 64 # right
         pIL = BigInteger.fromBuffer(IL)
+        
         Ki = curve.G.multiply(pIL).add(public_key.Q)
         # https://github.com/cryptocoinjs/hdkey/issues/1
         if pIL.compareTo(curve.n) >= 0 or curve.isInfinity Ki
@@ -44,7 +45,6 @@ class ExtendedAddress
         ]
         IL = I.slice 0, 32 # left
         pIL = BigInteger.fromBuffer(IL)
-        #console.log "IL",new PrivateKey(pIL).toHex()
         ki = pIL.add(private_key.d).mod(curve.n)
         if pIL.compareTo(curve.n) >= 0 or ki.signum() is 0
             # invalid key (probability of < 2^127
@@ -68,7 +68,6 @@ class ExtendedAddress
         IL = I.slice 0, 32 # left
         IR = I.slice 32, 64 # right
         pIL = BigInteger.fromBuffer(IL) # private key
-
         Ki = curve.G.multiply(pIL).add(one_time_key.Q)
         # https://github.com/cryptocoinjs/hdkey/issues/1
         if pIL.compareTo(curve.n) >= 0 or curve.isInfinity Ki

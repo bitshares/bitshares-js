@@ -42,13 +42,15 @@ wallet = Wallet.fromObject wallet_object
 wallet.unlock(Aes.fromSecret('Password00'))
 
 # Remove when this is a real ua test
-rpc_on = off
+rpc_on = on
 
 # Remove when this is a real ua test
 # to get comparable keys and data, match these with data from the  
 # bitshares_client transaction (see wallet backup delegate0)
 child_account_index = 1
 enc_memo_hex = ""
+tx1_balance_id = "XTS5bJNzfPVQxEahXp28H85hnL9GvdbiHdPf"
+#also, set enc_memo_hex in both tests
 
 describe "Transfer", ->
     
@@ -81,7 +83,7 @@ describe "Transfer", ->
             deposit = signed_transaction.transaction.operations[0].operation
             wc = deposit.withdraw_condition
             balid = Address.fromBuffer(wc.toBuffer())
-            assert.equal "XTS5bJNzfPVQxEahXp28H85hnL9GvdbiHdPf", balid.toString()
+            assert.equal tx1_balance_id, balid.toString()
         check_balance_id()
         
         if rpc_on
@@ -95,13 +97,13 @@ describe "Transfer", ->
         sender_private = wallet.getActiveKeyPrivate "delegate1"
         receiver_public = wallet.getActiveKey "delegate0"
         
-        child_account_index = 10002
+        child_account_index = 10001
         enc_memo_hex = "e387a340b7e4d0b81d7d50c9a00a7eaa7750dce8f91650a69a7a46008e7b70ec209f9ec136ffedec476bc0227b4ecac4df0c78c7530bf83205194a67e020e9d3"
         
         amount = 1 * (100000)
         
         # balance_id from initial Send (above)
-        balance_id = Address.fromString("XTS7iavfWWphLEJpACiJaiwXDFiRSw1M81Bw")
+        balance_id = Address.fromString(tx1_balance_id)
         
         signed_transaction = titan_trx(sender_private, receiver_public, amount, balance_id)
         signed_transaction.toJson(trx_signed = {})
@@ -116,7 +118,7 @@ describe "Transfer", ->
 titan_trx = (sender_private, receiver_public, amount, balance_id) ->
     fee = .5 * (100000)
     otk_private = ExtendedAddress.private_key sender_private, child_account_index
-    console.log 'one_time_private_key',otk_private.toHex()
+    
     owner = ExtendedAddress.derivePublic_outbound otk_private, receiver_public
     
     #console.log 'secret_ext_public_key\t',owner.toHex()
@@ -124,29 +126,18 @@ titan_trx = (sender_private, receiver_public, amount, balance_id) ->
     
     one_time_key = otk_private.toPublicKey()
     console.log 'one_time_key',one_time_key.toBtsPublic()
+    console.log 'one_time_private_key',otk_private.toHex()
     
-    #S_sender = ExtendedAddress._deriveS_PublicKey sender_private, one_time_key
+    #S_sender = 
+    ExtendedAddress.deriveS_PublicKey sender_private, one_time_key
     #console.log 'owner2\t',Address.fromBuffer(S_sender.toBuffer()).toString()
     
     #aes = Aes.fromSha512((hash.sha512 otk_private.sharedSecret receiver_public.toUncompressed()).toString('hex'))
     #encrypted_memo_data = aes.encrypt(new Buffer(''))
 
-    ###
-    wc_out =
-        asset_id: 0
-        delegate_slate_id: 0
-        type: 'withdraw_signature_type'
-        data:
-            owner: owner
-            memo:
-                one_time_key: one_time_key.toBtsPublic()
-                encrypted_memo_data: new Buffer("")
-    
-    wc = WithdrawCondition.fromJson wc_out
-    ###
+    # enc_memo_hex="" worked too
     enc_memo = new Buffer(enc_memo_hex, 'hex')
 
-    
     exp = new Date()
     exp.setSeconds(exp.getSeconds() + (60 * 60 * 24))
     
