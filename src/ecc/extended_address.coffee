@@ -51,6 +51,24 @@ class ExtendedAddress
             throw 'Unable to produce a valid key' # very rare
         
         PrivateKey.fromBuffer ki.toBuffer(32)
+        
+    ExtendedAddress.private_key_child= ( private_key, public_key ) ->
+        secret = hash.sha512 private_key.sharedSecret public_key.toUncompressed()
+        PAD = new Buffer("0000000000000000000000000000000000000000000000000000000000000000", 'hex')
+        I = hash.sha512 Buffer.concat [
+            private_key.toPublicKey().toBuffer()
+            hash.sha256 secret
+            chain_code = _private.PAD
+        ]
+        
+        IL = I.slice 0, 32 # left
+        pIL = BigInteger.fromBuffer(IL)
+        ki = pIL.add(private_key.d).mod(curve.n) 
+        if pIL.compareTo(curve.n) >= 0 or ki.signum() is 0
+            throw 'Unable to produce a valid private child key'
+        
+        PrivateKey.fromBuffer ki.toBuffer(32)
+        
     
     # TODO, why is this different from deriveS_PublicKey?
     ExtendedAddress.derivePublic_outbound = (private_key, one_time_key) ->

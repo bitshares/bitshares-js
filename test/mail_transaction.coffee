@@ -129,6 +129,15 @@ tx_notification = (msg) ->
             actual_otc = one_time_key.toBtsPublic()
             assert.equal expected_otc, actual_otc
             
+        it "Derive secret private", ->
+            # transfer 1 XTS delegate0 delegate1
+            otk = PublicKey.fromBtsPublic "XTS8PfBnsM5UnqJ4MyqqEps39CMxJffJn9pSH47jve4ZG7oQ2LeVy"
+            delegate14 = "f9178b3b9587d588ae3845acbd92be127cd706dbaeba8d0f5f55bdc07d9d8db9"
+            private_key = PrivateKey.fromHex delegate14
+            p=PrivateKey.fromHex("ce1cca0d85407ca2c0133a2ff979d3b7bb681f13770917d912a43aa587e46f47")
+            pk = ExtendedAddress.private_key_child private_key, otk
+            assert.equal p.toHex(), pk.toHex()
+            
             
 tx_notification
     # transfer 1 XTS delegate0 delegate1 "my memo" vote_random

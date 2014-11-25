@@ -65,14 +65,8 @@ class PrivateKey
         ecies.KB = ot_pubkey
         ecies.r = @toBuffer()
         S = ecies.getSfromPubkey()
-    
-    
-    #this could be a man-in-the-middle... verify sender instead
-    #PrivateKey.fromSharedSecret_ecies = (S) ->
-    #    _hash = hash.sha512 S
-    #    PrivateKey.fromBuffer S.slice 0, 32
 
-    ### <HEX> ###
+    ### <helper_functions> ###
     
     PrivateKey.fromHex = (hex) ->
         PrivateKey.fromBuffer new Buffer hex, 'hex'
@@ -80,6 +74,6 @@ class PrivateKey
     toHex: ->
         @toBuffer().toString 'hex'
         
-    ### </HEX> ###
+    ### </helper_functions> ###
 
 exports.PrivateKey = PrivateKey

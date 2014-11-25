@@ -25,7 +25,7 @@ function init {
   then
     if [ -z "$GDB" ]
     then
-        sleep 3
+        sleep 10
     else
         sleep 10
     fi
@@ -34,7 +34,7 @@ function init {
     rpc open '"default"' > /dev/null 2>&1
     rpc unlock '99999, "Password00"' > /dev/null 2>&1
   else
-    sleep 3
+    sleep 10
     echo "Creating default wallet..."
     rpc wallet_backup_restore '"'$BTS_JS'/testnet/config/wallet.json", "default", "Password00"'
   fi
