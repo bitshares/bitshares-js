@@ -42,7 +42,7 @@ wallet = Wallet.fromObject wallet_object
 wallet.unlock(Aes.fromSecret('Password00'))
 
 # Remove when this is a real ua test
-rpc_on = off
+rpc_on = on
 
 # Remove when this is a real ua test
 # to get comparable keys and data, match these with data from the  
@@ -50,6 +50,7 @@ rpc_on = off
 child_account_index = 1
 enc_memo_hex = ""
 tx1_balance_id = "XTS5bJNzfPVQxEahXp28H85hnL9GvdbiHdPf"
+trx1_one_time_key = ""
 #also, set enc_memo_hex in both tests
 
 describe "Transfer", ->
@@ -74,15 +75,16 @@ describe "Transfer", ->
         
         amount = 2 * (100000)
         signed_transaction = titan_trx(sender_private, sender_private, receiver_public, amount, balance_id)
+        
         signed_transaction.toJson(trx_signed = {})
         console.log JSON.stringify trx_signed, undefined, 4
-        
         # only needed to spend later, but this is a good place to check it
         check_balance_id = ->
             # new spendable input, from the transaction
             deposit = signed_transaction.transaction.operations[0].operation
-            wc = deposit.withdraw_condition
-            balid = Address.fromBuffer(wc.toBuffer())
+            withdraw_condition = deposit.withdraw_condition
+            trx1_one_time_key = withdraw_condition.condition.one_time_key
+            balid = Address.fromBuffer(withdraw_condition.toBuffer())
             assert.equal tx1_balance_id, balid.toString()
         check_balance_id()
         
@@ -105,9 +107,8 @@ describe "Transfer", ->
         # balance_id from initial Send (above)
         balance_id = Address.fromString(tx1_balance_id)
         
-        owner_private = 
-        
-        signed_transaction = titan_trx2(sender_private, owner_private, receiver_public, amount, balance_id)
+        owner_private = ExtendedAddress.private_key_child sender_private, trx1_one_time_key
+        signed_transaction = titan_trx(sender_private, owner_private, receiver_public, amount, balance_id)
         signed_transaction.toJson(trx_signed = {})
         console.log JSON.stringify trx_signed, undefined, 4
         
@@ -116,39 +117,6 @@ describe "Transfer", ->
                 done()
         else
             done()
-   
-titan_trx2 = (private_key, public_key, amount, balance_id) ->
-    ###
-    to_public_key = public_key
-    
-    console.log 'child_account_index',child_account_index
-    one_time_private_key = ExtendedAddress.private_key private_key, child_account_index
-    #titan_one_time_key = otk_private.toPublicKey() 
-    
-    secret = one_time_private_key.sharedSecret to_public_key.toUncompressed()
-    
-    
-    secret_ext_public_key ExtendedAddress.child to_public_key, hash.sha256 secret
-    
-    ext_to_public_key = extended_public_key( to_public_key );
-    secret_ext_public_key = ext_to_public_key.child( fc::sha256::hash( secret ) );
-    secret_public_key = secret_ext_public_key.get_pub_key();
-    owner = address( secret_public_key );
-    ###
-    
-    fee = .5 * (100000)
-    otk_private = ExtendedAddress.private_key private_key, child_account_index
-    secret_private_key = ExtendedAddress.private_key_child otk_private, public_key
-    console.log 'secret_private_key',secret_private_key.toHex()
-    
-    
-    
-    owner = ExtendedAddress.derivePublic_outbound otk_private, public_key
-    
-    #console.log 'secret_ext_public_key\t',owner.toHex()
-    console.log 'owner\t',Address.fromBuffer(owner.toBuffer()).toString()
-    
-    
 
 titan_trx = (sender_private, owner_private, receiver_public, amount, balance_id) ->
     fee = .5 * (100000)
