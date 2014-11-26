@@ -24,17 +24,17 @@ hexdump _msg -C
 ###
 
 EMailParse = ->
-    data="077375626a656374c50231323334353637383930313233343536373839303132333435363738393031323334353637383930313233343536373839300a31323334353637383930313233343536373839303132333435363738393031323334353637383930313233343536373839300a31323334353637383930313233343536373839303132333435363738393031323334353637383930313233343536373839300a31323334353637383930313233343536373839303132333435363738393031323334353637383930313233343536373839300a31323334353637383930313233343536373839303132333435363738393031323334353637383930313233343536373839300a31323334353637383930313233343536373839303132333435363738393031323334353637383930313233343536373839300a656e64206f66207472616e736d697373696f6e0000000000000000000000000000000000000000001fef84ce41ed1ef17d7541845d0e5ef506f2a94c651c836e53dde7621fda8897890f0251e1f6dbc0e713b41f13e73c2cf031aea2e888fe54f3bd656d727a83fddb"
+    data="024849034279650000000000000000000000000000000000000000001f440e41ea0258ae33603bf099524cfa10de2fe938286131e545d95ffcc07567ab5f023a19128c3bff9525a0bb2788720bc518fe6cb77cf8b663b08b129b7c3dc0"
     mm=EMail.fromHex data
-    ###
+    ##
     process.stdout.write "Original:\t"
     ByteBuffer.fromHex(data).printDebug()
     console.log "subject\t\t", mm.subject
     console.log "body\t\t",mm.body
-    console.log "reply_to\t", mm.reply_to.toHex()
+    console.log "reply_to\t", mm.reply_to.toString 'hex'
     console.log "attachments (#{mm.attachments.length})\t",mm.attachments
-    console.log "signature\t", mm.signature.toHex()
-    ###
+    console.log "signature\t", mm.signature.toString 'hex'
+    ####
     if data isnt mm.toHex(true)
         process.stdout.write "\nRe-created:\t"
         mm.toByteBuffer(true).printDebug()
@@ -61,7 +61,7 @@ SignVerify = ->
     signature = ecdsa.sign(secp256k1, hash, d)
     throw "does not verify" unless ecdsa.verify(secp256k1, hash, signature, Q)
     throw "should not verify" if ecdsa.verify(secp256k1, crypto.sha256("def"), signature, Q)
-SignVerify()
+#SignVerify()
 
 CryptoJS = require("crypto-js")
 """
@@ -236,10 +236,7 @@ onetimekey = ->
         plaintext = b.toHex()
         show_mail plaintext, 'elliptic.js'###
     #elliptic()
-    
-    
-
-onetimekey()
+#onetimekey()
 
 ###
 

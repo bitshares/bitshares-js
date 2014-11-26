@@ -92,8 +92,14 @@ class MailTest
         blockchain_get_account delegate0
         blockchain_get_account delegate1
         
-        transfer 1 XTS delegate0 delegate1 "my memo" vote_random
+        # All accounts default to init0 as there mail server
+        wallet_account_register init0 delegate0 {"mail_server_endpoint":"127.0.0.1:45000"}
+        
+        transfer 1 XTS delegate0 delegate1 "my memo" vote_random # mail transaction notice
         mail_send delegate0 delegate1 subject body
+        
+        mail_check_new_messages
+        mail_inbox
         ###
         
         # Setup for this>>> mail_send delegate0 delegate1 subject body
