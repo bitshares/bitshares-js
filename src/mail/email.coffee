@@ -1,8 +1,6 @@
 assert = require 'assert'
 ByteBuffer = require 'bytebuffer'
-
-Ecc = require '../ecc'
-Signature = Ecc.Signature
+{Signature} = require '../ecc/signature'
 
 class Email
 

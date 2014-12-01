@@ -89,14 +89,22 @@ class MailTest
         
         # wallet_account_update_registration ....
         
+        enable mail server in config.json
+        
         blockchain_get_account delegate0
         blockchain_get_account delegate1
         
         # All accounts default to init0 as there mail server
+        wallet_account_create init0
         wallet_account_register init0 delegate0 {"mail_server_endpoint":"127.0.0.1:45000"}
-        
+        blockchain_get_account init0
+
         transfer 1 XTS delegate0 delegate1 "my memo" vote_random # mail transaction notice
         mail_send delegate0 delegate1 subject body
+        
+        #retry if needed
+        mail_get_processing_messages
+        mail_retry_send 09af...
         
         mail_check_new_messages
         mail_inbox

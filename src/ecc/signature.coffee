@@ -8,9 +8,7 @@ class Signature
     #ECSignature = require "./ecsignature"
     assert = require 'assert'
     BigInteger = require 'bigi'
-    
-    Ecc = require './key_public'
-    PublicKey = Ecc.PublicKey
+    {PublicKey} = require './key_public'
 
     constructor: (@r, @s, @i) ->
         assert.equal @r isnt null, true, 'Missing parameter'

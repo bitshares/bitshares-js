@@ -5,7 +5,7 @@ wallet = require '../src/wallet'
 Wallet = wallet.Wallet
 
 describe "Wallet", ->
-    it "Serilizes unchanged", ->
+    it "Serializes unchanged", ->
         wallet = Wallet.fromObject wallet_object
         wallet_json = wallet.toJson(0)
         assert.equal JSON.stringify(wallet_object, undefined, 0), wallet_json

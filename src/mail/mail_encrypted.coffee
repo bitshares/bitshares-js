@@ -1,8 +1,5 @@
 assert = require 'assert'
-
-Ecc = require '../ecc'
-PublicKey = Ecc.PublicKey
-
+{PublicKey} = require '../ecc/key_public'
 ByteBuffer = require 'bytebuffer'
 
 class EncryptedMail

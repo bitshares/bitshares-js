@@ -1,8 +1,7 @@
 assert = require 'assert'
 ByteBuffer = require 'bytebuffer'
 {fp} = require '../common/fast_parser'
-blockchain = require '../blockchain'
-SignedTransaction = blockchain.SignedTransaction
+{SignedTransaction} = require '../blockchain/signed_transaction'
 
 ###
 bts::mail::transaction_notice_message, (trx)(extended_memo)(memo_signature)(one_time_key)

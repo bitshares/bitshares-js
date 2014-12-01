@@ -6,10 +6,10 @@ Signature = Ecc.Signature
 PrivateKey = Ecc.PrivateKey
 PublicKey = Ecc.PublicKey
 
-_Mail = require '../src/mail'
-Mail = _Mail.Mail
-Email = _Mail.Email
-EncryptedMail = _Mail.EncryptedMail
+mail = require '../src/mail'
+Mail = mail.Mail
+Email = mail.Email
+EncryptedMail = mail.EncryptedMail
 
 ByteBuffer = require 'bytebuffer'
 hash = require '../src/ecc/hash'
@@ -25,12 +25,12 @@ debug readability and complete code coverage.
 
 encrypted_mail_test = (msg) ->
     describe "Encrypted Mail", ->
-        it "Parse and regenerate", ->
+        it "Parse and generate", ->
             encrypted_mail = EncryptedMail.fromHex msg.data
             assert.equal encrypted_mail.toHex(), msg.data
 
     describe "Mail", ->
-        it "Parse and regenerate", ->
+        it "Parse and generate", ->
             mail = Mail.fromHex msg.decrypted_mail
             assert.equal mail.toHex(), msg.decrypted_mail
             assert.equal "email", mail.type()
@@ -105,7 +105,7 @@ encrypted_mail_test
 
 email_test = (msg) ->
     describe "Email", ->
-        it "Parse and regenerate", ->
+        it "Parse and generate", ->
             Email email = Email.fromHex(msg.hex)
             assert.equal email.toHex(true), msg.hex
             
@@ -122,7 +122,7 @@ email_test = (msg) ->
             assert.equal email.attachments.length, 0, "attachments are not supported"
             assert.equal email.signature.toHex(), msg.signature_hex#, "signature"
 
-        it "Verifiy", ->
+        it "Verify", ->
             # remove the signature
             email_hex = Email.fromHex(msg.hex).toHex(include_signature=false)
             public_key = PrivateKey.fromHex(msg.private_key_sender_hex).toPublicKey()
