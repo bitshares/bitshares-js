@@ -3,7 +3,7 @@
 Pure JavaScript library for the BitShares platform. 
 
 ## Features ##
-
+```
   Crypto
     ✓ Decrypts master key 
 
@@ -41,7 +41,7 @@ Pure JavaScript library for the BitShares platform.
     ✓ Extended owner key
     ✓ Extended one-time-key
     ✓ Derive secret private key
-    
+```
 ## INSTALL ##
 
 `npm install`
