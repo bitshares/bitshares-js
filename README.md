@@ -1,10 +1,8 @@
-This repository provides code for JavaScript applications that work with the BitShares platform.  These applications may run anywhere modern JavaScript is well supported; this includes running as a browser plug-in, a mobile app, or desktop application.  
+# BitShares-JS #
 
-This is a library does not contain a Graphical User Interface.
+Pure JavaScript library for the BitShares platform. 
 
-This code is very new, so we can have some fun with it and make it great!  If it helps the BitShares community, I'll work with you on changes you need to re-use, understand, or imporove this code.
-
-The following unit tests (test/*) have passed when ran in a recent Chrome Browser.  Additional testing to provide detailed browser version compatability is planed.
+## Features ##
 
   Crypto
     ✓ Decrypts master key 
@@ -44,34 +42,40 @@ The following unit tests (test/*) have passed when ran in a recent Chrome Browse
     ✓ Extended one-time-key
     ✓ Derive secret private key
     
-## INSTALL
+## INSTALL ##
 
-npm install
-npm install -g coffee-script
+`npm install`
+`npm install -g coffee-script`
 
-## TEST
+## NODEJS TEST ##
 
-npm test
+`npm test`
 
-## BROWSER TESTS (Mac, Linux or Cygwin needed for packaging)
+## BROWSER TESTS ##
+(Mac, Linux or Cygwin needed for packaging)
 
-npm run-script deploy-test
+`npm run-script deploy-test`
 
 Open: test/index.html
 
-## DEPLOY (Mac, Linux or Cygwin needed for packaging)
+## DEPLOY ##
+(Mac, Linux or Cygwin needed for packaging)
 
-npm run-script deploy
+`npm run-script deploy`
 
-## DEVELOP
+## DEVELOP ##
 
-coffee -w scratchpad/*.coffee
+`coffee -w scratchpad/*.coffee`
 
-ENVIRONMENT (./scratchpad)
+## ENVIRONMENT ##
 
+Programs in (`./scratchpad`) may rely on these:
+
+```
 export BTS_JS=~/bitshares/BitShares-JS
 export BTS_WEB=~/bitshares/web_wallet
 export BTS_BUILD=~/bitshares/master
 #export BTS_BUILD=~/bitshares/develop
 #export BTS_BUILD=~/bitshares/toolkit
 ...
+```
