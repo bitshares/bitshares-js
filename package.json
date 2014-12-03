@@ -13,8 +13,8 @@
   "scripts": {
     "test": "./node_modules/.bin/mocha --compilers coffee:coffee-script --require coffee-script/register",
     "deploy-test": "browserify test/*.coffee --debug --transform coffeeify --extension=.coffee >bitshares-mocha.js",
-    "deploy-private": "browserify src/deploy_private_api.coffee -s bts --transform coffeeify --extension=.coffee >$BTS_WEB/vendor/js/bts.js",
-    "deploy-public": "browserify src/deploy_public_api.coffee -s bts --debug --transform coffeeify --extension=.coffee >bitshares-debug.js"
+    "deploy-private-api": "browserify src/deploy_private_api.coffee -s bts --transform coffeeify --extension=.coffee >bts.js",
+    "deploy": "browserify src/deploy_public_api.coffee -s bts --debug --transform coffeeify --extension=.coffee >bitshares-debug.js"
   },
   "devDependencies": {
     "mocha": "1.21.5",
