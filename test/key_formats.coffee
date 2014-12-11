@@ -48,6 +48,7 @@ test = (key) ->
             
 test
     # delegate0
+    # sourced from: ./bitshares/programs/utils/bts_create_key
     public_key: "XTS7jDPoMwyjVH5obFmqzFNp4Ffp7G2nvC7FKFkrMBpo7Sy4uq5Mj" 
     private_key: "20991828d456b389d0768ed7fb69bf26b9bb87208dd699ef49f10481c20d3e18"
     private_key_WIF_format: "5J4eFhjREJA7hKG6KcvHofHMXyGQZCDpQE463PAaKo9xXY6UDPq"
