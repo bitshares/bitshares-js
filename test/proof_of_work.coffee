@@ -21,13 +21,9 @@ describe "Proof-of-Work", ->
         data = new Email("Subject", "Body").toBuffer(include_signature = false)
         mail = new Mail(type_id, recipient, nonce, time, data)
         id = BigInteger.fromBuffer mail.id()
-        @.timeout(10 * 1000)
-        start = new Date()
+        #@.timeout(10 * 1000) if @.timeout #mocha only
         # until id starts with at least 3 hex zeros
         until id.shiftRight((pow_length - target)*4).equals BigInteger.ZERO
             ++mail.nonce
             id = BigInteger.fromBuffer mail.id()
         #console.log '\tnonce',mail.nonce,'id',id.toHex(),id.toHex().length
-        stop = new Date()
-        # jasmin web did not have a benchmark feature
-        console.log '\tFind passing hash',Math.round( ((stop-start)/1000)*1000 )/1000 + " sec"
