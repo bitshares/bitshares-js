@@ -3,10 +3,14 @@ assert = require 'assert'
 {Email} = require './email'
 {PublicKey} = require '../ecc/key_public'
 ByteBuffer = require 'bytebuffer'
+hash = require '../ecc/hash'
 
 class Mail
 
     constructor: (@type_id, @recipient, @nonce, @time, @data) ->
+        
+    id: () ->
+        hash.ripemd160 @toBuffer()
 
     type: ->
         type[@type_id]
@@ -36,7 +40,8 @@ class Mail
     toByteBuffer: () ->
         b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
         b.writeUint16 @type_id
-        assert.equal 20, @recipient.length
+        unless @recipient.length is 20
+            throw "Invalid recipient, expecting 20 byte blockchain address"
         b.append @recipient.toString('binary'), 'binary'
         b.writeUint64 @nonce
         b.writeInt32 Math.ceil @time.getTime() / 1000
@@ -48,7 +53,7 @@ class Mail
         assert.equal @type(), 'email'
         Email.fromBuffer @data
 
-    ### <HEX> ###
+    ### <conversion_functions> ###
     
     Mail.fromHex= (hex) ->
         b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
@@ -58,6 +63,13 @@ class Mail
         b=@toByteBuffer()
         b.toHex()
         
-    ### </HEX> ###
+    Mail.fromBuffer= (buffer) ->
+        b = ByteBuffer.fromBinary buffer.toString('binary'), ByteBuffer.LITTLE_ENDIAN
+        return Mail.fromByteBuffer(b)
+        
+    toBuffer: ->
+        new Buffer(@toByteBuffer().toBinary(), 'binary')
+    
+    ### </conversion_functions> ###
     
 exports.Mail = Mail

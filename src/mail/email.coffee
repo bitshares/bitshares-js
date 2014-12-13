@@ -4,11 +4,14 @@ ByteBuffer = require 'bytebuffer'
 
 class Email
 
-    constructor: (@subject, @body, @reply_to, @attachments, @signature) ->
-        assert @subject isnt null, "subject is required"
-        assert @body isnt null, "body is required"
-        @reply_to = new Buffer("0000000000000000000000000000000000000000", 'hex').toString('binary') unless @reply_to
-        @attachments = [] unless @attachments
+    constructor: (
+        @subject, @body
+        @reply_to = new Buffer("0000000000000000000000000000000000000000", 'hex').toString('binary')
+        @attachments = []
+        @signature
+    ) ->
+        throw "subject is required" unless @subject
+        #throw "body is required" unless @body TODO failing
 
     Email.fromBuffer = (buf) ->
         b = ByteBuffer.fromBinary buf.toString('binary'), ByteBuffer.LITTLE_ENDIAN
@@ -45,8 +48,9 @@ class Email
         b.append @reply_to.toString('binary'), 'binary'
         b.writeVarint32 @attachments.length
         throw "Message with attachments has not been implemented" unless @attachments.length is 0
-        
-        b.append @signature.toBuffer().toString('binary'), 'binary' if include_signature
+        if include_signature
+            throw "Missing signature" unless @signature
+            b.append @signature.toBuffer().toString('binary'), 'binary' 
         return b.copy 0, b.offset
 
     ### <HEX> ###
