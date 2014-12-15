@@ -30,15 +30,13 @@ encrypted_mail_test = (msg) ->
             assert.equal encrypted_mail.toHex(), msg.data
 
     describe "Mail", ->
-        it "Parse and generate", ->
+        it "Parse and generate (binary)", ->
             mail = Mail.fromHex msg.decrypted_mail
             assert.equal mail.toHex(), msg.decrypted_mail
             assert.equal "email", mail.type()
-            # TODO, what format is this in?
             assert.equal msg.msg_recepient, mail.recipient.toString('hex')
             assert.equal 0, mail.nonce.low
             assert.equal 1414509511000, mail.time.getTime()
-            # parses data:
             email = mail.toEmail()
             assert.equal "Subject", email.subject
 
@@ -105,7 +103,7 @@ encrypted_mail_test
 
 email_test = (msg) ->
     describe "Email", ->
-        it "Parse and generate", ->
+        it "Parse and generate (binary)", ->
             Email email = Email.fromHex(msg.hex)
             assert.equal email.toHex(true), msg.hex
             

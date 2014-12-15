@@ -8,39 +8,46 @@ Pure JavaScript library for the BitShares platform.
     ✓ Decrypts master key 
 
   Key Convert
-    ✓ Create BTS short address
+    ✓ Create BTS short address (64ms)
     ✓ Blockchain Address 
     ✓ BTS public key import / export 
-    ✓ PTS 
+    ✓ PTS (39ms)
     ✓ To WIF 
     ✓ From WIF 
-    ✓ Calc public key
+    ✓ Calc public key (44ms)
     ✓ Decrypt private key 
 
   Encrypted Mail
     ✓ Parse and generate 
 
   Mail
-    ✓ Parse and generate 
-    ✓ Matching one_time_key
+    ✓ Parse and generate (binary) 
+    ✓ Matching one_time_key 
     ✓ Decrypt using shared secret 
     ✓ Encrypt using shared secret 
 
   Email
-    ✓ Parse and generate 
+    ✓ Parse and generate (binary) 
     ✓ Check each field 
-    ✓ Verify
-    ✓ Sign & Verify
+    ✓ Verify (78ms)
+    ✓ Sign & Verify (464ms)
 
   Transactions
     ✓ Decrypt 
     ✓ Parses transaction_notice_message 
     ✓ Regenerates transaction_notice_message 
-    ✓ Verify transaction signatures
-    ✓ Verify memo signature
-    ✓ Extended owner key
-    ✓ Extended one-time-key
-    ✓ Derive secret private key
+    ✓ Verify transaction signatures (50ms)
+    ✓ Verify memo signature (51ms)
+    ✓ Extended owner key (72ms)
+    ✓ Extended one-time-key 
+    ✓ Derive secret private (39ms)
+
+  Proof-of-Work
+    ✓ Find passing hash (43ms)
+
+  Wallet
+    ✓ Serializes unchanged 
+
 ```
 ## INSTALL ##
 

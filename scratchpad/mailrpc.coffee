@@ -243,8 +243,8 @@ Test = =>
 
     m=new MailTest(@rpc, @rpc_common)
     #m.send()
-    m.configure_mail_servers()
-    #m.mail_store_message()
+    #m.configure_mail_servers()
+    m.mail_store_message()
     #m.mail_store_message msg
     
     #m.processing_cancel_all()

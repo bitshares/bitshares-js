@@ -1,13 +1,22 @@
-assert = require("assert")
-
 wallet_object = require './fixtures/wallet.json'
-wallet = require '../src/wallet'
-Wallet = wallet.Wallet
+{WalletAPI} = require '../src/client/wallet_api'
+{WalletDb} = require '../src/wallet/wallet_db'
 
-describe "Wallet", ->
-    it "Serializes unchanged", ->
-        wallet = Wallet.fromObject wallet_object
-        wallet_json = wallet.toJson(0)
-        assert.equal JSON.stringify(wallet_object, undefined, 0), wallet_json
-        
-        
+describe "Wallet API", ->
+    ###
+    rpc_on: ->
+        @rpc=new Rpc(debug=on, process.env.RPC_PORT, "localhost", "test", "test")
+    
+    rpc_off: ->
+        @rpc.close()
+    ###
+    
+    it "backup_restore_object", (done) ->
+        wallet_api = new WalletAPI()
+        WalletDb.delete "default" # prior run failed
+        wallet_api.backup_restore_object(wallet_object, "default",#).then(
+            (wallet_db)->
+                throw 'missing wallet_db' unless wallet_db
+                WalletDb.delete wallet_db.wallet_name
+                done()
+        )#.done()

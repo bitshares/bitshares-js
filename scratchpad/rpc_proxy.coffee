@@ -46,4 +46,8 @@ class RpcProxy
         local_server.listen @local_port
         #remote_connection.on 'connect', () =>
 
-new RpcProxy 45000, 33000
+new RpcProxy(
+    process.env.RPC_PORT_LOCAL
+    process.env.RPC_PORT_REMOTE
+    process.env.RPC_HOST_REMOTE
+)

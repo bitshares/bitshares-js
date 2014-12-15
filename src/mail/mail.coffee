@@ -53,8 +53,15 @@ class Mail
         assert.equal @type(), 'email'
         Email.fromBuffer @data
 
-    ### <conversion_functions> ###
-    
+    ### <helper_functions> ###
+    ###
+    toJson: (o) ->
+        o['type'] = @type()
+        o['recipient'] = @recipient
+        o['nonce'] = @nonce
+        o['timestamp'] = new Date(@time * 1000).toISOString()
+        o['data'] = @data
+    ###
     Mail.fromHex= (hex) ->
         b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
         return Mail.fromByteBuffer b
@@ -70,6 +77,6 @@ class Mail
     toBuffer: ->
         new Buffer(@toByteBuffer().toBinary(), 'binary')
     
-    ### </conversion_functions> ###
+    ### </helper_functions> ###
     
 exports.Mail = Mail
