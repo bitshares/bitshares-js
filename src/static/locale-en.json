@@ -2,7 +2,10 @@
     "wallet": {
         "not_found": "Wallet {{v1}} not found",
         "invalid_format": "Invalid wallet format {{v1}}",
+        "invalid_password": "Invalid password",
         "already_exists": "Wallet {{v1}} already exists,
-        "save_error": "Error saving wallet {{v1}}: {{v2}}"
+        "save_error": "Error saving wallet {{v1}}: {{v2}}",
+        "must_be_opened": "Wallet must be opened first",
+        "missing_local_storage": "Missing local storage"
     }
 }

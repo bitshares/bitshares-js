@@ -1,3 +1,5 @@
+hash = require '../ecc/hash'
+LE = require('../common/exceptions').LocalizedException
 
 class WalletDb
     
@@ -8,14 +10,17 @@ class WalletDb
             
     constructor: (@wallet_object, @wallet_name = "default") ->
         throw "Wallet object is required" unless @wallet_object # programmer error
-        throw {
-            key:"wallet.invalid_format"
-            v1:@wallet_name
-        } unless @wallet_object?.length > 0
-        throw {
-            key:"wallet.invalid_format"
-            v1:@wallet_name
-        } unless localStorage
+        invalid = -> LE.throw "wallet.invalid_format", [@wallet_name]
+        invalid() unless @wallet_object?.length > 0
+        throwLE "wallet.missing_local_storage" unless localStorage
+        for entry in @wallet_object
+            data = entry.data
+            switch entry.type
+                when "master_key_record_type"
+                    @master_key_encrypted = data.encrypted_key
+                    @master_pw_checksum = data.checksum
+                    break
+        invalid() unless @master_key_encrypted
     
     ###* @return {WalletDb} or null ###
     WalletDb.open = (wallet_name = "default") ->
@@ -43,8 +48,13 @@ class WalletDb
                 when "key_record_type"
                     return data if data.public_key is bts_address
         return
-                       
     
+    ###* @throws {key:'wallet.invalid_password'} ###
+    validate_password: (password)->
+        checksum = hash.sha512 password
+        checksum = hash.sha512 checksum
+        LE.throw 'wallet.invalid_password' unless @master_pw_checksum is checksum.toString 'hex'
+    ###
     _find: ->
         
         @account={} # [ string account name ] = object account_record_type
@@ -77,5 +87,5 @@ class WalletDb
                     public_key = data.public_key
                     
         throw "Invalid wallet format" unless @master_key_encrypted
-
+    ###
 exports.WalletDb = WalletDb

@@ -1,54 +1,77 @@
 $q = require 'q'
-
 {Wallet} = require '../wallet/wallet'
 {WalletDb} = require '../wallet/wallet_db'
+{Aes} = require '../ecc/aes'
+LE = require('../common/exceptions').LocalizedException
 
 class WalletAPI
     
-    constructor: (@rpc = null) ->
-        
-    open:(wallet_name = "default",resolve,reject)-> #)-> $q
-        @wallet_db = WalletDb.open wallet_name
-        unless @wallet_db
-            reject { key:'wallet.not_found', v1:wallet_name}
+    constructor: (@wallet, @rpc = null) ->
+        @wallet_db = @wallet.wallet_db
+    
+    ###* open from persistent storage ###
+    open:(wallet_name = "default")->
+        defer = $q.defer()
+        wallet_db = WalletDb.open wallet_name
+        unless wallet_db
+            defer.reject new LE 'wallet.not_found', [wallet_name]
         else
-            resolve @wallet_db
-        return
+            @wallet_db = wallet_db
+            @wallet = Wallet.fromWalletDb wallet_db
+            defer.resolve @wallet
+        defer.promise
+    
+    close:()-> $q (resolve,reject)->
+        defer = $q.defer()
+        delete @wallet_db
+        delete @wallet
+        defer.resolve()
+        defer.promise
         
+    validate_password: (password)->
+        defer = $q.defer()
+        unless @wallet_db
+            defer.reject new LE "wallet.must_be_opened"
+            return defer.promise
+        
+        try
+            @wallet_db.validate_password password
+            defer.resolve()
+        catch error
+            defer.reject(error)
+        
+        defer.promise
+        
+    
+    unlock:(timeout_seconds = 1700, password)->
+        defer = $q.defer()
+        timeout ()=>
+            @lock()
+            defer.resolve()
+        ,
+            timeout_seconds * 1000
+        @wallet.verify_password password
+        defer.promise
 
     ###* 
         @return {promise}
         
         Save a new wallet and resovles with a WalletDb object.  Resolves as an error 
-        if wallet exists or is unable to save in local storage.
-    ###
-    backup_restore_object:(wallet_object, wallet_name,resolve,reject)-> #)-> $q (resolve,reject)->
+            if wallet exists or is unable to save in local                                     storage.
+    ###            
+    backup_restore_object:(wallet_object, wallet_name)->
+        defer = $q.defer()
         if WalletDb.open wallet_name
-            reject { key:'wallet.already_exists', v1: wallet_name }
-        else
-            try
-                wallet_db = new WalletDb wallet_object, wallet_name
-                wallet_db.save()
-                resolve wallet_db
-            catch error
-                reject { key:'wallet.save_error', v1: wallet_name, v2: error }
-        return
-
+            defer.reject new LE 'wallet.already_exists', [wallet_name]
+            return defer.promise
+        try
+            wallet_db = new WalletDb wallet_object, wallet_name
+            wallet_db.save()
+            defer.resolve wallet_db
+        catch error
+            le = new LE 'wallet.save_error', [wallet_name, error], error
+            defer.reject le
+            throw le
+        defer.promise
     
-    # work-around
-    # http://stackoverflow.com/questions/27490089/creating-own-angularjs-q-promise
-    ###
-    _$q: (resolve,reject) ->
-        _this=@
-        then: (result, error)->
-            _this.result = result
-            _this.error = error
-            done: ->
-        reject: (obj)->
-            reject obj
-            return
-        resolve: (obj)->
-            resolve obj
-            return
-    ###
 exports.WalletAPI = WalletAPI

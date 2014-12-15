@@ -19,7 +19,10 @@ class BetterError extends Error
 ###* Localization separates values from the error message key ###
 class LocalizedException extends BetterError
 
-    constructor: (@key, @param_array, cause) ->
+    constructor: (@key, @param_array=[], cause) ->
         super(@key, cause)
+        
+    LocalizedException.throw = (key, key_params, cause)->
+        throw new LocalizedException(key, key_params, cause)
         
 exports.LocalizedException = LocalizedException

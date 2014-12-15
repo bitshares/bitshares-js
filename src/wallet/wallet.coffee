@@ -1,9 +1,9 @@
-assert = require 'assert'
 aes = require '../ecc/aes'
 hash = require '../ecc/hash'
 
 {PrivateKey} = require '../ecc/key_private'
 {PublicKey} = require '../ecc/key_public'
+LE = require('../common/exceptions').LocalizedException
 
 ###* Public ###
 class Wallet
@@ -11,13 +11,14 @@ class Wallet
     constructor: (@wallet_db) ->
 
     Wallet.fromWalletDb = (wallet_db) ->
-        new Wallet(wallet_db)
+        new Wallet wallet_db
         
     toJson: (indent_spaces=undefined) ->
         JSON.stringify(@wallet_db.wallet_object, undefined, indent_spaces)
         
     unlock: (aes) ->
         throw "Provide an ecc/aes object to unlock" unless aes
+        
         @wallet_db.aes_root = aes
         
     lock: ->
@@ -41,4 +42,4 @@ class Wallet
         Db.backup_restore_object json_object, wallet_name
 
     
-exports = Wallet
+exports.Wallet = Wallet
