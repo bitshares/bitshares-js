@@ -2,4 +2,4 @@
 # required by a private API client such as github.com/bitshares/web_wallet.
 module.exports =
     mail: 
-        Email: require("./mail/email").Email
+        Email: require("../mail/email").Email

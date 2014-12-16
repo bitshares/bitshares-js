@@ -13,14 +13,16 @@
   "scripts": {
     "test": "./node_modules/.bin/mocha --compilers coffee:coffee-script --require coffee-script/register",
     "deploy-test": "browserify test/*.coffee --debug --transform coffeeify --extension=.coffee >bitshares-mocha.js",
-    "deploy-private-api": "browserify src/deploy_private_api.coffee -s bts --transform coffeeify --extension=.coffee >bts.js",
-    "deploy": "browserify src/deploy_public_api.coffee -s bts --debug --transform coffeeify --extension=.coffee >bitshares-debug.js"
+    "deploy-private-api": "browserify src/deploy/private.coffee -s bts --transform coffeeify --extension=.coffee >bts.js",
+    "deploy": "browserify src/deploy/public.coffee -s bts --debug --transform coffeeify --extension=.coffee >bitshares-debug.js",
+    "web_wallet": "watchify src/deploy/web_wallet.coffee -s bts --transform coffeeify --extension=.coffee -o $BTS_WEB/vendor/js/bts.js -v"
   },
   "devDependencies": {
     "mocha": "1.21.5",
     "coffee-script": "~1.8.0",
     "browserify": "~6.1.0",
     "coffeeify": "~0.7.0",
-    "node-localstorage": "~0.3.4"
+    "node-localstorage": "~0.3.4",
+    "watchify": "~2.2.1"
   }
 }
