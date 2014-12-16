@@ -54,6 +54,7 @@ class WalletDb
         checksum = hash.sha512 password
         checksum = hash.sha512 checksum
         LE.throw 'wallet.invalid_password' unless @master_pw_checksum is checksum.toString 'hex'
+        
     ###
     _find: ->
         

@@ -1,9 +1,13 @@
 ###* Adds nested exceptions ###
-class BetterError extends Error
+class ErrorWithCause extends Error
 
-    constructor: (message, fileName, lineNumber, @cause) ->
-        super(message, fileName, lineNumber)
+    constructor: (message, @cause) ->
+        super(message)
         
+    ErrorWithCause.throw = (message, cause)->
+        throw new ErrorWithCause(message, cause)
+    
+    ###
     get_stack_trace: ->
         str = ""
         if @cause
@@ -14,10 +18,12 @@ class BetterError extends Error
                     str = @cause.stack
             str += "\n\n" unless str.length is 0
         
-        str += super.stack if super.stack
+        str += @stack if @stack
+        str
+    ###
     
 ###* Localization separates values from the error message key ###
-class LocalizedException extends BetterError
+class LocalizedException extends ErrorWithCause
 
     constructor: (@key, @param_array=[], cause) ->
         super(@key, cause)
@@ -26,3 +32,4 @@ class LocalizedException extends BetterError
         throw new LocalizedException(key, key_params, cause)
         
 exports.LocalizedException = LocalizedException
+exports.ErrorWithCause = ErrorWithCause

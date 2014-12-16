@@ -18,15 +18,18 @@ class WalletAPI
         else
             @wallet_db = wallet_db
             @wallet = Wallet.fromWalletDb wallet_db
-            defer.resolve @wallet
+        defer.resolve @wallet
         defer.promise
     
     close:()-> $q (resolve,reject)->
         defer = $q.defer()
-        delete @wallet_db
-        delete @wallet
+        @wallet_db = null
+        @wallet = null
         defer.resolve()
         defer.promise
+        
+    #get_info: ->
+    #    unlocked: @wallet.unlocked()
         
     validate_password: (password)->
         defer = $q.defer()
@@ -41,16 +44,20 @@ class WalletAPI
             defer.reject(error)
         
         defer.promise
-        
     
-    unlock:(timeout_seconds = 1700, password)->
+    unlock:(timeout_seconds, password)->
         defer = $q.defer()
-        timeout ()=>
-            @lock()
-            defer.resolve()
-        ,
-            timeout_seconds * 1000
-        @wallet.verify_password password
+        try
+            unlock_timeout_id = @wallet.unlock(timeout_seconds, password)
+            defer.resolve(unlock_timeout_id)
+        catch error
+            defer.reject(error)
+        defer.promise
+        
+    lock:->
+        defer = $q.defer()
+        @wallet.lock()
+        defer.resolve()
         defer.promise
 
     ###* 

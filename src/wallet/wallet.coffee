@@ -3,12 +3,15 @@ hash = require '../ecc/hash'
 
 {PrivateKey} = require '../ecc/key_private'
 {PublicKey} = require '../ecc/key_public'
+{Aes} = require '../ecc/aes'
 LE = require('../common/exceptions').LocalizedException
 
 ###* Public ###
 class Wallet
 
     constructor: (@wallet_db) ->
+        throw 'wallet_db is required' unless @wallet_db
+        throw 'wallet_db type is required' unless @wallet_db.wallet_object
 
     Wallet.fromWalletDb = (wallet_db) ->
         new Wallet wallet_db
@@ -16,16 +19,20 @@ class Wallet
     toJson: (indent_spaces=undefined) ->
         JSON.stringify(@wallet_db.wallet_object, undefined, indent_spaces)
         
-    unlock: (aes) ->
-        throw "Provide an ecc/aes object to unlock" unless aes
-        
-        @wallet_db.aes_root = aes
-        
+    unlock: (timeout_seconds = 1700, password)->
+        @wallet_db.validate_password password
+        @aes_root = Aes.fromSecret password
+        unlock_timeout_id = setTimeout ()=>
+            @lock()
+        ,
+            timeout_seconds * 1000
+        unlock_timeout_id
+    
     lock: ->
-        @wallet_db.aes_root = undefined
+        @aes_root = undefined
         
-    unlocked: ->
-        throw 'Wallet is locked' unless @wallet_db.aes_root
+    locked: ->
+        @aes_root is undefined
         
     getActiveKey: (account_name) ->
         active_key = @wallet_db.account_activeKey[account_name]
