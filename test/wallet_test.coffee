@@ -5,6 +5,8 @@
 wallet_object = require './fixtures/wallet.json'
 EC = require('../src/common/exceptions').ErrorWithCause
 
+secureRandom = require 'secure-random'
+
 describe "Wallet API", ->
     
     before ->
@@ -19,76 +21,79 @@ describe "Wallet API", ->
     
     it "backup_restore_object", (done) ->
         WalletDb.delete "default" # prior run failed
-        @wallet_api.backup_restore_object(wallet_object, "default").then(
-            (wallet_db)=>
-                unless wallet_db and wallet_db.wallet_name
-                    throw 'missing wallet_db'
-                
-                @wallet_api.backup_restore_object(wallet_object, "default").then(
-                    (result) ->
-                        throw 'allowed to restore over existing wallet'
-                    (error) ->
-                        unless error.key is 'wallet.already_exists'
-                            throw 'expecting error: wallet.already_exists' 
-                        WalletDb.delete wallet_db.wallet_name
-                        done()
-                ).done()
-        ).done()
+        wallet_db = @wallet_api.backup_restore_object(wallet_object, "default")
+        unless wallet_db and wallet_db.wallet_name
+            throw 'missing wallet_db'
+        try
+            @wallet_api.backup_restore_object(wallet_object, "default")
+            throw 'allowed to restore over existing wallet'
+        catch error
+            unless error.key is 'wallet.exists'
+                throw 'expecting error: wallet.exists' 
+            WalletDb.delete wallet_db.wallet_name
+            done()
+
     
-    it "save", () ->
+    it "save", ->
         @wallet_db.save()
-        throw "Could not open wallet after save" unless WalletDb.open "default"
+        unless WalletDb.open "default"
+            throw "Could not open wallet after save"
     
-    ## Why does "open" break the "lock" test?
     it "open", (done) ->
         @wallet_db.save()
-        @wallet_api.open("WalletNotFound").then(
-            (result)->
-                throw 'opened wallet that does not exists'
-            (error)=>
-                unless error.key is 'wallet.not_found'
-                    throw 'Expecting wallet.not_found'
-                @wallet_api.open("default").then(
-                    (result)->
-                        unless result.wallet_db.wallet_name is "default"
-                            throw "Expecting wallet named default"
-                        
-                        WalletDb.delete "default"
-                        done()
-                    (error)->
-                        EC.throw 'failed to open existing wallet', error
-                ).done()
-        ).done()
-    ####
+        try
+            @wallet_api.open("WalletNotFound")
+            throw 'opened wallet that does not exists'
+        catch error
+            unless error.key is 'wallet.not_found'
+                throw 'Expecting wallet.not_found'
+            try
+                @wallet_api.open("default")
+                unless @wallet_api.wallet_db.wallet_name is "default"
+                    throw "Expecting wallet named default"
+                
+                WalletDb.delete "default"
+                done()
+            catch
+                EC.throw 'failed to open existing wallet', error
+    
     it "validate_password", (done) ->
-        @wallet_api.validate_password("Wrong Password").then(
-            (result)->
-                throw "wrong password verified"
-            (error)=>
-                @wallet_api.validate_password(correct_password = "Password00").then(
-                    (result)->
-                        done()
-                    (error)->
-                        EC.throw "correct password did not verify", error
-                ).done()
-        ).done()
+        try
+            @wallet_api.validate_password("Wrong Password")
+            throw "wrong password verified"
+        catch error
+            unless error.key is 'wallet.invalid_password'
+                throw 'Expecting wallet.invalid_password'
+            try
+                @wallet_api.validate_password(correct_password = "Password00")
+                done()
+            catch error
+                EC.throw "correct password did not verify", error
         
     it "unlock", (done) ->
-        @wallet_api.unlock(2, "Wrong Password").then(
-            (result)->
-                throw 'allowed to unlock with wrong password'
-            (error)=>
-                @wallet_api.unlock(2, "Password00").then(
-                    (result)->
-                        done()
-                    (error)->
-                        EC.throw 'unable to unlock with the correct password', error
-                ).done()
-        ).done()
-            
-    it "lock", (done) ->
-        @wallet_api.lock().then(()=>
-            throw "Wallet should be locked" unless @wallet.locked()
-            done()
-        ).done()
+        try
+            @wallet_api.unlock(2, "Wrong Password")
+            throw 'allowed to unlock with wrong password'
+        catch error
+            unless error.key is 'wallet.invalid_password'
+                throw 'Expecting wallet.invalid_password'
+            try
+                @wallet_api.unlock(2, "Password00")
+                done()
+            catch error
+                EC.throw 'unable to unlock with the correct password', error
+    
+    it "lock", ->
+        @wallet_api.lock()
+        throw "Wallet should be locked" unless @wallet.locked()
+        throw "Locked wallet should not have an AES object" if @wallet.root_aes
         
+    it "create password", ->
+        entropy = secureRandom.randomUint8Array(1000)
+        Wallet.add_entropy new Buffer entropy
+        try
+            @wallet_api.create "default", "Password00"
+        finally
+            WalletDb.delete "default"
+        
+    

@@ -7,6 +7,7 @@ class Aes
 
     constructor: (@iv, @key) ->
 
+    # TODO arg should be a 64 byte buffer
     Aes.fromSha512 = (hash) ->
         assert.equal hash.length, 128, "A Sha512 in HEX should be 128 characters long, instead got #{hash.length}"
         #https://github.com/InvictusInnovations/fc/blob/978de7885a8065bc84b07bfb65b642204e894f55/src/crypto/aes.cpp#L330
@@ -24,7 +25,6 @@ class Aes
     Aes.fromSharedSecret_ecies = (S) ->
         assert S, "Shared secret is required"
         Aes.fromSha512 hash.sha512(S).toString('hex')
-        
 
     _decrypt_word_array: (cipher) ->
         # https://code.google.com/p/crypto-js/#Custom_Key_and_IV

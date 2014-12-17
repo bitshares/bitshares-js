@@ -5,8 +5,26 @@ curve =  require('ecurve').getCurveByName 'secp256k1'
 PublicKey = require('./key_public').PublicKey
 PrivateKey = require('./key_private').PrivateKey
 
+# TODO rename to ExtendedPrivateKey to better indicate it contains private info
+
 # https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki
 class ExtendedAddress
+    
+    constructor: (@private_key, @chain_code = _private.PAD) ->
+        
+    ExtendedAddress.fromSha512 =(data) ->
+        throw 'Expecting 64 bytes (512 bits)' unless data.length is 64
+        d = PrivateKey.fromBuffer data.slice 0, 32 # left
+        chain_code = data.slice 32, 64 # right
+        new ExtendedAddress d, chain_code
+    
+    toBuffer: ->
+        Buffer.concat [@private_key.toBuffer(), @chain_code]
+        
+    fromBuffer: (buffer) ->
+        ExtendedAddress.fromSha512 buffer
+    
+    # TODO, convert all methods below using chain_code to insance methods. Update unit tests and re-test scratchpad scripts (like titan)
     
     ###*  Shared Secret public parent key -> public child key  ###
     ExtendedAddress.deriveS_PublicKey = (private_key, one_time_key) ->

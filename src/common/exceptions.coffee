@@ -1,9 +1,8 @@
 ###* Adds nested exceptions ###
 class ErrorWithCause extends Error
 
-    constructor: (message, @cause) ->
-        super(message)
-        
+    constructor: (@message, @cause) ->
+    
     ErrorWithCause.throw = (message, cause)->
         throw new ErrorWithCause(message, cause)
     
