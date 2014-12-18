@@ -88,12 +88,25 @@ describe "Wallet API", ->
         throw "Wallet should be locked" unless @wallet.locked()
         throw "Locked wallet should not have an AES object" if @wallet.root_aes
         
-    it "create password", ->
+    it "create password wallet", ->
+        WalletDb.delete "default"
         entropy = secureRandom.randomUint8Array(1000)
         Wallet.add_entropy new Buffer entropy
         try
             @wallet_api.create "default", "Password00"
+            #console.log @wallet_api.wallet.toJson 4
         finally
             WalletDb.delete "default"
-        
+       
+    ###
+    it "create brain-key wallet", ->
+        # exception in wallet.coffee: throw 'Brain keys have not been tested with the native client'
+        phrase = "Qtn3E@gU-BrainKey https://www.grc.com/passwords.htm UfN71K&rS&VdqVE" 
+        try
+            @wallet_api.create "default", "Password00", phrase
+        finally
+            WalletDb.delete "default"
+    ###
+    
+    
     

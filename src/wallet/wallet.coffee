@@ -17,10 +17,10 @@ class Wallet
     constructor: (@wallet_db) ->
         throw 'wallet_db is required' unless @wallet_db
         throw 'wallet_db type is required' unless @wallet_db.wallet_object
-
+    
     Wallet.fromWalletDb = (wallet_db) ->
         new Wallet wallet_db
-        
+    
     Wallet.entropy = null
     Wallet.add_entropy = (data) ->
         unless data and data.length >= 1000
@@ -52,7 +52,8 @@ class Wallet
         #@blockchain.is_valid_account_name wallet_name
         
         data = if brain_key
-            base = hash_sha512 brain_key
+            throw 'Brain keys have not been tested with the native client'
+            base = hash.sha512 brain_key
             for i in [0..100*1000]
                 # strengthen the key a bit
                 base = hash.sha512 base

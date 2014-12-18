@@ -14,7 +14,7 @@ config = require '../wallet/config'
 class WalletAPI
     
     constructor: (@wallet) -> #, @rpc = null
-        @wallet_db = @wallet?.wallet_db
+        @wallet_db = @wallet.wallet_db
     
     ###* open from persistent storage ###
     open: (wallet_name = "default")->
