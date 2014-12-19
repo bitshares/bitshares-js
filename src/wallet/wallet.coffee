@@ -31,9 +31,17 @@ class Wallet
         Wallet.entropy = hash.sha512 data
         return
         
+    Wallet.has_secure_random = ->
+        try
+            secureRandom.randomBuffer 10
+            true
+        catch
+            false
+    
     Wallet.get_secure_random = ->
         throw 'Call add_entropy first' unless Wallet.entropy
-        rnd = new Buffer secureRandom.randomUint8Array 512/8
+        rnd = secureRandom.randomBuffer 512/8
+        #console.log 'Wallet.get_secure_random length',(Buffer.concat [rnd, Wallet.entropy]).length
         hash.sha512 Buffer.concat [rnd, Wallet.entropy]
     
     ###* Unless brain_key is used, must add_entropy first ### 

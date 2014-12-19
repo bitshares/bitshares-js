@@ -14,10 +14,11 @@ config = require '../wallet/config'
 class WalletAPI
     
     constructor: (@wallet) -> #, @rpc = null
-        @wallet_db = @wallet.wallet_db
+        @wallet_db = @wallet?.wallet_db
     
     ###* open from persistent storage ###
     open: (wallet_name = "default")->
+        WalletDb.delete "default"
         wallet_db = WalletDb.open wallet_name
         unless wallet_db
             throw new LE 'wallet.not_found', [wallet_name]
@@ -67,5 +68,11 @@ class WalletAPI
             return wallet_db
         catch error
             LE.throw 'wallet.save_error', [wallet_name, error], error
+            
+    get_info:()->
+        open: if @wallet then true else false
+        unlocked: not @wallet?.locked()#if @wallet then not @wallet.locked() else null
+        name: @wallet_db?.wallet_name
+        transaction_fee: "0.50000 XTS"#@wallet.transaction_fee()
     
 exports.WalletAPI = WalletAPI

@@ -54,7 +54,7 @@ describe "Wallet API", ->
                 
                 WalletDb.delete "default"
                 done()
-            catch
+            catch error
                 EC.throw 'failed to open existing wallet', error
     
     it "validate_password", (done) ->

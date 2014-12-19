@@ -25,6 +25,7 @@ class ErrorWithCause extends Error
 class LocalizedException extends ErrorWithCause
 
     constructor: (@key, @param_array=[], cause) ->
+        #console.log 'cause',cause if cause
         super(@key, cause)
         
     LocalizedException.throw = (key, key_params, cause)->
