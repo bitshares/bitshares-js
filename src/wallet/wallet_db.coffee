@@ -1,6 +1,7 @@
 hash = require '../ecc/hash'
 LE = require('../common/exceptions').LocalizedException
 {Aes} = require '../ecc/aes'
+#config = require './config'
 
 class WalletDb
     
@@ -14,6 +15,7 @@ class WalletDb
         invalid_format = -> LE.throw "wallet.invalid_format", [@wallet_name]
         invalid_format() unless @wallet_object?.length > 0
         throwLE "wallet.missing_local_storage" unless localStorage
+        @property = {}
         for entry in @wallet_object
             data = entry.data
             switch entry.type
@@ -21,8 +23,11 @@ class WalletDb
                     invalid_format() unless data.encrypted_key
                     invalid_format() unless data.checksum
                     @master_key = data
-                    break
+                when "property_record_type"
+                    @property[data.key] = data.value
+                    
         invalid() unless @master_key
+        
     
     WalletDb.exists = (wallet_name) ->
         str = localStorage.getItem("wallet-" + wallet_name)
@@ -77,7 +82,39 @@ class WalletDb
                 when "key_record_type"
                     return data if data.public_key is bts_address
         return
+        
+    get_setting: (key) ->
+        value = @property[key]
+        ### Defaults:
+        unless value
+            switch key
+                when "transaction_fee"
+                    config.BTS_WALLET_DEFAULT_TRANSACTION_FEE / 
+        ###
+        
+    set_setting: (key, value) ->
+        index = @wallet_object[@wallet_object.length - 1].data.index
+        index += 1
+        @wallet_object.push
+            type: "property_record_type"
+            data:
+                index: index
+                key: key
+                value: value
+        @save()
+        @property[key] = value
     
+    list_accounts:->
+        accounts=[]
+        for entry in @wallet_object
+            if entry.type is "account_record_type"
+                data = entry.data
+                unless data["active_key"]
+                    hist = data.active_key_history
+                    data["active_key"] = hist[hist.length - 1]
+                accounts.push entry.data
+        accounts
+                
     ###
     _find: ->
         

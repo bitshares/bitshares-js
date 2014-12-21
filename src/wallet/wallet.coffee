@@ -73,9 +73,9 @@ class Wallet
         epk = ExtendedAddress.fromSha512 data
         wallet_db = WalletDb.create wallet_name, epk, password
         ###
-        self->set_version( BTS_WALLET_VERSION );
-        self->set_transaction_fee( asset( BTS_WALLET_DEFAULT_TRANSACTION_FEE ) );
-        self->set_transaction_expiration( BTS_WALLET_DEFAULT_TRANSACTION_EXPIRATION_SEC );
+        set_version( BTS_WALLET_VERSION );
+        set_transaction_fee( asset( BTS_WALLET_DEFAULT_TRANSACTION_FEE ) );
+        set_transaction_expiration( BTS_WALLET_DEFAULT_TRANSACTION_EXPIRATION_SEC );
         ###
         wallet_db.save()
         new Wallet wallet_db

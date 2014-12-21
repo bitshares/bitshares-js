@@ -18,7 +18,6 @@ class WalletAPI
     
     ###* open from persistent storage ###
     open: (wallet_name = "default")->
-        WalletDb.delete "default"
         wallet_db = WalletDb.open wallet_name
         unless wallet_db
             throw new LE 'wallet.not_found', [wallet_name]
@@ -32,7 +31,7 @@ class WalletAPI
         @wallet.unlock config.BTS_WALLET_DEFAULT_UNLOCK_TIME_SEC, new_password
         return
         
-    close:()-> $q (resolve,reject)->
+    close:-> $q (resolve,reject)->
         @wallet_db = null
         @wallet = null
         return
@@ -49,15 +48,16 @@ class WalletAPI
     
     unlock:(timeout_seconds, password)->
         unlock_timeout_id = @wallet.unlock timeout_seconds, password
+        return
         
     lock:->
         @wallet.lock()
         return
 
-    ###* 
+    ###*
         Save a new wallet and resovles with a WalletDb object.  Resolves as an error 
         if wallet exists or is unable to save in local storage.
-    ###            
+    ###
     backup_restore_object:(wallet_object, wallet_name)->
         if WalletDb.open wallet_name
             LE.throw 'wallet.exists', [wallet_name]
@@ -69,10 +69,47 @@ class WalletAPI
         catch error
             LE.throw 'wallet.save_error', [wallet_name, error], error
             
-    get_info:()->
+    get_info:->
         open: if @wallet then true else false
         unlocked: not @wallet?.locked()#if @wallet then not @wallet.locked() else null
         name: @wallet_db?.wallet_name
         transaction_fee: "0.50000 XTS"#@wallet.transaction_fee()
+        
+    get_setting:(key)->
+        unless @wallet_db
+            LE.throw "wallet.must_be_opened"
+        
+        @wallet_db.get_setting key
+        
+    set_setting:(key, value)->
+        unless @wallet_db
+            LE.throw "wallet.must_be_opened"
+        
+        @wallet_db.set_setting key, value
+        
+    list_accounts:->
+        unless @wallet_db
+            LE.throw "wallet.must_be_opened"
+        
+        accounts = @wallet_db.list_accounts()
+        accounts.sort (a, b)->
+            a.name < b.name
+        accounts
+    ###
+    account_transaction_history #["", "", 0, 0, -1]
+    account_yield
+    account_balance
+    batch wallet_check_vote_proportion [["acct",]]
+        ret [
+            negative_utilization:0
+            utilization:0
+        ]
+    account_create ["bbbb", {gui_data: website:undefined}]
+        ret result: "XTS6mF3osHjZANkoE65gBYdJff5qe75KLxnLV5wx5bD9QWSEhGrUW"
+        
+    get_account ["bbb"]
+        result:active_key:"",akhistory,approved:0,id,index,is_my_account...
+    ###
+    
     
 exports.WalletAPI = WalletAPI

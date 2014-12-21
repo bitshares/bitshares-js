@@ -97,6 +97,16 @@ describe "Wallet API", ->
             #console.log @wallet_api.wallet.toJson 4
         finally
             WalletDb.delete "default"
+            
+    it "store and retrieve settings", ->
+        @wallet_api.set_setting "my setting", "value"
+        value = @wallet_api.get_setting "my setting"
+        throw "Setting did not match" unless value is "value"
+    
+    it "list accounts", ->
+        accounts = @wallet_api.list_accounts()
+        throw "No accounts" unless accounts or accounts.length > 0
+
        
     ###
     it "create brain-key wallet", ->
