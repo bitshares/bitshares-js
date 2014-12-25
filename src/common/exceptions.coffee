@@ -1,35 +1,32 @@
-###* Adds nested exceptions ###
-class ErrorWithCause extends Error
+###* Adds nested exceptions 
+https://www.joyent.com/developers/node/design/errors
+###
+class ErrorWithCause
+    
+    constructor: (message, cause)->
+        ErrorWithCause.throw message, cause
 
-    constructor: (@message, @cause) ->
-    
     ErrorWithCause.throw = (message, cause)->
-        throw new ErrorWithCause(message, cause)
-    
-    ###
-    get_stack_trace: ->
-        str = ""
-        if @cause
-            if @cause.get_stack_trace
-                str = @cause.get_stack_trace
-            else
-                if @cause.stack
-                    str = @cause.stack
-            str += "\n\n" unless str.length is 0
-        
-        str += @stack if @stack
-        str
-    ###
+        error = new Error()
+        error.message = message
+        if cause
+            error.message += "\tcaused by:\n\t#{cause.stack}" 
+        throw error
     
 ###* Localization separates values from the error message key ###
-class LocalizedException extends ErrorWithCause
-
-    constructor: (@key, @param_array=[], cause) ->
-        #console.log 'cause',cause if cause
-        super(@key, cause)
+class LocalizedException
+    
+    constructor: (key, key_params, cause)->
+        LocalizedException.throw key, key_params, cause
         
-    LocalizedException.throw = (key, key_params, cause)->
-        throw new LocalizedException(key, key_params, cause)
+    LocalizedException.throw = (key, key_params=[], cause)->
+        error = new Error()
+        error.key = key
+        error.message = key
+        error.key_params = key_params
+        if cause 
+            error.message += "\tcaused by:\n\t#{cause.stack}" 
+        throw error
         
 exports.LocalizedException = LocalizedException
 exports.ErrorWithCause = ErrorWithCause

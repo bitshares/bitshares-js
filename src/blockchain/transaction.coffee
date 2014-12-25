@@ -2,6 +2,7 @@ assert = require 'assert'
 ByteBuffer = require 'bytebuffer'
 {Operation} = require './operation'
 {fp} = require '../common/fast_parser'
+hash = require '../ecc/hash'
 
 ###
 bts::blockchain::transaction, (expiration)(delegate_slate_id)(operations)
@@ -16,6 +17,10 @@ bts::blockchain::operation, (type)(data)
 class Transaction
     
     constructor: (@expiration, @delegate_slate_id, @operations) ->
+        
+    id:->
+        h = hash.sha512 @toBuffer()
+        hash.ripemd160 h
         
     Transaction.fromByteBuffer = (b) ->
         expiration = fp.time_point_sec b
@@ -57,6 +62,17 @@ class Transaction
     #        o.delegate_slate_id
     #        operations
     #    )
+    
+    Transaction.is_cancel=(operations)->
+        for op in operations
+            switch op.type
+                when "bid_op_type"
+                    return true if op.amount < 0
+                when "ask_op_type"
+                    return true if op.amount < 0
+                when "short_op_type"
+                    return true if op.amount < 0
+        false
 
     ### <helper_functions> ###
     

@@ -1,56 +1,55 @@
 {Wallet} = require '../src/wallet/wallet'
 {WalletDb} = require '../src/wallet/wallet_db'
 {WalletAPI} = require '../src/client/wallet_api'
-
+{TransactionLedger} = require '../src/wallet/transaction_ledger'
 wallet_object = require './fixtures/wallet.json'
 EC = require('../src/common/exceptions').ErrorWithCause
-
 secureRandom = require 'secure-random'
 
 describe "Wallet API", ->
     
-    before ->
+    beforeEach ->
         # create / reset in ram
         @wallet_db = new WalletDb wallet_object, "default"
-        @wallet = Wallet.fromWalletDb @wallet_db
-        @wallet_api = new WalletAPI(@wallet)
+        @wallet = new Wallet @wallet_db
+        @transaction_ledger = new TransactionLedger @wallet_db
+        @wallet_api = new WalletAPI @wallet, @wallet_db, @transaction_ledger
         
-    after ->
+    afterEach ->
         # delete from persistent storage if exists
         WalletDb.delete "default"
     
     it "backup_restore_object", (done) ->
         WalletDb.delete "default" # prior run failed
-        wallet_db = @wallet_api.backup_restore_object(wallet_object, "default")
+        wallet_db = @wallet_api.backup_restore_object wallet_object, "default"
         unless wallet_db and wallet_db.wallet_name
-            throw 'missing wallet_db'
+            EC.throw 'missing wallet_db'
         try
-            @wallet_api.backup_restore_object(wallet_object, "default")
-            throw 'allowed to restore over existing wallet'
+            @wallet_api.backup_restore_object wallet_object, "default"
+            EC.throw 'allowed to restore over existing wallet'
         catch error
             unless error.key is 'wallet.exists'
-                throw 'expecting error: wallet.exists' 
+                EC.throw 'expecting error: wallet.exists', error
             WalletDb.delete wallet_db.wallet_name
             done()
-
     
     it "save", ->
         @wallet_db.save()
         unless WalletDb.open "default"
-            throw "Could not open wallet after save"
+            EC.throw "Could not open wallet after save"
     
     it "open", (done) ->
         @wallet_db.save()
         try
             @wallet_api.open("WalletNotFound")
-            throw 'opened wallet that does not exists'
+            EC.throw 'opened wallet that does not exists'
         catch error
             unless error.key is 'wallet.not_found'
-                throw 'Expecting wallet.not_found'
+                EC.throw 'Expecting wallet.not_found', error
             try
                 @wallet_api.open("default")
                 unless @wallet_api.wallet_db.wallet_name is "default"
-                    throw "Expecting wallet named default"
+                    EC.throw "Expecting wallet named default"
                 
                 WalletDb.delete "default"
                 done()
@@ -60,10 +59,10 @@ describe "Wallet API", ->
     it "validate_password", (done) ->
         try
             @wallet_api.validate_password("Wrong Password")
-            throw "wrong password verified"
+            EC.throw "wrong password verified"
         catch error
             unless error.key is 'wallet.invalid_password'
-                throw 'Expecting wallet.invalid_password'
+                EC.throw 'Expecting wallet.invalid_password', error
             try
                 @wallet_api.validate_password(correct_password = "Password00")
                 done()
@@ -73,10 +72,10 @@ describe "Wallet API", ->
     it "unlock", (done) ->
         try
             @wallet_api.unlock(2, "Wrong Password")
-            throw 'allowed to unlock with wrong password'
+            EC.throw 'allowed to unlock with wrong password'
         catch error
             unless error.key is 'wallet.invalid_password'
-                throw 'Expecting wallet.invalid_password'
+                EC.throw 'Expecting wallet.invalid_password', error
             try
                 @wallet_api.unlock(2, "Password00")
                 done()
@@ -85,8 +84,8 @@ describe "Wallet API", ->
     
     it "lock", ->
         @wallet_api.lock()
-        throw "Wallet should be locked" unless @wallet.locked()
-        throw "Locked wallet should not have an AES object" if @wallet.root_aes
+        EC.throw "Wallet should be locked" unless @wallet_api.locked()
+        EC.throw "Locked wallet should not have an AES object" if @wallet_api.root_aes
         
     it "create password wallet", ->
         WalletDb.delete "default"
@@ -105,7 +104,11 @@ describe "Wallet API", ->
     
     it "list accounts", ->
         accounts = @wallet_api.list_accounts()
-        throw "No accounts" unless accounts or accounts.length > 0
+        EC.throw "No accounts" unless accounts or accounts.length > 0
+        
+    it "transaction history", ->
+        history = @wallet_api.account_transaction_history()
+        EC.throw 'no history' unless history?.length > 0
 
        
     ###

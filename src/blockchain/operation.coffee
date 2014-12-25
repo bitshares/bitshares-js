@@ -38,6 +38,17 @@ class Operation
         o.type = @type()
         o.data = {}
         @operation.toJson(o.data)
+        
+    #Operation.fromJson= (o) ->
+    #    type_id = types.type_id types.operation, o.type
+    #    switch o.type
+    #        when "deposit_op_type"
+    #            Deposit.fromJson o.data
+    #        when "withdraw_op_type"
+    #            Withdraw.fromJson o.data
+    #        else
+    #            throw "Not Implemented"
+    #    new Operation type_id, operation
 
     ### <HEX> ###
     

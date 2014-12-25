@@ -14,12 +14,8 @@ secureRandom = require 'secure-random'
 ###* Public ###
 class Wallet
 
-    constructor: (@wallet_db) ->
-        throw 'wallet_db is required' unless @wallet_db
-        throw 'wallet_db type is required' unless @wallet_db.wallet_object
-    
-    Wallet.fromWalletDb = (wallet_db) ->
-        new Wallet wallet_db
+    constructor: (@wallet_db) -> #blockchain, 
+        throw "required parameter" unless @wallet_db
     
     Wallet.entropy = null
     Wallet.add_entropy = (data) ->
@@ -78,7 +74,7 @@ class Wallet
         set_transaction_expiration( BTS_WALLET_DEFAULT_TRANSACTION_EXPIRATION_SEC );
         ###
         wallet_db.save()
-        new Wallet wallet_db
+        return
         
     toJson: (indent_spaces=undefined) ->
         JSON.stringify(@wallet_db.wallet_object, undefined, indent_spaces)
