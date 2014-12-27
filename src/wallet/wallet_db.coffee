@@ -24,6 +24,7 @@ class WalletDb
         @activeKey_account = {}
         @account_activeKey = {}
         @key_record = {}
+        @account_address = {}
         for entry in @wallet_object
             data = entry.data
             switch entry.type
@@ -32,25 +33,36 @@ class WalletDb
                     invalid_format() unless data.checksum
                     @master_key = data
                 when "property_record_type"
-                    @property[data.key] = data.value
+                    @index_property data
                 when "account_record_type"
-                    account_name = data.name
-                    @account[account_name] = data
-                    max_key_datestr = "0"
-                    @ownerKey[data.owner_key] = data if data.owner_key
-                    for keyrec in data.active_key_history
-                        datestr = keyrec[0]
-                        key = keyrec[1]
-                        @activeKey_account[key] = data
-                        if datestr > max_key_datestr
-                            # most recent active key
-                            @account_activeKey[account_name] = key
-                            max_key_datestr = datestr
+                    @index_account data
                 when "key_record_type"
-                    @key_record[entry.address] = data
+                    @index_key_record data
+                    
                     
         invalid() unless @master_key
         @resolve_address_to_name()
+    
+    index_account:(data)->
+        account_name = data.name
+        @account[account_name] = data
+        max_key_datestr = "0"
+        @ownerKey[data.owner_key] = data if data.owner_key
+        for keyrec in data.active_key_history
+            datestr = keyrec[0]
+            key = keyrec[1]
+            @activeKey_account[key] = data
+            if datestr > max_key_datestr
+                # most recent active key
+                @account_activeKey[account_name] = key
+                max_key_datestr = datestr
+    
+    index_key_record:(data)->
+        @key_record[data.public_key] = data
+        @account_address[data.account_address] = data
+        
+    index_property:(data)->
+        @property[data.key] = data.value
     
     ###*
         Adds from_account_name, to_account_name, and memo_from_account_name 
@@ -79,11 +91,13 @@ class WalletDb
     WalletDb.exists = (wallet_name) ->
         str = localStorage.getItem("wallet-" + wallet_name)
     
-    WalletDb.create = (wallet_name = "default", extended_private, password, autocommit) ->
-        LE.throw 'wallet.exists', [wallet_name] if WalletDb.open wallet_name
-        checksum1 = hash.sha512 password
-        checksum = hash.sha512 checksum1
-        aes = Aes.fromSecret checksum1
+    WalletDb.create = (wallet_name = "default", extended_private, password) ->
+        if WalletDb.open wallet_name
+            LE.throw 'wallet.exists', [wallet_name]
+        
+        checksum = hash.sha512 password
+        checksum = hash.sha512 checksum
+        aes = Aes.fromSecret password
         encrypted_key = aes.encrypt extended_private.toBuffer()
         wallet_object = [
             type: "master_key_record_type"
@@ -92,17 +106,22 @@ class WalletDb
                 encrypted_key: encrypted_key.toString 'hex'
                 checksum: checksum.toString 'hex'
         ]
-        wallet_db = new WalletDb wallet_object, wallet_name, autocommit
-        wallet_db.save() if autocommit
+        wallet_db = new WalletDb wallet_object, wallet_name
+        wallet_db.save()
         wallet_db
-        
+    
+    master_private_key:(aes_root)->
+        plainhex = aes_root.decryptHex @master_key.encrypted_key
+        plainhex = plainhex.substring 0, 64
+        PrivateKey.fromHex plainhex
+    
     ###* @return {WalletDb} or null ###
     WalletDb.open = (wallet_name = "default") ->
         wallet_string = localStorage.getItem "wallet-" + wallet_name
         return undefined unless wallet_string
         wallet_object = JSON.parse wallet_string
         new WalletDb wallet_object, wallet_name
-        
+    
     WalletDb.delete = (wallet_name)->
         localStorage.removeItem "wallet-" + wallet_name
         return
@@ -117,7 +136,9 @@ class WalletDb
     defer_save: ->
         @auto_save = off
     
-    key_record: (public_key) ->
+    get_key_record:(public_key)->
+        @key_record[public_key]
+        ###
         bts_address = public_key.toBtsPublic()
         for entry in @wallet_object
             data = entry.data
@@ -125,6 +146,7 @@ class WalletDb
                 when "key_record_type"
                     return data if data.public_key is bts_address
         return
+        ###
         
     get_setting: (key) ->
         @property[key] or config.DEFAULT_SETTING[key]
@@ -138,12 +160,15 @@ class WalletDb
         index = @wallet_object[@wallet_object.length - 1].data.index
         throw "invalid index #{index}" unless /[0-9]+/.test index
         index += 1
-        @wallet_object.push
+        data=
             type: "property_record_type"
             data:
                 index: index
                 key: key
                 value: value
+        #@_debug_last "set_setting key '#{key}' value '#{value}'"
+        @index_property data
+        @wallet_object.push data
         @save() if @auto_save
         @property[key] = value
         return
@@ -155,7 +180,7 @@ class WalletDb
             unless data["active_key"]
                 hist = data.active_key_history
                 hist = hist.sort (a,b)-> 
-                    if a[0] < b[0] then-1 
+                    if a[0] < b[0] then -1 
                     else if a[0] > b[0] then 1 
                     else 0
                 data["active_key"] = hist[hist.length - 1]
@@ -179,21 +204,15 @@ class WalletDb
         @account[account_name]
         
     lookup_key:(account_address)->
-        @key_record[account_address]
+        @account_address[account_address]
         
     get_account_for_address:(public_key_string)->
         @activeKey_account[public_key_string] or
         @ownerKey[public_key_string]
     
-    master_private_key:(aes_root)->
-        plainhex = aes_root.decryptHex @master_key.encrypted_key
-        plainhex = plainhex.substring 0, 64
-        PrivateKey.fromHex plainhex
-    
     get_wallet_child_key:(aes_root, key_index)->
         master_key = @master_private_key aes_root
         ExtendedAddress.private_key master_key key_index
-        
         
     generate_new_account:(aes_root, account_name, private_data)->
         LE.throw 'wallet.account_already_exists' if @account[account_name]
@@ -214,7 +233,7 @@ class WalletDb
         key =
             account_address: address
             public_key: public_key_string
-            encrypt_private_key: aes_root.encryptHex private_key.toHex()
+            encrypted_private_key: aes_root.encryptHex private_key.toHex()
             gen_seq_number: key_index
         account =
             name: account_name
@@ -233,7 +252,6 @@ class WalletDb
         @add_account_record account
         @save()
         public_key_string
-        
     
     add_account_record:(rec)->
         #last_account_index = 1
@@ -243,16 +261,25 @@ class WalletDb
         #        last_account_index = entry.data.id
         # New accounts in the backups all use an id of 0
         rec.id = 0 #last_account_index + 1
+        @index_account rec
         @_append('account_record_type',rec)
+    
     add_key_record:(rec)->
+        @index_key_record rec
         @_append('key_record_type',rec)
+    
     _append:(key, rec)->
-        last = @wallet_object[@wallet_object.length - 1]
+        last = @wallet_object[@wallet_object.length - 1].data
         rec.index = last.index+1
         @wallet_object.push
             type: key
             data: rec
+        #@_debug_last '_append'
         @save() if @auto_save
+        return
+    
+    _debug_last:(ref)->
+        console.log "#{ref} last entry",JSON.stringify @wallet_object[@wallet_object.length - 1].data,null,4
         return
     
     get_child_key_index:->

@@ -21,7 +21,7 @@ class ExtendedAddress
     toBuffer: ->
         Buffer.concat [@private_key.toBuffer(), @chain_code]
         
-    fromBuffer: (buffer) ->
+    ExtendedAddress.fromBuffer= (buffer) ->
         ExtendedAddress.fromSha512 buffer
     
     # TODO, convert all methods below using chain_code to insance methods. Update unit tests and re-test scratchpad scripts (like titan)

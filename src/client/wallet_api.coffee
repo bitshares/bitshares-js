@@ -1,6 +1,5 @@
 {Wallet} = require '../wallet/wallet'
 {WalletDb} = require '../wallet/wallet_db'
-{TransactionLedger} = require '../wallet/transaction_ledger'
 {Aes} = require '../ecc/aes'
 {ExtendedAddress} = require '../ecc/extended_address'
 {config} = require '../wallet/config'
@@ -14,7 +13,7 @@ $q = require 'q'
 ###
 class WalletAPI
     
-    constructor: (@wallet, @wallet_db, @transaction_ledger, @chain_interface) -> #, @rpc = null
+    constructor:(@wallet)-> #, @rpc = null
     
     ###* open from persistent storage ###
     open: (wallet_name = "default")->
@@ -22,19 +21,16 @@ class WalletAPI
         unless wallet_db
             throw new LE 'wallet.not_found', [wallet_name]
         
-        @wallet_db = wallet_db
         @wallet = new Wallet wallet_db
-        @transaction_ledger = new TransactionLedger @wallet_db
         return
     
     create: (wallet_name = "default", new_password, brain_key)->
         Wallet.create wallet_name, new_password, brain_key
-        @open(wallet_name)
+        @open wallet_name
         @wallet.unlock config.BTS_WALLET_DEFAULT_UNLOCK_TIME_SEC, new_password
         return
         
     close:->
-        @wallet_db = null
         @wallet = null
         return
         
@@ -42,27 +38,30 @@ class WalletAPI
     #    unlocked: @wallet.unlocked()
         
     validate_password: (password)->
-        unless @wallet_db
-            LE.throw "wallet.must_be_opened"
-        
-        @wallet_db.validate_password password
+        LE.throw "wallet.must_be_opened" unless @wallet
+        @wallet.validate_password password
         return
     
     unlock:(timeout_seconds = config.BTS_WALLET_DEFAULT_UNLOCK_TIME_SEC, password)->
-        @wallet_db.validate_password password
-        @aes_root = Aes.fromSecret password
-        unlock_timeout_id = setTimeout ()=>
-            @lock()
-        ,
-            timeout_seconds * 1000
+        LE.throw "wallet.must_be_opened" unless @wallet
+        @wallet.unlock timeout_seconds, password
         return
         
     lock:->
-        @aes_root = undefined
+        LE.throw "wallet.must_be_opened" unless @wallet
+        @wallet.lock()
         return
         
     locked: ->
-        @aes_root is undefined
+        LE.throw "wallet.must_be_opened" unless @wallet
+        @wallet.locked()
+        
+    account_create:(account_name, private_data)->
+        LE.throw "wallet.must_be_opened" unless @wallet
+        LE.throw 'wallet.must_be_unlocked' if @wallet.locked()
+        #@rpc.request("blockchain_get_account_record",[account_name]).then (result)->
+        #    defer.reject new LE 'wallet.blockchain_account_already_exists', [account_name]
+        @wallet.account_create account_name, private_data
 
     ###*
         Save a new wallet and resovles with a WalletDb object.  Resolves as an error 
@@ -82,43 +81,36 @@ class WalletAPI
     get_info:->
         open: if @wallet then true else false
         unlocked: not @wallet?.locked()#if @wallet then not @wallet.locked() else null
-        name: @wallet_db?.wallet_name
+        name: @wallet.wallet_db?.wallet_name
         transaction_fee: "0.50000 XTS"#@wallet.transaction_fee()
         
     get_setting:(key)->
-        unless @wallet_db
-            LE.throw "wallet.must_be_opened"
-        
-        value = @wallet_db.get_setting key
+        LE.throw "wallet.must_be_opened" unless @wallet
+        value = @wallet.get_setting key
         return key: key, value: value
         
     set_setting:(key, value)->
-        unless @wallet_db
-            LE.throw "wallet.must_be_opened"
+        LE.throw "wallet.must_be_opened" unless @wallet
+        @wallet.set_setting key, value
         
-        @wallet_db.set_setting key, value
-        
-    account_create:(account_name, private_data)->
-        unless @wallet
-            LE.throw "wallet.must_be_opened"
-            
-        unless @aes_root
-            LE.throw 'wallet.must_be_unlocked'
-        
-        #defer = $q.defer()
-        #@rpc.request("blockchain_get_account_record",[account_name]).then (result)->
-        #    defer.reject new LE 'wallet.blockchain_account_already_exists', [account_name]
-        @wallet.account_create @aes_root, account_name, private_data
-        
+    get_account:(name)->
+        LE.throw "wallet.must_be_opened" unless @wallet
+        @wallet.get_account name
+    
     list_accounts:->
-        unless @wallet_db
-            LE.throw "wallet.must_be_opened"
+        LE.throw "wallet.must_be_opened" unless @wallet
+        @wallet.list_accounts()
         
-        accounts = @wallet_db.list_accounts()
-        accounts.sort (a, b)->
-            a.name < b.name
-        accounts
+    dump_private_key:(account_name)->
+        LE.throw "wallet.must_be_opened" unless @wallet
+        @wallet.dump_private_key account_name
         
+    #wallet_account_balance
+    
+    #wallet_account_yield
+    
+    #batch wallet_check_vote_proportion
+    
     ### Query by asset symbol (if needed).. Better if the caller can provide the asset_id instead
     account_transaction_history:(
         account_name=""
@@ -149,37 +141,14 @@ class WalletAPI
         start_block_num=0
         end_block_num=-1
     )->
-        unless @wallet_db
-            LE.throw "wallet.must_be_opened"
-        
-        account_name = null if account_name is ""
-        
-        if asset_id is "" then asset_id = 0
-        unless /^\d+$/.test asset_id
-            throw "asset_id should be a number, instead got: #{asset_id}"
-        
-        history = @transaction_ledger.get_transaction_history(
+        LE.throw "wallet.must_be_opened" unless @wallet
+        @wallet.account_transaction_history(
             account_name
+            asset_id
+            limit
             start_block_num
             end_block_num
-            asset_id
         )
-        history.sort (a,b)->
-            if (
-                a.is_confirmed and
-                b.is_confirmed and
-                a.block_num isnt b.block_num
-            )
-                return a.block_num < b.block_num
-                
-            if a.timestamp isnt b.timestamp
-                return a.timestamp < b.timestamp
-                
-            a.trx_id < b.trx_id
-        
-        return history if limit is 0 or Math.abs(limit) >= history.length
-        return history.slice 0, limit if limit > 0
-        history.slice history.length - -1 * limit, history.length 
         
         
     ###

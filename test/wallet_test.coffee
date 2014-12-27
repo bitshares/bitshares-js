@@ -9,22 +9,16 @@ secureRandom = require 'secure-random'
 
 # clone
 wallet_object_string = JSON.stringify wallet_object
+PASSWORD = "Password00"
 
 describe "Wallet API", ->
     
     beforeEach ->
         # create / reset in ram
         wallet_object = JSON.parse wallet_object_string
-        @wallet_db = new WalletDb wallet_object, "default"
-        @chain_interface = new ChainInterface()
-        @wallet = new Wallet @wallet_db, @chain_interface
-        @transaction_ledger = new TransactionLedger @wallet_db
-        @wallet_api = new WalletAPI(
-            @wallet
-            @wallet_db
-            @transaction_ledger
-            @chain_interface
-        )
+        wallet_db = new WalletDb wallet_object, "default"
+        wallet = new Wallet wallet_db
+        @wallet_api = new WalletAPI wallet
         
     afterEach ->
         # delete from persistent storage if exists
@@ -43,14 +37,20 @@ describe "Wallet API", ->
                 EC.throw 'expecting error: wallet.exists', error
             WalletDb.delete wallet_db.wallet_name
             done()
+
+    it "create password wallet", ->
+        WalletDb.delete "default"
+        entropy = secureRandom.randomUint8Array 1000
+        Wallet.add_entropy new Buffer entropy
+        try
+            @wallet_api.create "default", PASSWORD
+            unless @wallet_api.wallet.master_private_key()
+                EC.throw "Unable to create master key"
+        finally
+            WalletDb.delete "default"
     
-    it "save", ->
-        @wallet_db.save()
-        unless WalletDb.open "default"
-            EC.throw "Could not open wallet after save"
-    
-    it "open", (done) ->
-        @wallet_db.save()
+    it "create and open", (done) ->
+        @wallet_api.wallet.wallet_db.save()
         try
             @wallet_api.open("WalletNotFound")
             EC.throw 'opened wallet that does not exists'
@@ -59,7 +59,7 @@ describe "Wallet API", ->
                 EC.throw 'Expecting wallet.not_found', error
             try
                 @wallet_api.open("default")
-                unless @wallet_api.wallet_db.wallet_name is "default"
+                unless @wallet_api.wallet.wallet_db.wallet_name is "default"
                     EC.throw "Expecting wallet named default"
                 
                 WalletDb.delete "default"
@@ -75,10 +75,15 @@ describe "Wallet API", ->
             unless error.key is 'wallet.invalid_password'
                 EC.throw 'Expecting wallet.invalid_password', error
             try
-                @wallet_api.validate_password(correct_password = "Password00")
+                @wallet_api.validate_password(correct_password = PASSWORD)
                 done()
             catch error
                 EC.throw "correct password did not verify", error
+        
+    it "decrypted master_private_key", ->
+        @wallet_api.unlock(2, PASSWORD)
+        master_key = @wallet_api.wallet.master_private_key()
+        EC.throw "missing master key" unless master_key
         
     it "unlock", (done) ->
         try
@@ -88,7 +93,7 @@ describe "Wallet API", ->
             unless error.key is 'wallet.invalid_password'
                 EC.throw 'Expecting wallet.invalid_password', error
             try
-                @wallet_api.unlock(2, "Password00")
+                @wallet_api.unlock(2, PASSWORD)
                 done()
             catch error
                 EC.throw 'unable to unlock with the correct password', error
@@ -98,20 +103,10 @@ describe "Wallet API", ->
         EC.throw "Wallet should be locked" unless @wallet_api.locked()
         EC.throw "Locked wallet should not have an AES object" if @wallet_api.root_aes
         
-    it "create password wallet", ->
-        WalletDb.delete "default"
-        entropy = secureRandom.randomUint8Array(1000)
-        Wallet.add_entropy new Buffer entropy
-        try
-            @wallet_api.create "default", "Password00"
-            #console.log @wallet_api.wallet.toJson 4
-        finally
-            WalletDb.delete "default"
-            
     it "store and retrieve settings", ->
         @wallet_api.set_setting "key", "value"
         setting = @wallet_api.get_setting "key"
-        throw "Setting key did not match #{value}" unless setting.value is "value"
+        EC.throw "Setting key did not match #{value}" unless setting.value is "value"
     
     it "list accounts", ->
         accounts = @wallet_api.list_accounts()
@@ -121,18 +116,28 @@ describe "Wallet API", ->
         history = @wallet_api.account_transaction_history()
         EC.throw 'no history' unless history?.length > 0
 
-    it "create account", ->
-        @wallet_api.unlock(2, "Password00")
-        public_key = @wallet_api.account_create 'newname', {private:'data'}
-        #console.log public_key, JSON.stringify @wallet_db.wallet_object[@wallet_db.wallet_object.length-1],null,4
+    it "account_create", ->
+        @wallet_api.unlock(2, PASSWORD)
+        public_key = @wallet_api.account_create 'mycat', {
+            gui_data:website:undefined
+        }
         EC.throw 'expecting public key' unless public_key
        
+    it "dump_private_key", ->
+        WalletDb.delete "default"
+        entropy = secureRandom.randomUint8Array 1000
+        Wallet.add_entropy new Buffer entropy
+        @wallet_api.create "default", PASSWORD
+        @wallet_api.account_create 'newname'
+        private_key_hex = @wallet_api.dump_private_key 'newname'
+        EC.throw 'expecting private_key_hex' unless private_key_hex
+        
     ###
     it "create brain-key wallet", ->
         # exception in wallet.coffee: throw 'Brain keys have not been tested with the native client'
         phrase = "Qtn3E@gU-BrainKey https://www.grc.com/passwords.htm UfN71K&rS&VdqVE" 
         try
-            @wallet_api.create "default", "Password00", phrase
+            @wallet_api.create "default", PASSWORD, phrase
         finally
             WalletDb.delete "default"
     ###

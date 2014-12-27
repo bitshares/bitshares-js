@@ -3,7 +3,7 @@
 class ChainInterface
     
     is_valid_account_name:(account_name)->
-        
+        return false unless account_name
         return false if account_name.length < config.BTS_BLOCKCHAIN_MIN_NAME_SIZE
         return false if account_name.length > config.BTS_BLOCKCHAIN_MAX_NAME_SIZE
         return false unless /^[a-z]/i.test(account_name) # starts with alpha
