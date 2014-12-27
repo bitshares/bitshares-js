@@ -2,18 +2,29 @@
 {WalletDb} = require '../src/wallet/wallet_db'
 {WalletAPI} = require '../src/client/wallet_api'
 {TransactionLedger} = require '../src/wallet/transaction_ledger'
+{ChainInterface} = require '../src/blockchain/chain_interface'
 wallet_object = require './fixtures/wallet.json'
 EC = require('../src/common/exceptions').ErrorWithCause
 secureRandom = require 'secure-random'
+
+# clone
+wallet_object_string = JSON.stringify wallet_object
 
 describe "Wallet API", ->
     
     beforeEach ->
         # create / reset in ram
+        wallet_object = JSON.parse wallet_object_string
         @wallet_db = new WalletDb wallet_object, "default"
-        @wallet = new Wallet @wallet_db
+        @chain_interface = new ChainInterface()
+        @wallet = new Wallet @wallet_db, @chain_interface
         @transaction_ledger = new TransactionLedger @wallet_db
-        @wallet_api = new WalletAPI @wallet, @wallet_db, @transaction_ledger
+        @wallet_api = new WalletAPI(
+            @wallet
+            @wallet_db
+            @transaction_ledger
+            @chain_interface
+        )
         
     afterEach ->
         # delete from persistent storage if exists
@@ -98,9 +109,9 @@ describe "Wallet API", ->
             WalletDb.delete "default"
             
     it "store and retrieve settings", ->
-        @wallet_api.set_setting "my setting", "value"
-        value = @wallet_api.get_setting "my setting"
-        throw "Setting did not match" unless value is "value"
+        @wallet_api.set_setting "key", "value"
+        setting = @wallet_api.get_setting "key"
+        throw "Setting key did not match #{value}" unless setting.value is "value"
     
     it "list accounts", ->
         accounts = @wallet_api.list_accounts()
@@ -110,6 +121,11 @@ describe "Wallet API", ->
         history = @wallet_api.account_transaction_history()
         EC.throw 'no history' unless history?.length > 0
 
+    it "create account", ->
+        @wallet_api.unlock(2, "Password00")
+        public_key = @wallet_api.account_create 'newname', {private:'data'}
+        #console.log public_key, JSON.stringify @wallet_db.wallet_object[@wallet_db.wallet_object.length-1],null,4
+        EC.throw 'expecting public key' unless public_key
        
     ###
     it "create brain-key wallet", ->

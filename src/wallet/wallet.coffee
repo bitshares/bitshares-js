@@ -14,7 +14,7 @@ secureRandom = require 'secure-random'
 ###* Public ###
 class Wallet
 
-    constructor: (@wallet_db) -> #blockchain, 
+    constructor: (@wallet_db, @chain_interface) -> #blockchain, 
         throw "required parameter" unless @wallet_db
     
     Wallet.entropy = null
@@ -75,6 +75,17 @@ class Wallet
         ###
         wallet_db.save()
         return
+        
+    account_create:(aes_root, account_name, private_data)->
+        unless @chain_interface.is_valid_account_name account_name
+            LE.throw 'wallet.invalid_account_name',[account_name]
+        
+        cnt = @wallet_db.list_my_accounts()
+        account = @wallet_db.lookup_account account_name
+        if account
+            LE.throw 'wallet.account_already_exists',[account_name]
+        
+        @wallet_db.generate_new_account aes_root, account_name, private_data
         
     toJson: (indent_spaces=undefined) ->
         JSON.stringify(@wallet_db.wallet_object, undefined, indent_spaces)

@@ -23,7 +23,7 @@ describe "Crypto", ->
     
     decrypted_key = 
         "ab0cb9a14ecaa3078bfee11ca0420ea2" + 
-        "3f5d49d7a7c97f7f45c3a520106491f8" + 
+        "3f5d49d7a7c97f7f45c3a520106491f8" + # 64 hex digits 
         "00000000000000000000000000000000000000000000000000000000" + 
         "00000000"
     

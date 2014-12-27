@@ -2,13 +2,18 @@
     "wallet": {
         "not_found": "Wallet {{v1}} not found",
         "invalid_name": "Invalid name",
+        "invalid_account_name": "Invalid account name",
         "invalid_format": "Invalid wallet format {{v1}}",
         "invalid_password": "Invalid password",
         "already_exists": "Wallet {{v1}} already exists,
+        "account_already_exists": "Account {{v1}} already exists in your wallet",
+        "blockchain_account_already_exists": "Account {{v1}} is already registered with the blockchain.",
         "save_error": "Error saving wallet {{v1}}: {{v2}}",
         "must_be_opened": "Wallet must be opened first",
+        "must_be_unlocked": "Wallet must be unlocked first",
         "missing_local_storage": "Missing local storage",
         "password_too_short":"Password is too short",
         brain_key_too_short
+        
     }
 }

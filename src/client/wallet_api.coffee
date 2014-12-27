@@ -1,11 +1,11 @@
-#$q = require 'q'
 {Wallet} = require '../wallet/wallet'
 {WalletDb} = require '../wallet/wallet_db'
 {TransactionLedger} = require '../wallet/transaction_ledger'
 {Aes} = require '../ecc/aes'
 {ExtendedAddress} = require '../ecc/extended_address'
+{config} = require '../wallet/config'
 LE = require('../common/exceptions').LocalizedException
-config = require '../wallet/config'
+$q = require 'q'
 
 ###*
     Mimics bitshares_client RPC calls as close as possible. 
@@ -14,7 +14,7 @@ config = require '../wallet/config'
 ###
 class WalletAPI
     
-    constructor: (@wallet, @wallet_db, @transaction_ledger) -> #, @rpc = null
+    constructor: (@wallet, @wallet_db, @transaction_ledger, @chain_interface) -> #, @rpc = null
     
     ###* open from persistent storage ###
     open: (wallet_name = "default")->
@@ -48,7 +48,7 @@ class WalletAPI
         @wallet_db.validate_password password
         return
     
-    unlock:(timeout_seconds, password)->
+    unlock:(timeout_seconds = config.BTS_WALLET_DEFAULT_UNLOCK_TIME_SEC, password)->
         @wallet_db.validate_password password
         @aes_root = Aes.fromSecret password
         unlock_timeout_id = setTimeout ()=>
@@ -89,7 +89,8 @@ class WalletAPI
         unless @wallet_db
             LE.throw "wallet.must_be_opened"
         
-        @wallet_db.get_setting key
+        value = @wallet_db.get_setting key
+        return key: key, value: value
         
     set_setting:(key, value)->
         unless @wallet_db
@@ -98,9 +99,17 @@ class WalletAPI
         @wallet_db.set_setting key, value
         
     account_create:(account_name, private_data)->
-        unless Wallet.is_valid_account account_name
-            LE.throw 
-    
+        unless @wallet
+            LE.throw "wallet.must_be_opened"
+            
+        unless @aes_root
+            LE.throw 'wallet.must_be_unlocked'
+        
+        #defer = $q.defer()
+        #@rpc.request("blockchain_get_account_record",[account_name]).then (result)->
+        #    defer.reject new LE 'wallet.blockchain_account_already_exists', [account_name]
+        @wallet.account_create @aes_root, account_name, private_data
+        
     list_accounts:->
         unless @wallet_db
             LE.throw "wallet.must_be_opened"
@@ -144,9 +153,11 @@ class WalletAPI
             LE.throw "wallet.must_be_opened"
         
         account_name = null if account_name is ""
+        
+        if asset_id is "" then asset_id = 0
         unless /^\d+$/.test asset_id
             throw "asset_id should be a number, instead got: #{asset_id}"
-            
+        
         history = @transaction_ledger.get_transaction_history(
             account_name
             start_block_num
