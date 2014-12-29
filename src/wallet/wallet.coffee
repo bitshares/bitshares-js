@@ -1,25 +1,31 @@
-aes = require '../ecc/aes'
-hash = require '../ecc/hash'
-
 {WalletDb} = require './wallet_db'
 {TransactionLedger} = require '../wallet/transaction_ledger'
+{TransactionBuilder} = require '../wallet/transaction_builder'
 {ChainInterface} = require '../blockchain/chain_interface'
 {ExtendedAddress} = require '../ecc/extended_address'
-{PrivateKey} = require '../ecc/key_private'
-{PublicKey} = require '../ecc/key_public'
+#{PrivateKey} = require '../ecc/key_private'
+#{PublicKey} = require '../ecc/key_public'
 {Aes} = require '../ecc/aes'
+
+#{Transaction} = require '../blockchain/transaction'
+#{RegisterAccount} = require '../blockchain/register_account'
+#{Withdraw} = require '../blockchain/withdraw'
+
 LE = require('../common/exceptions').LocalizedException
+EC = require('../common/exceptions').ErrorWithCause
 config = require './config'
 hash = require '../ecc/hash'
 secureRandom = require 'secure-random'
+q = require 'q'
 
 ###* Public ###
 class Wallet
 
-    constructor: (@wallet_db) -> #blockchain, 
+    constructor: (@wallet_db, @rpc) ->
         throw "required parameter" unless @wallet_db
-        @chain_interface = new ChainInterface()
         @transaction_ledger = new TransactionLedger @wallet_db
+        @transaction_builder = new TransactionBuilder @wallet_db, @rpc
+        @chain_interface = new ChainInterface @rpc
     
     Wallet.entropy = null
     Wallet.add_entropy = (data) ->
@@ -80,18 +86,12 @@ class Wallet
         wallet_db.save()
         return
         
-    account_create:(account_name, private_data)->
-        LE.throw 'wallet.must_be_unlocked' unless @aes_root
-        unless @chain_interface.is_valid_account_name account_name
-            LE.throw 'wallet.invalid_account_name',[account_name]
+    lock: ->
+        @aes_root = undefined
         
-        #cnt = @wallet_db.list_my_accounts()
-        account = @wallet_db.lookup_account account_name
-        if account
-            LE.throw 'wallet.account_already_exists',[account_name]
-        
-        @wallet_db.generate_new_account @aes_root, account_name, private_data
-        
+    locked: ->
+        @aes_root is undefined
+            
     toJson: (indent_spaces=undefined) ->
         JSON.stringify(@wallet_db.wallet_object, undefined, indent_spaces)
     
@@ -105,34 +105,74 @@ class Wallet
         unlock_timeout_id
     
     validate_password: (password)->
-        LE.throw "wallet.must_be_opened" unless @wallet_db
         @wallet_db.validate_password password
     
     master_private_key:->
-        LE.throw "wallet.must_be_opened" unless @wallet_db
         LE.throw 'wallet.must_be_unlocked' unless @aes_root
         @wallet_db.master_private_key @aes_root
     
     get_setting: (key) ->
-        LE.throw "wallet.must_be_opened" unless @wallet_db
         @wallet_db.get_setting key 
         
     set_setting: (key, value) ->
-        LE.throw "wallet.must_be_opened" unless @wallet_db
         @wallet_db.set_setting key, value
         
+    get_transaction_fee:->
+        @wallet_db.get_transaction_fee()
+        
     get_account:(name)->
-        LE.throw "wallet.must_be_opened" unless @wallet_db
         @wallet_db.lookup_account name
     
     list_accounts:->
-        LE.throw "wallet.must_be_opened" unless @wallet_db
         accounts = @wallet_db.list_accounts()
         accounts.sort (a, b)->
             if a.name < b.name then -1
             else if a.name > b.name then 1
             else 0
         accounts
+    
+    ###* @return {string} public key ###
+    account_create:(account_name, private_data)->
+        LE.throw 'wallet.must_be_unlocked' unless @aes_root
+        defer = q.defer()
+        @chain_interface.valid_unique_account(account_name).then(
+            (resolve)=>
+                #cnt = @wallet_db.list_my_accounts()
+                account = @wallet_db.lookup_account account_name
+                if account
+                    e = new LE 'wallet.account_already_exists',[account_name]
+                    defer.reject e
+                    return
+                
+                key = @wallet_db.generate_new_account @aes_root, account_name, private_data
+                defer.resolve key
+            (error)=>
+                defer.reject error
+        ).done()
+        defer.promise
+        
+        
+    account_register:(
+        account_name
+        pay_from_account
+        public_data=null
+        delegate_pay_rate = -1
+        account_type = "titan_account"
+    )->
+        defer = q.defer()
+        @chain_interface.valid_unique_account(account_name).then(
+            (resolve)->
+                @transaction_builder.account_register(
+                    account_name
+                    pay_from_account
+                    public_data
+                    delegate_pay_rate
+                    account_type
+                )
+            (error)->
+                defer.reject error
+        ).done()
+        defer.promise
     
     account_transaction_history:(
         account_name=""
@@ -141,7 +181,6 @@ class Wallet
         start_block_num=0
         end_block_num=-1
     )->
-        LE.throw "wallet.must_be_opened" unless @wallet_db
         account_name = null if account_name is ""
         
         if asset_id is "" then asset_id = 0
@@ -170,13 +209,10 @@ class Wallet
         return history if limit is 0 or Math.abs(limit) >= history.length
         return history.slice 0, limit if limit > 0
         history.slice history.length - -1 * limit, history.length
+        
+    valid_unique_account:(account_name) ->
+        @chain_interface.valid_unique_account account_name
     
-    lock: ->
-        @aes_root = undefined
-        
-    locked: ->
-        @aes_root is undefined
-        
     dump_private_key:(account_name)->
         LE.throw 'wallet.must_be_unlocked' unless @aes_root
         account = @wallet_db.lookup_account account_name
@@ -185,19 +221,20 @@ class Wallet
         return null unless rec
         @aes_root.decryptHex rec.encrypted_private_key
         
-    getActiveKey: (account_name) ->
-        active_key = @wallet_db.account_activeKey[account_name]
-        throw "Account #{account_name} not found" unless active_key
-        PublicKey.fromBtsPublic active_key
+    ###* @return {PrivateKey} ###
+    getOwnerKeyPrivate: (account_name)->
+        LE.throw 'wallet.must_be_unlocked' unless @aes_root
+        @wallet_db.getOwnerKeyPrivate @aes_root, account_name
     
+    ###* @return {PublicKey} ###
+    getActiveKey: (account_name) ->
+        @wallet_db.getActiveKey account_name
+    
+    ###* @return {PrivateKey} ###
     getActiveKeyPrivate: (account_name) ->
-        @unlocked()
-        active_key = @getActiveKey account_name
-        key_record = @wallet_db.keyRecord(active_key)
-        PrivateKey.fromHex(@wallet_db.aes_root.decryptHex(key_record.encrypted_private_key))
-        
-    backup_restore_object: (json_object, wallet_name) ->
-        Db.backup_restore_object json_object, wallet_name
+        LE.throw 'wallet.must_be_unlocked' unless @aes_root
+        @wallet_db.getActiveKeyPrivate @aes_root, account_name
+
 
     
 exports.Wallet = Wallet

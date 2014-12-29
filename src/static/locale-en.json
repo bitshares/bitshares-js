@@ -13,7 +13,8 @@
         "must_be_unlocked": "Wallet must be unlocked first",
         "missing_local_storage": "Missing local storage",
         "password_too_short":"Password is too short",
-        brain_key_too_short
-        
+        "brain_key_too_short":"Brain key is too short",
+        "delegate_pay_rate_invalid": "Invalid delegate pay rate: {{v1}}",
+        "wallet.need_parent_for_registration":"Need parent account ({{v1}}) to authorize registration"
     }
 }

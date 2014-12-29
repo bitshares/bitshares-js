@@ -2,9 +2,10 @@
 {WalletDb} = require '../wallet/wallet_db'
 {Aes} = require '../ecc/aes'
 {ExtendedAddress} = require '../ecc/extended_address'
+{ChainInterface} = require '../blockchain/chain_interface'
 {config} = require '../wallet/config'
 LE = require('../common/exceptions').LocalizedException
-$q = require 'q'
+q = require 'q'
 
 ###*
     Mimics bitshares_client RPC calls as close as possible. 
@@ -13,7 +14,7 @@ $q = require 'q'
 ###
 class WalletAPI
     
-    constructor:(@wallet)-> #, @rpc = null
+    constructor:(@wallet, @rpc)->
     
     ###* open from persistent storage ###
     open: (wallet_name = "default")->
@@ -21,7 +22,7 @@ class WalletAPI
         unless wallet_db
             throw new LE 'wallet.not_found', [wallet_name]
         
-        @wallet = new Wallet wallet_db
+        @wallet = new Wallet wallet_db, @rpc
         return
     
     create: (wallet_name = "default", new_password, brain_key)->
@@ -58,13 +59,31 @@ class WalletAPI
         
     account_create:(account_name, private_data)->
         LE.throw "wallet.must_be_opened" unless @wallet
-        LE.throw 'wallet.must_be_unlocked' if @wallet.locked()
-        #@rpc.request("blockchain_get_account_record",[account_name]).then (result)->
-        #    defer.reject new LE 'wallet.blockchain_account_already_exists', [account_name]
         @wallet.account_create account_name, private_data
+    
+    account_register:(
+        account_name
+        pay_from_account
+        public_data = null
+        delegate_pay_rate = -1
+        account_type = 'titan_account'
+    )->
+        LE.throw "wallet.must_be_opened" unless @wallet
+        @wallet.account_register(
+            account_name
+            pay_from_account
+            public_data
+            delegate_pay_rate
+            account_type
+        )
+    
+        
+    #<account_name> <pay_from_account> [public_data] [delegate_pay_rate] [account_type]
+    
+
 
     ###*
-        Save a new wallet and resovles with a WalletDb object.  Resolves as an error 
+        Save a new wallet and return a WalletDb object.  Resolves as an error 
         if wallet exists or is unable to save in local storage.
     ###
     backup_restore_object:(wallet_object, wallet_name)->
@@ -80,9 +99,9 @@ class WalletAPI
             
     get_info:->
         open: if @wallet then true else false
-        unlocked: not @wallet?.locked()#if @wallet then not @wallet.locked() else null
+        unlocked: not @wallet?.locked() #if @wallet then not @wallet.locked() else null
         name: @wallet.wallet_db?.wallet_name
-        transaction_fee: "0.50000 XTS"#@wallet.transaction_fee()
+        transaction_fee:@wallet.get_transaction_fee()
         
     get_setting:(key)->
         LE.throw "wallet.must_be_opened" unless @wallet
@@ -95,7 +114,10 @@ class WalletAPI
         
     get_account:(name)->
         LE.throw "wallet.must_be_opened" unless @wallet
-        @wallet.get_account name
+        account = @wallet.get_account name
+        unless account.registration_date
+            account.registration_date = "1970-01-01T00:00:00"
+        account
     
     list_accounts:->
         LE.throw "wallet.must_be_opened" unless @wallet

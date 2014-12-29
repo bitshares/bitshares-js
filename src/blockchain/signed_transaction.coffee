@@ -33,7 +33,7 @@ class SignedTransaction
         for signature in @signatures
             o.signatures.push signature.toHex()
     
-    ### <HEX> ###
+    ### <helper_functions> ###
     
     SignedTransaction.fromHex= (hex) ->
         b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
@@ -43,7 +43,7 @@ class SignedTransaction
         b=@toByteBuffer()
         b.toHex()
         
-    ### </HEX> ###
+    ### </helper_functions> ###
 
 exports.SignedTransaction = SignedTransaction
 

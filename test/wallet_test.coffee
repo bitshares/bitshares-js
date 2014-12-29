@@ -7,17 +7,18 @@ wallet_object = require './fixtures/wallet.json'
 EC = require('../src/common/exceptions').ErrorWithCause
 secureRandom = require 'secure-random'
 
-# clone
+# cloneable
 wallet_object_string = JSON.stringify wallet_object
 PASSWORD = "Password00"
 
-describe "Wallet API", ->
+describe "Wallet API (non-RPC)", ->
     
     beforeEach ->
         # create / reset in ram
         wallet_object = JSON.parse wallet_object_string
         wallet_db = new WalletDb wallet_object, "default"
         wallet = new Wallet wallet_db
+        #builder = new TransactionBuilder wallet_db
         @wallet_api = new WalletAPI wallet
         
     afterEach ->
@@ -118,7 +119,7 @@ describe "Wallet API", ->
 
     it "account_create", ->
         @wallet_api.unlock(2, PASSWORD)
-        public_key = @wallet_api.account_create 'mycat', {
+        public_key = @wallet_api.wallet.account_create 'mycat', {
             gui_data:website:undefined
         }
         EC.throw 'expecting public key' unless public_key
@@ -128,7 +129,7 @@ describe "Wallet API", ->
         entropy = secureRandom.randomUint8Array 1000
         Wallet.add_entropy new Buffer entropy
         @wallet_api.create "default", PASSWORD
-        @wallet_api.account_create 'newname'
+        @wallet_api.wallet.account_create 'newname'
         private_key_hex = @wallet_api.dump_private_key 'newname'
         EC.throw 'expecting private_key_hex' unless private_key_hex
         

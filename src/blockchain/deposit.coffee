@@ -38,9 +38,9 @@ class Deposit
         b_copy = b.copy(0, b.offset)
         return new Buffer(b_copy.toBinary(), 'binary')
     
-    Deposit.fromHex= (hex) ->
-        b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
-        return SignedTransaction.fromByteBuffer b
+    #Deposit.fromHex= (hex) ->
+    #    b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
+    #    return Deposit.fromByteBuffer b
 
     toHex: () ->
         b=@toByteBuffer()

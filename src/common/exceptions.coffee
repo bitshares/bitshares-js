@@ -1,4 +1,8 @@
-###* Adds nested exceptions 
+###* Adds nested exceptions.  
+
+This would be used to indicate programmer error and 
+not be reported to the end user.
+
 https://www.joyent.com/developers/node/design/errors
 ###
 class ErrorWithCause
@@ -13,7 +17,11 @@ class ErrorWithCause
             error.message += "\tcaused by:\n\t#{cause.stack}" 
         throw error
     
-###* Localization separates values from the error message key ###
+###*
+Localization separates values from the error message key.
+
+Errors that may be reported to the end user.
+###
 class LocalizedException
     
     constructor: (key, key_params, cause)->

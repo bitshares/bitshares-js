@@ -25,7 +25,7 @@ WithdrawCondition = blockchain.WithdrawCondition
 WithdrawSignatureType = blockchain.WithdrawSignatureType
 
 {fp} = require '../src/common/fast_parser'
-{Rpc} = require "./rpc_json"
+{Rpc} = require "../test/lib/rpc_json"
 q = require 'q'
 
 time = (offset_seconds) ->

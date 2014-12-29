@@ -2,6 +2,7 @@ hash = require '../ecc/hash'
 LE = require('../common/exceptions').LocalizedException
 {Aes} = require '../ecc/aes'
 {config} = require './config'
+{PublicKey} = require '../ecc/key_public'
 {PrivateKey} = require '../ecc/key_private'
 {ExtendedAddress} = require '../ecc/extended_address'
 
@@ -110,11 +111,6 @@ class WalletDb
         wallet_db.save()
         wallet_db
     
-    master_private_key:(aes_root)->
-        plainhex = aes_root.decryptHex @master_key.encrypted_key
-        plainhex = plainhex.substring 0, 64
-        PrivateKey.fromHex plainhex
-    
     ###* @return {WalletDb} or null ###
     WalletDb.open = (wallet_name = "default") ->
         wallet_string = localStorage.getItem "wallet-" + wallet_name
@@ -125,6 +121,11 @@ class WalletDb
     WalletDb.delete = (wallet_name)->
         localStorage.removeItem "wallet-" + wallet_name
         return
+    
+    master_private_key:(aes_root)->
+        plainhex = aes_root.decryptHex @master_key.encrypted_key
+        plainhex = plainhex.substring 0, 64
+        PrivateKey.fromHex plainhex
     
     ###* @throws {QuotaExceededError} ###
     save: ->
@@ -173,6 +174,25 @@ class WalletDb
         @property[key] = value
         return
     
+    get_trx_expiration:->
+        exp = new Date()
+        sec = @get_setting transaction_expiration_sec
+        exp.setSeconds exp.getSeconds() + sec
+        # removing seconds causes the epoch value 
+        # the time_point_sec conversion Math.ceil(epoch / 1000)
+        # to always come out as a odd number.  With the 
+        # seconds, the result will always be even and 
+        # the transaction will not be valid (missing signature)
+        exp = new Date(exp.toISOString().split('.')[0])
+    
+    get_transaction_fee:->
+        s = @get_setting "default_transaction_priority_fee"
+        return s.value if s
+        {
+            amount: 50000
+            asset_id: 0
+        }
+    
     list_accounts:->
         for entry in @wallet_object
             continue unless entry.type is "account_record_type"
@@ -205,6 +225,9 @@ class WalletDb
         
     lookup_key:(account_address)->
         @account_address[account_address]
+        
+    lookup_active_key:(account_name)->
+        @account_activeKey[account_name]
         
     get_account_for_address:(public_key_string)->
         @activeKey_account[public_key_string] or
@@ -245,6 +268,7 @@ class WalletDb
                 ]
             ]
             private_data: private_data
+            registration_date: null
             is_my_account: yes
         @defer_save()
         @set_child_key_index key_index
@@ -301,5 +325,34 @@ class WalletDb
         checksum = hash.sha512 checksum1
         unless @master_key.checksum is checksum.toString 'hex'
             LE.throw 'wallet.invalid_password'
+            
+    getOwnerKey: (account_name)->
+        account = @lookup_account account_name
+        return null unless account
+        PublicKey.fromBtsPublic account.owner_key
     
+    ###* @return {PrivateKey} ###
+    getOwnerKeyPrivate: (aes_root, account_name)->
+        account = @lookup_account account_name
+        return null unless account
+        account.owner_key
+        key_record = @get_key_record account.owner_key
+        return null unless key_record
+        PrivateKey.fromHex aes_root.decryptHex key_record.encrypted_private_key
+        
+    ###* @return {PublicKey} ###
+    getActiveKey: (account_name) ->
+        active_key = @lookup_active_key account_name
+        return null unless active_key
+        PublicKey.fromBtsPublic active_key
+        
+    ###* @return {PrivateKey} ###
+    getActiveKeyPrivate: (aes_root, account_name) ->
+        active_key = @lookup_active_key account_name
+        return null unless active_key
+        key_record = @get_key_record active_key
+        return null unless key_record
+        PrivateKey.fromHex aes_root.decryptHex key_record.encrypted_private_key
+    
+        
 exports.WalletDb = WalletDb

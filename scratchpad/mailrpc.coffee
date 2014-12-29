@@ -13,7 +13,7 @@ Mail = _Mail.Mail
 Email = _Mail.Email
 EncryptedMail = _Mail.EncryptedMail
 
-{Rpc} = require "./rpc_json"
+{Rpc} = require "../test/lib/rpc_json"
 {RpcCommon} = require "./rpc_common"
 
 ByteBuffer = require 'bytebuffer'

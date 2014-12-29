@@ -12,3 +12,4 @@ exports.config =
         transaction_fee: 50000 # .05
         interface_theme: "flowers"
         interface_locale: navigator?.language.split('-')[0]
+        transaction_expiration_sec: 60*60

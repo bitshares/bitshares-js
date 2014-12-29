@@ -19,6 +19,9 @@ Email = mail.Email
 EncryptedMail = mail.EncryptedMail
 TransactionNotice = mail.TransactionNotice
 
+# genesis format has changed, this matches the ID at the time this test data was collected
+config.chain_id = "251e17305faf94fe8ae8c61c1408051338bed4b162d81007c5ff930a54039c7c"
+
 ###
 bts::mail::transaction_notice_message, (signed_transaction)(extended_memo)(memo_signature)(one_time_key)
     bts::blockchain::signed_transaction signed_transaction
