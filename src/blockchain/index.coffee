@@ -1,5 +1,5 @@
 module.exports =
-    Register : require('./register').Register
+    RegisterAccount : require('./register_account').RegisterAccount
     Deposit : require('./deposit').Deposit
     Operation : require('./operation').Operation
     SignedTransaction : require('./signed_transaction').SignedTransaction

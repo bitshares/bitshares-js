@@ -43,6 +43,7 @@ class WithdrawSignatureType
             
     toJson: (o) ->
         o.owner = new Address(@owner).toString()
+        o.memo = null
         if @one_time_key and @encrypted_memo
             memo = o.memo = {}
             memo.one_time_key = @one_time_key.toBtsPublic()

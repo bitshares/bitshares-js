@@ -24,6 +24,9 @@ Withdraw = blockchain.Withdraw
 WithdrawCondition = blockchain.WithdrawCondition    
 WithdrawSignatureType = blockchain.WithdrawSignatureType
 
+{Wallet} = require '../src/wallet/wallet'
+{WalletDb} = require '../src/wallet/wallet_db'
+
 {fp} = require '../src/common/fast_parser'
 {Rpc} = require "../test/lib/rpc_json"
 q = require 'q'
@@ -35,11 +38,9 @@ time = (offset_seconds) ->
     #now = now.replace /[-:]/g, ''
     now = now.split('.')[0]
     
-wallet = require '../src/wallet'
-Wallet = wallet.Wallet
-wallet_object = require './wallet.json'
-wallet = Wallet.fromObject wallet_object
-wallet.unlock(Aes.fromSecret('Password00'))
+
+PASSWORD = "Password00"
+wallet_json_string = JSON.stringify require './wallet.json'
 
 # Remove when this is a real ua test
 rpc_on = on
@@ -50,6 +51,7 @@ rpc_on = on
 child_account_index = 1
 enc_memo_hex = ""
 tx1_balance_id = "XTS5bJNzfPVQxEahXp28H85hnL9GvdbiHdPf"
+
 trx1_one_time_key = ""
 #also, set enc_memo_hex in both tests
 
@@ -57,14 +59,17 @@ describe "Transfer", ->
     
     before ->
         @rpc=new Rpc(debug=on, 45000, "localhost", "test", "test") if rpc_on
+        wallet_object = JSON.parse wallet_json_string
+        @wallet = new Wallet (new WalletDb wallet_object), @rpc
+        @wallet.unlock 999, PASSWORD
         
     after ->
         @rpc.close() if rpc_on
     
     it "Send TITAN", (done) ->
         
-        sender_private = wallet.getActiveKeyPrivate "delegate0"
-        receiver_public = wallet.getActiveKey "delegate1"
+        sender_private = @wallet.getActivePrivate "delegate0"
+        receiver_public = @wallet.getActiveKey "delegate1"
         
         # blockchain_list_balances [where owner = delegate0]
         # TODO, lookup with RPC calls so user can spend initial genesis claim
@@ -96,8 +101,8 @@ describe "Transfer", ->
     
     it "Re-send TITAN", (done) ->
         
-        sender_private = wallet.getActiveKeyPrivate "delegate1"
-        receiver_public = wallet.getActiveKey "delegate0"
+        sender_private = @wallet.getActivePrivate "delegate1"
+        receiver_public = @wallet.getActiveKey "delegate0"
         
         child_account_index = 10001
         enc_memo_hex = "e387a340b7e4d0b81d7d50c9a00a7eaa7750dce8f91650a69a7a46008e7b70ec209f9ec136ffedec476bc0227b4ecac4df0c78c7530bf83205194a67e020e9d3"

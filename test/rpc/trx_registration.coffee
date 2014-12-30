@@ -5,10 +5,8 @@
 {WalletAPI} = require '../../src/client/wallet_api'
 {PublicKey} = require '../../src/ecc/key_public'
 
-wallet_json_string = JSON.stringify require '../fixtures/wallet.json'
-
 PASSWORD = "Password00"
-
+wallet_json_string = JSON.stringify require '../fixtures/wallet.json'
 new_wallet_api= (rpc) ->
     # JSON.parse is used to clone (so internals can't change)
     wallet_object = JSON.parse wallet_json_string
@@ -27,7 +25,7 @@ describe "Account", ->
     
     it "Create", (done) ->
         wallet_api = new_wallet_api @rpc
-        wallet_api.unlock 9, 'Password00'
+        wallet_api.unlock 9, PASSWORD
         wallet_api.account_create("test-alice").then (key)->
             PublicKey.fromBtsPublic key
             done()

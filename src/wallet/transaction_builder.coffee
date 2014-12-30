@@ -265,7 +265,7 @@ class TransactionBuilder
             id = balance_record[0]
             balance = balance_record[1]
             if balance.snapshot_info?.original_address
-                return @wallet_db.lookup_account(from_account_name).owner_key
+                return @wallet_db.lookup_active_key from_account_name
             
             console.log 'not implemented: balance_record',balance_record
         
