@@ -15,6 +15,7 @@ q = require 'q'
 class WalletAPI
     
     constructor:(@wallet, @rpc)->
+        @chain_interface = new ChainInterface @rpc
     
     ###* open from persistent storage ###
     open: (wallet_name = "default")->
@@ -61,6 +62,40 @@ class WalletAPI
         LE.throw "wallet.must_be_opened" unless @wallet
         @wallet.account_create account_name, private_data
     
+    wallet_transfer_to_address:(
+        amount
+        asset_symbol
+        from
+        to_address
+        memo_message = ""
+        vote_method = ""#vote_recommended"
+    )->
+        LE.throw "wallet.must_be_opened" unless @wallet
+        defer = q.defer()
+        @chain_interface.get_asset(asset_symbol).then(
+            (asset)=>
+                unless asset
+                    error = new LE 'chain.unknown_asset', [asset]
+                    defer.reject error
+                    return
+                @wallet.wallet_transfer_to_address(
+                    amount
+                    asset
+                    from
+                    to_address
+                    memo_message = ""
+                    vote_method = ""#vote_recommended"
+                ).then(
+                    (trx)->
+                        defer.resolve trx
+                    (error)->
+                        defer.reject error
+                ).done()
+            (error)->
+                defer.reject error
+        ).done()
+        defer.promise
+        
     account_register:(
         account_name
         pay_from_account

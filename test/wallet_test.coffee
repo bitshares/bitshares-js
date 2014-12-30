@@ -107,7 +107,7 @@ describe "Wallet API (non-RPC)", ->
     it "store and retrieve settings", ->
         @wallet_api.set_setting "key", "value"
         setting = @wallet_api.get_setting "key"
-        EC.throw "Setting key did not match #{value}" unless setting.value is "value"
+        EC.throw "Setting mismatch" unless setting.value is "value"
     
     it "list accounts", ->
         accounts = @wallet_api.list_accounts()
@@ -117,22 +117,9 @@ describe "Wallet API (non-RPC)", ->
         history = @wallet_api.account_transaction_history()
         EC.throw 'no history' unless history?.length > 0
 
-    it "account_create", ->
-        @wallet_api.unlock(2, PASSWORD)
-        public_key = @wallet_api.wallet.account_create 'mycat', {
-            gui_data:website:undefined
-        }
-        EC.throw 'expecting public key' unless public_key
+
        
-    it "dump_private_key", ->
-        WalletDb.delete "default"
-        entropy = secureRandom.randomUint8Array 1000
-        Wallet.add_entropy new Buffer entropy
-        @wallet_api.create "default", PASSWORD
-        @wallet_api.wallet.account_create 'newname'
-        private_key_hex = @wallet_api.dump_private_key 'newname'
-        EC.throw 'expecting private_key_hex' unless private_key_hex
-        
+
     ###
     it "create brain-key wallet", ->
         # exception in wallet.coffee: throw 'Brain keys have not been tested with the native client'

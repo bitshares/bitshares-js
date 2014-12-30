@@ -24,7 +24,7 @@ class Wallet
     constructor: (@wallet_db, @rpc) ->
         throw "required parameter" unless @wallet_db
         @transaction_ledger = new TransactionLedger @wallet_db
-        @transaction_builder = new TransactionBuilder @wallet_db, @rpc
+        @transaction_builder = new TransactionBuilder @wallet_db, @rpc, @transaction_ledger
         @chain_interface = new ChainInterface @rpc
     
     Wallet.entropy = null
@@ -151,6 +151,37 @@ class Wallet
         ).done()
         defer.promise
         
+    wallet_transfer_to_address:(
+        amount
+        asset
+        from_name
+        to_address
+        memo_message = ""
+        vote_method = ""#vote_recommended"
+    )->
+        defer = q.defer()
+        @transaction_builder.wallet_transfer_to_address(
+            amount
+            asset
+            from_name
+            to_address
+            memo_message
+            vote_method
+            @aes_root
+        ).then(
+            (signed_trx)=>
+                console.log 'signed_trx',JSON.stringify signed_trx,null,2
+                @rpc.request("blockchain_broadcast_transaction", [signed_trx]).then(
+                    (result)->
+                        # returns void
+                        defer.resolve signed_trx
+                    (error)->
+                        defer.reject error
+                ).done()
+            (error)->
+                defer.reject error
+        ).done()
+        defer.promise
         
     account_register:(
         account_name
@@ -161,14 +192,25 @@ class Wallet
     )->
         defer = q.defer()
         @chain_interface.valid_unique_account(account_name).then(
-            (resolve)->
+            (resolve)=>
                 @transaction_builder.account_register(
                     account_name
                     pay_from_account
                     public_data
                     delegate_pay_rate
                     account_type
-                )
+                ).then(
+                    (signed_trx)=>
+                        @rpc.request("blockchain_broadcast_transaction", [signed_trx]).then(
+                            (result)->
+                                # returns void
+                                defer.resolve signed_trx
+                            (error)->
+                                defer.reject error
+                        ).done()
+                    (error)->
+                        defer.reject error
+                ).done()
             (error)->
                 defer.reject error
         ).done()
@@ -231,9 +273,9 @@ class Wallet
         @wallet_db.getActiveKey account_name
     
     ###* @return {PrivateKey} ###
-    getActiveKeyPrivate: (account_name) ->
+    getActivePrivate: (account_name) ->
         LE.throw 'wallet.must_be_unlocked' unless @aes_root
-        @wallet_db.getActiveKeyPrivate @aes_root, account_name
+        @wallet_db.getActivePrivate @aes_root, account_name
 
 
     

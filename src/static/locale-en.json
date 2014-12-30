@@ -1,12 +1,14 @@
 {
     "wallet": {
-        "not_found": "Wallet {{v1}} not found",
+        "not_found": "Wallet '{{v1}}' not found",
         "invalid_name": "Invalid name",
-        "invalid_account_name": "Invalid account name",
-        "invalid_format": "Invalid wallet format {{v1}}",
+        "invalid_account_name": "Invalid account name {{v1}}",
+        "invalid_format": "Invalid wallet format: {{v1}}",
         "invalid_password": "Invalid password",
+        "invalid_amount": "Invalid amount '{{v1}}'",
         "already_exists": "Wallet {{v1}} already exists,
-        "account_already_exists": "Account {{v1}} already exists in your wallet",
+        "account_already_exists": "Account '{{v1}}' already exists in your wallet",
+        "account_not_found": "Account '{{v1}}' was not found in your wallet",
         "blockchain_account_already_exists": "Account {{v1}} is already registered with the blockchain.",
         "save_error": "Error saving wallet {{v1}}: {{v2}}",
         "must_be_opened": "Wallet must be opened first",
@@ -15,6 +17,10 @@
         "password_too_short":"Password is too short",
         "brain_key_too_short":"Brain key is too short",
         "delegate_pay_rate_invalid": "Invalid delegate pay rate: {{v1}}",
-        "wallet.need_parent_for_registration":"Need parent account ({{v1}}) to authorize registration"
+        "need_parent_for_registration":"Need parent account ({{v1}}) to authorize registration",
+        "account_without_private_key":"Your wallet does not have a private key for account: '{{v1}'"
+    },
+    "chain":{
+        "unknown_asset":"Asset '{{v1}}' was not found"
     }
 }

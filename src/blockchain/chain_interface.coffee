@@ -41,9 +41,28 @@ class ChainInterface
                     defer.resolve()
             .done()
         catch error
-            console.log error
             defer.reject error
         defer.promise
+        
+    get_asset:(symbol_name)->
+        defer = q.defer()
+        try
+            @rpc.request("blockchain_get_asset",[symbol_name]).then (asset)=>
+                if asset
+                    unless asset.precision
+                        #ref: wallet::transfer_asset_to_address
+                        asset.precision = 1
+                        console.log 'Using default precision',asset
+                defer.resolve asset
+            .done()
+        catch error
+            defer.reject error
+        defer.promise
+        
+    ###* compare blockchain and local account, make sure ther is no conflict ###
+    
+    
+    #is_valid_account_name
     
 
 exports.ChainInterface = ChainInterface

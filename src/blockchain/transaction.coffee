@@ -5,7 +5,7 @@ ByteBuffer = require 'bytebuffer'
 hash = require '../ecc/hash'
 
 ###
-bts::blockchain::transaction, (expiration)(delegate_slate_id)(operations)
+bts::blockchain::transaction, (expiration)(slate_id)(operations)
     fc::time_ _sec expiration
     optional slait_id_type uint64_t
     vector<operation>           operations
@@ -16,7 +16,7 @@ bts::blockchain::operation, (type)(data)
 ###
 class Transaction
     
-    constructor: (@expiration, @delegate_slate_id, @operations) ->
+    constructor: (@expiration, @slate_id, @operations) ->
         
     id:->
         h = hash.sha512 @toBuffer()
@@ -25,17 +25,17 @@ class Transaction
     Transaction.fromByteBuffer = (b) ->
         expiration = fp.time_point_sec b
         throw "Delegate slate is not implemented" if fp.optional b
-        delegate_slate_id = null
+        slate_id = null
         operations = []
         operations_count = b.readVarint32()
         for i in [1..operations_count]
             operations.push Operation.fromByteBuffer b 
         
-        new Transaction(expiration, delegate_slate_id, operations)
+        new Transaction(expiration, slate_id, operations)
       
     appendByteBuffer: (b) ->
         fp.time_point_sec b, @expiration
-        fp.optional b, null # delegate_slate_id
+        fp.optional b, null # slate_id
         b.writeVarint32(@operations.length)
         for operation in @operations
             operation.appendByteBuffer(b)
@@ -45,7 +45,7 @@ class Transaction
         #exp = exp.replace /[-:]/g, ''
         exp = exp.split('.')[0]
         o.expiration = exp
-        o.delegate_slate_id = @delegate_slate_id
+        o.slate_id = @slate_id
         o.operations = []
         for operation in @operations
             operation.toJson(op={}) 
@@ -59,7 +59,7 @@ class Transaction
     #    
     #    new Transaction(
     #        new Date(o.expiration)
-    #        o.delegate_slate_id
+    #        o.slate_id
     #        operations
     #    )
     

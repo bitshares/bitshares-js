@@ -32,7 +32,7 @@ bts::mail::transaction_notice_message, (signed_transaction)(extended_memo)(memo_
 bts::blockchain::signed_transaction, (bts::blockchain::transaction), (signatures)
     fc::array<unsigned char,65> vector<fc::ecc::compact_signature> signatures
     
-bts::blockchain::transaction, (expiration)(delegate_slate_id)(operations)
+bts::blockchain::transaction, (expiration)(slate_id)(operations)
     fc::time_ _sec expiration
     optional slait_id_type uint64_t
     vector<operation>           operations

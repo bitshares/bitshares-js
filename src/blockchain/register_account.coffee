@@ -67,9 +67,9 @@ class RegisterAccount
         fp.public_key b, @owner_key
         fp.public_key b, @active_key
         b.writeUint8 @delegate_pay_rate
-        if fp.optional b, meta_data
-            b.writeUint32 meta_data.type
-            fp.variable_buffer b, meta_data.data
+        if fp.optional b, @meta_data
+            b.writeUint32 @meta_data.type
+            fp.variable_buffer b, @meta_data.data
 
     toBuffer: ->
         b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)

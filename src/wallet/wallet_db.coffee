@@ -26,6 +26,8 @@ class WalletDb
         @account_activeKey = {}
         @key_record = {}
         @account_address = {}
+        #@transaction_from = {}
+        @transaction_to = {}
         for entry in @wallet_object
             data = entry.data
             switch entry.type
@@ -39,6 +41,8 @@ class WalletDb
                     @index_account data
                 when "key_record_type"
                     @index_key_record data
+                when "transaction_record_type"
+                    @index_transaction data
                     
                     
         invalid() unless @master_key
@@ -64,6 +68,30 @@ class WalletDb
         
     index_property:(data)->
         @property[data.key] = data.value
+        
+    index_transaction:(data)->
+        ###
+        for entry in data.ledger_entries
+            continue unless entry.from_account
+            from = @transaction_from[entry.from_account]
+            unless from
+                @transaction_from[entry.from_account] = from = []
+            from.push data
+        for entry in data.ledger_entries
+            continue unless entry.memo_from_account
+            from = @transaction_from[entry.memo_from_account]
+            unless from
+                @transaction_from[entry.memo_from_account] = from = []
+            from.push data
+        ###
+        for entry in data.ledger_entries
+            continue unless entry.to_account
+            to = @transaction_to[entry.to_account]
+            unless to
+                @transaction_to[entry.to_account] = to = []
+            to.push data
+        
+            
     
     ###*
         Adds from_account_name, to_account_name, and memo_from_account_name 
@@ -73,6 +101,7 @@ class WalletDb
     ###
     resolve_address_to_name:->
         # resolve any local registered account names
+        # simplifies transaction_history
         for entry in @wallet_object
             data = entry.data
             switch entry.type
@@ -150,7 +179,7 @@ class WalletDb
         ###
         
     get_setting: (key) ->
-        @property[key] or config.DEFAULT_SETTING[key]
+        @property[key]?.value or config.DEFAULT_SETTING[key]
     
     set_setting: (key, value) ->
         property = @property[key]
@@ -171,12 +200,12 @@ class WalletDb
         @index_property data
         @wallet_object.push data
         @save() if @auto_save
-        @property[key] = value
+        @property[key] = data.data
         return
     
     get_trx_expiration:->
         exp = new Date()
-        sec = @get_setting transaction_expiration_sec
+        sec = @get_setting 'transaction_expiration_sec'
         exp.setSeconds exp.getSeconds() + sec
         # removing seconds causes the epoch value 
         # the time_point_sec conversion Math.ceil(epoch / 1000)
@@ -186,12 +215,7 @@ class WalletDb
         exp = new Date(exp.toISOString().split('.')[0])
     
     get_transaction_fee:->
-        s = @get_setting "default_transaction_priority_fee"
-        return s.value if s
-        {
-            amount: 50000
-            asset_id: 0
-        }
+        @get_setting "transaction_fee"
     
     list_accounts:->
         for entry in @wallet_object
@@ -336,7 +360,11 @@ class WalletDb
         account = @lookup_account account_name
         return null unless account
         account.owner_key
-        key_record = @get_key_record account.owner_key
+        @getPrivateKey aes_root, account.owner_key
+        
+        
+    getPrivateKey: (aes_root, bts_public_key)->
+        key_record = @get_key_record bts_public_key
         return null unless key_record
         PrivateKey.fromHex aes_root.decryptHex key_record.encrypted_private_key
         
@@ -347,7 +375,7 @@ class WalletDb
         PublicKey.fromBtsPublic active_key
         
     ###* @return {PrivateKey} ###
-    getActiveKeyPrivate: (aes_root, account_name) ->
+    getActivePrivate: (aes_root, account_name) ->
         active_key = @lookup_active_key account_name
         return null unless active_key
         key_record = @get_key_record active_key
