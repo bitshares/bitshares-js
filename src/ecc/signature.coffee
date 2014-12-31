@@ -58,17 +58,19 @@ class Signature
         # https://github.com/bitcoinjs/bitcoinjs-lib/issues/334
         while true
             ecsignature = ecdsa.sign curve, _hash, private_key.d, nonce++
-            e = BigInteger.fromBuffer(_hash);
-            i = ecdsa.calcPubKeyRecoveryParam curve, e, ecsignature, private_key.toPublicKey().Q
-            i += 4 #compressed
-            i += 27 #compact
             der = ecsignature.toDER()
             lenR = der[3]
             lenS = der[5+lenR]
             console.log 'len r',lenR, 'len s',lenS
-            break if lenR is 32 and lenS is 32 # canonical
+            if lenR is 32 and lenS is 32 # canonical
+                e = BigInteger.fromBuffer(_hash);
+                i = ecdsa.calcPubKeyRecoveryParam curve, e, ecsignature, private_key.toPublicKey().Q
+                i += 4 #compressed
+                i += 27 #compact
+                break
+            
             # signing is slow, keep an eye out for this...
-            console.log "WARN: at least 5 attempts to find canonical signature" if nonce is 5
+            console.log "WARN: at least 10 attempts to find canonical signature" if nonce is 10
             throw new Error "Too many attempts: "+nonce if nonce is 100
         
         new Signature ecsignature.r, ecsignature.s, i
