@@ -11,8 +11,8 @@ function deterministicGenerateK(curve, hash, d, nonce) {
   enforceType('Buffer', hash)
   enforceType(BigInteger, d)
   
-  if ( nonce != undefined) {
-      hash = crypto.sha256(Buffer.concat([hash, new Buffer(nonce)]))
+  if (nonce) {
+    hash = crypto.sha256(Buffer.concat([hash, new Buffer(nonce)]))
   }
 
   // sanity check
