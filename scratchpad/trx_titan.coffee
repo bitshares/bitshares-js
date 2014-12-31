@@ -137,7 +137,7 @@ titan_trx = (sender_private, owner_private, receiver_public, amount, balance_id)
     console.log 'one_time_private_key',otk_private.toHex()
     
     #S_sender = 
-    ExtendedAddress.deriveS_PublicKey sender_private, one_time_key
+    #ExtendedAddress.deriveS_PublicKey sender_private, one_time_key
     #console.log 'owner2\t',Address.fromBuffer(S_sender.toBuffer()).toString()
     
     #aes = Aes.fromSha512((hash.sha512 otk_private.sharedSecret receiver_public.toUncompressed()).toString('hex'))

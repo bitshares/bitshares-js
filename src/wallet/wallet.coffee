@@ -87,6 +87,8 @@ class Wallet
         return
         
     lock: ->
+        EC.throw "Wallet is already locked" unless @aes_root
+        @aes_root.clear()
         @aes_root = undefined
         
     locked: ->
@@ -130,6 +132,18 @@ class Wallet
             else if a.name > b.name then 1
             else 0
         accounts
+        
+    ###* Get a blockchain account, cache in wallet_db ###
+    lookup_account:(name)->
+        defer = q.defer()
+        @rpc.request("blockchain_get_account", [name]).then(
+            (result)->
+                @wallet_db.account_update_or_save result
+                defer.resolve result
+            (error)->
+                defer.reject error
+        ).done()
+        defer.promise()
     
     ###* @return {string} public key ###
     account_create:(account_name, private_data)->
@@ -151,6 +165,13 @@ class Wallet
         ).done()
         defer.promise
         
+    get_new_private_key:(account_name)->
+        LE.throw 'wallet.must_be_unlocked' unless @aes_root
+        @wallet_db.generate_new_account_child_key @aes_root, account_name
+        
+    wallet_transfer:()->
+        
+    
     wallet_transfer_to_address:(
         amount
         asset

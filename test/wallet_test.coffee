@@ -100,6 +100,7 @@ describe "Wallet API (non-RPC)", ->
                 EC.throw 'unable to unlock with the correct password', error
     
     it "lock", ->
+        @wallet_api.unlock(2, PASSWORD)
         @wallet_api.lock()
         EC.throw "Wallet should be locked" unless @wallet_api.locked()
         EC.throw "Locked wallet should not have an AES object" if @wallet_api.root_aes

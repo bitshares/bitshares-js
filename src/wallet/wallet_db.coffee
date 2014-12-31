@@ -18,7 +18,6 @@ class WalletDb
         invalid_format = -> LE.throw "wallet.invalid_format", [@wallet_name]
         invalid_format() unless @wallet_object?.length > 0
         throwLE "wallet.missing_local_storage" unless localStorage
-        @auto_save = true
         @property = {}
         @account = {}
         @ownerKey = {}
@@ -48,6 +47,7 @@ class WalletDb
         invalid() unless @master_key
         @resolve_address_to_name()
     
+    # Updates and inserts
     index_account:(data)->
         account_name = data.name
         @account[account_name] = data
@@ -121,7 +121,7 @@ class WalletDb
     WalletDb.exists = (wallet_name) ->
         str = localStorage.getItem("wallet-" + wallet_name)
     
-    WalletDb.create = (wallet_name = "default", extended_private, password) ->
+    WalletDb.create = (wallet_name = "default", extended_private, password, save = true) ->
         if WalletDb.open wallet_name
             LE.throw 'wallet.exists', [wallet_name]
         
@@ -137,7 +137,7 @@ class WalletDb
                 checksum: checksum.toString 'hex'
         ]
         wallet_db = new WalletDb wallet_object, wallet_name
-        wallet_db.save()
+        wallet_db.save() if save
         wallet_db
     
     ###* @return {WalletDb} or null ###
@@ -158,14 +158,10 @@ class WalletDb
     
     ###* @throws {QuotaExceededError} ###
     save: ->
-        @auto_save = on
         wallet_string = JSON.stringify @wallet_object, null, 0
         localStorage.setItem("wallet-" + @wallet_name, wallet_string)
         return
         
-    defer_save: ->
-        @auto_save = off
-    
     get_key_record:(public_key)->
         @key_record[public_key]
         ###
@@ -181,7 +177,7 @@ class WalletDb
     get_setting: (key) ->
         @property[key]?.value or config.DEFAULT_SETTING[key]
     
-    set_setting: (key, value) ->
+    set_setting: (key, value, save = true) ->
         property = @property[key]
         if property
             property.value = value
@@ -196,10 +192,9 @@ class WalletDb
                 index: index
                 key: key
                 value: value
-        #@_debug_last "set_setting key '#{key}' value '#{value}'"
         @index_property data
         @wallet_object.push data
-        @save() if @auto_save
+        @save() if save
         @property[key] = data.data
         return
     
@@ -211,7 +206,8 @@ class WalletDb
         # the time_point_sec conversion Math.ceil(epoch / 1000)
         # to always come out as a odd number.  With the 
         # seconds, the result will always be even and 
-        # the transaction will not be valid (missing signature)
+        # the transaction will not be valid (signature 
+        # assertion exception)
         exp = new Date(exp.toISOString().split('.')[0])
     
     get_transaction_fee:->
@@ -261,7 +257,7 @@ class WalletDb
         master_key = @master_private_key aes_root
         ExtendedAddress.private_key master_key key_index
         
-    generate_new_account:(aes_root, account_name, private_data)->
+    generate_new_account:(aes_root, account_name, private_data, save = true)->
         LE.throw 'wallet.account_already_exists' if @account[account_name]
         key_index = @get_child_key_index()
         master_key = @master_private_key aes_root
@@ -294,27 +290,67 @@ class WalletDb
             private_data: private_data
             registration_date: null
             is_my_account: yes
-        @defer_save()
-        @set_child_key_index key_index
-        @add_key_record key
-        @add_account_record account
-        @save()
+        @set_child_key_index key_index, false
+        @add_key_record key, false
+        @add_account_record account, false
+        @save() if save
         public_key_string
     
-    add_account_record:(rec)->
-        #last_account_index = 1
-        #for entry in @wallet_object # todo, backwards is better
-        #    if entry.type is "account_record_type"
-        #        #console.log entry.data.id
-        #        last_account_index = entry.data.id
-        # New accounts in the backups all use an id of 0
-        rec.id = 0 #last_account_index + 1
+    add_account_record:(rec, save = true)->
+        if @lookup_account rec.name
+            EC.new "Account already exists"
         @index_account rec
         @_append('account_record_type',rec)
+        @save() if save
     
-    add_key_record:(rec)->
+    account_update_or_save:(rec, save = true)->
+        # New accounts in the backups all use an id of 0
+        rec.id = 0 #last_account_index + 1
+        existing = @lookup_account rec.name
+        if existing
+            for i in [0...@wallet_object.length] by 1
+                entry = @wallet_object[i]
+                data = entry.data
+                switch entry.type
+                    when "account_record_type"
+                        if data.name is rec.name
+                            console.log 'account_update_or_save updated', rec.name
+                            @wallet_object[i] = rec
+        else
+            @_append('account_record_type',rec)
+        
+        @index_account rec
+        @save() if save
+    
+    
+    generate_new_account_child_key:(aes_root, account_name, save = true)->
+        private_key = @getActivePrivate account_name
+        EC.new "Account '#{account_name}' does not have a private key in this wallet" unless private_key
+        account = @wallet_db.lookup_account account_name
+        seq = account.last_used_gen_sequence
+        seq = 0 unless seq
+        child_private = child_public = child_address = null
+        while true
+            try
+                child_private = ExtendedAddress.private_key private_key, seq
+                child_public = child_private.toPublicKey()
+                child_address = child_public.toBtsAddy()
+                break unless @account_address[child_address]
+            catch error
+                console.log "Error creating child key index #{seq} for account #{account_name}", error  # very rare
+            
+        account.last_used_gen_sequence = seq
+        add_key_record
+            account_address: child_address
+            public_key: child_public.toBtsPublic()
+            encrypted_private_key: aes_root.encryptHex child_private.toHex()
+        , save
+        child_private
+        
+    add_key_record:(rec, save = true)->
         @index_key_record rec
         @_append('key_record_type',rec)
+        @save() if save
     
     _append:(key, rec)->
         last = @wallet_object[@wallet_object.length - 1].data
@@ -323,7 +359,6 @@ class WalletDb
             type: key
             data: rec
         #@_debug_last '_append'
-        @save() if @auto_save
         return
     
     _debug_last:(ref)->
@@ -335,8 +370,8 @@ class WalletDb
         index = 0 unless index
         index
         
-    set_child_key_index:(value)->
-        @set_setting('next_child_key_index', value)
+    set_child_key_index:(value, save = true)->
+        @set_setting 'next_child_key_index', value, save
         
     get_transactions:->
         for entry in @wallet_object

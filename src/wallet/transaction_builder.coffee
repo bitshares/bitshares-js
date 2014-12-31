@@ -22,6 +22,24 @@ class TransactionBuilder
     
     constructor:(@wallet_db, @rpc, @transaction_ledger)->
     
+    
+    wallet_transfer:(
+        amount
+        asset
+        from_name
+        receiver_public
+        memo_message
+        vote_method
+        aes_root
+    )->
+        sender_private = @wallet_db.getActivePrivate from_name
+        child_account_index = 1 #move to wallet_db
+        otk_private = ExtendedAddress.private_key sender_private, child_account_index
+        
+        owner = ExtendedAddress.derivePublic_outbound otk_private, receiver_public
+        to_address = Address.fromBuffer(owner.toBuffer()).toString()
+        
+    
     wallet_transfer_to_address:(
         amount
         asset
@@ -32,6 +50,7 @@ class TransactionBuilder
         aes_root
     )->
         defer = q.defer()
+        sender_private = null # non titan
         LE.throw 'wallet.invalid_amount', [amount] unless amount > 0
         LE.throw 'chain.unknown_asset', [asset] unless asset.id >= 0
         from_account = @wallet_db.lookup_account from_name
@@ -69,6 +88,7 @@ class TransactionBuilder
                 from_name
                 operations
                 required_signatures
+                sender_private
             )
         else
             promises.push @withdraw_operations(
@@ -76,12 +96,14 @@ class TransactionBuilder
                 from_name
                 operations
                 required_signatures
+                sender_private
             )
             promises.push @withdraw_operations(
                 fees
                 from_name
                 operations
                 required_signatures
+                sender_private
             )
         
         q.all(promises).then(
@@ -107,6 +129,7 @@ class TransactionBuilder
                 ]
                 record.fee = fees
                 record.created_time = new Date().toISOString().split('.')[0]
+                #record.received_time = new Date().toISOString().split('.')[0]
                 record.extra_addresses = [to_address]
                 defer.resolve record
             (error)->
@@ -196,8 +219,9 @@ class TransactionBuilder
         defer.promise
         
     transaction:(slate_id, operations) ->
+        exp = @wallet_db.get_trx_expiration()
         new Transaction(
-            expiration = @wallet_db.get_trx_expiration().getTime()
+            expiration = exp.getTime()
             slate_id = null
             operations
         )
@@ -236,12 +260,13 @@ class TransactionBuilder
         deposit = new Deposit asset_to_transfer.amount, wc
         new Operation deposit.type_id, deposit
     
-    withdraw_operations:(asset_amount, from_name, operations, signatures)->
+    withdraw_operations:(asset_amount, from_name, operations, signatures, sender_private)->
         defer = q.defer()
         @withdraw_to_transaction(
             asset_amount
             from_name
             signatures
+            sender_private
         ).then(
             (withdraws)=>
                 for withdraw in withdraws
@@ -257,6 +282,7 @@ class TransactionBuilder
         amount_to_withdraw
         from_account_name
         required_signatures
+        sender_private # for titan
     )->
         defer = q.defer()
         asset_id = amount_to_withdraw.asset_id
@@ -266,7 +292,8 @@ class TransactionBuilder
             balance = balance_record[1]
             if balance.snapshot_info?.original_address
                 return @wallet_db.lookup_active_key from_account_name
-            
+                
+            #owner_private = ExtendedAddress.private_key_child sender_private, trx1_one_time_key
             console.log 'not implemented: balance_record',balance_record
         
         @get_account_balance_records(from_account_name).then(

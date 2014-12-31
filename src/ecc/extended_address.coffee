@@ -65,8 +65,8 @@ class ExtendedAddress
         pIL = BigInteger.fromBuffer(IL)
         ki = pIL.add(private_key.d).mod(curve.n)
         if pIL.compareTo(curve.n) >= 0 or ki.signum() is 0
-            # invalid key (probability of < 2^127
-            throw 'Unable to produce a valid key' # very rare
+            # invalid key (probability of < 2^127)
+            throw new Error 'Unable to produce a valid key' # very rare
         
         PrivateKey.fromBuffer ki.toBuffer(32)
         

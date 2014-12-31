@@ -6,7 +6,8 @@ class Aes
     hash = require("./hash")
 
     constructor: (@iv, @key) ->
-
+    clear:->@iv = @key = undefined
+    
     # TODO arg should be a 64 byte buffer
     Aes.fromSha512 = (hash) ->
         assert.equal hash.length, 128, "A Sha512 in HEX should be 128 characters long, instead got #{hash.length}"
