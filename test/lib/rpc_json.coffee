@@ -52,9 +52,15 @@ class RpcJson
             @defer_connection = null
 
     request:(method, parameters)->
-        @run method, parameters
+        defer = q.defer()
+        @run(method, parameters).then(
+            (result)->defer.resolve result:result
+            (error)->defer.reject error:error
+        )
+        defer.promise
     
     run: (method, parameters) ->
+        throw new Error 'no connection' unless @defer_connection
         
         if not quicky and Object.keys(@defer_request).length isnt 0
             defer = q.defer()
@@ -66,9 +72,9 @@ class RpcJson
                     
                 promise = @run method, parameters
                 promise.then(
-                    (response)=>
+                    (response)->
                         defer.resolve response
-                    (reject)=>
+                    (reject)->
                         defer.reject reject
                 )
                 return

@@ -49,7 +49,7 @@ rpc_on = on
 # to get comparable keys and data, match these with data from the  
 # bitshares_client transaction (see wallet backup delegate0)
 child_account_index = 1
-enc_memo_hex = ""
+enc_memo_hex = "" # enc with otk_private
 tx1_balance_id = "XTS5bJNzfPVQxEahXp28H85hnL9GvdbiHdPf"
 
 trx1_one_time_key = ""
@@ -79,14 +79,15 @@ describe "Transfer", ->
         enc_memo_hex = "a830da651e9fd0785d5eccb656d7ea9b5c3c39dc0e928981cd84cde8bf4e67f8ff605959c8f0b781142c03232c76fc104492debe1845e27316eb950b43248bc9"
         
         amount = 2 * (100000)
-        signed_transaction = titan_trx(sender_private, sender_private, receiver_public, amount, balance_id)
+        otk_private = ExtendedAddress.private_key sender_private, child_account_index
+        signed_transaction = titan_trx(otk_private, sender_private, receiver_public, amount, balance_id)
         
         signed_transaction.toJson(trx_signed = {})
         console.log JSON.stringify trx_signed, undefined, 4
         # only needed to spend later, but this is a good place to check it
         check_balance_id = ->
             # new spendable input, from the transaction
-            deposit = signed_transaction.transaction.operations[0].operation
+            deposit = signed_transaction.transaction.operations[1].operation
             withdraw_condition = deposit.withdraw_condition
             trx1_one_time_key = withdraw_condition.condition.one_time_key
             balid = Address.fromBuffer(withdraw_condition.toBuffer())
@@ -98,7 +99,7 @@ describe "Transfer", ->
                 done()
         else
             done()
-    
+    ##
     it "Re-send TITAN", (done) ->
         
         sender_private = @wallet.getActivePrivate "delegate1"
@@ -113,7 +114,8 @@ describe "Transfer", ->
         balance_id = Address.fromString(tx1_balance_id)
         
         owner_private = ExtendedAddress.private_key_child sender_private, trx1_one_time_key
-        signed_transaction = titan_trx(sender_private, owner_private, receiver_public, amount, balance_id)
+        otk_private = ExtendedAddress.private_key sender_private, child_account_index
+        signed_transaction = titan_trx(otk_private, owner_private, receiver_public, amount, balance_id)
         signed_transaction.toJson(trx_signed = {})
         console.log JSON.stringify trx_signed, undefined, 4
         
@@ -122,11 +124,9 @@ describe "Transfer", ->
                 done()
         else
             done()
-
-titan_trx = (sender_private, owner_private, receiver_public, amount, balance_id) ->
+    ####
+titan_trx = (otk_private, owner_private, receiver_public, amount, balance_id) ->
     fee = .5 * (100000)
-    otk_private = ExtendedAddress.private_key sender_private, child_account_index
-    
     owner = ExtendedAddress.derivePublic_outbound otk_private, receiver_public
     
     #console.log 'secret_ext_public_key\t',owner.toHex()
@@ -137,7 +137,6 @@ titan_trx = (sender_private, owner_private, receiver_public, amount, balance_id)
     console.log 'one_time_private_key',otk_private.toHex()
     
     #S_sender = 
-    #ExtendedAddress.deriveS_PublicKey sender_private, one_time_key
     #console.log 'owner2\t',Address.fromBuffer(S_sender.toBuffer()).toString()
     
     #aes = Aes.fromSha512((hash.sha512 otk_private.sharedSecret receiver_public.toUncompressed()).toString('hex'))
@@ -146,16 +145,6 @@ titan_trx = (sender_private, owner_private, receiver_public, amount, balance_id)
     # enc_memo_hex="" worked too
     enc_memo = new Buffer(enc_memo_hex, 'hex')
 
-    exp = new Date()
-    exp.setSeconds(exp.getSeconds() + (60 * 60 * 24))
-    
-    # removing seconds causes the epoch value 
-    # the time_point_sec conversion Math.ceil(epoch / 1000)
-    # to always come out as a odd number.  With the 
-    # seconds, the result will always be even and 
-    # the transaction will not be valid (missing signature)
-    exp = new Date(exp.toISOString().split('.')[0])
-    
     wc = new WithdrawCondition(
         asset_id = 0, 
         delegate_slate_id=0, 
@@ -180,8 +169,18 @@ titan_trx = (sender_private, owner_private, receiver_public, amount, balance_id)
         claim_input_data=new Buffer("")
     )
     
-    operations.push new Operation deposit.type_id, deposit
     operations.push new Operation withdraw.type_id, withdraw
+    operations.push new Operation deposit.type_id, deposit
+    
+    exp = new Date()
+    exp.setSeconds(exp.getSeconds() + (60 * 60 * 24))
+    # removing seconds causes the epoch value 
+    # the time_point_sec conversion Math.ceil(epoch / 1000)
+    # to always come out as a odd number.  With the 
+    # seconds, the result will always be even and 
+    # the transaction will not be valid (missing signature)
+    exp = new Date(exp.toISOString().split('.')[0])
+    console.log 'exp',exp.getTime()
     
     transaction = new Transaction(
         expiration = exp.getTime()
@@ -195,7 +194,6 @@ titan_trx = (sender_private, owner_private, receiver_public, amount, balance_id)
         Buffer.concat([trx_buffer, chain_id_buffer])
     trx_sign = trx_sign()
     console.log 'digest',hash.sha256(trx_sign).toString('hex')
-    console.log 'sign key sender_private',sender_private.toHex()
     #dkey = ExtendedAddress.deriveS_PublicKey sender_private, owner.public_key
     #console.log dkey.private_key.toHex()
     new SignedTransaction(

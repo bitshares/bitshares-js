@@ -2,31 +2,11 @@
 #{Address} = require '../ecc/address'
 
 {Transaction} = require '../blockchain/transaction'
-{WithdrawCondition} = require '../blockchain/withdraw_condition'
 
 class TransactionLedger
     
     constructor:(@wallet_db)->
     
-    ###* @return {array} WithdrawCondition ###
-    getWithdrawConditions:(account_name)->
-        wcs = []
-        account = @wallet_db.lookup_account account_name
-        to = @wallet_db.transaction_to[account.owner_key]
-        return balance_ids unless to
-        for record in to
-            continue unless tx = record.trx
-            #console.log 'tx',JSON.stringify tx,null,4
-            for op in tx.operations
-                #console.log 'op',JSON.stringify op,null,4
-                continue unless op.type is 'deposit_op_type'
-                condition = op.data.condition
-                unless condition.type is 'withdraw_signature_type'
-                    console.log "WARN: unsupported balance record #{balance.condition.type}"
-                    continue
-                wcs.push WithdrawCondition.fromJson op.data.condition
-        wcs
-        
     get_transaction_history:(
         account_name = null
         start_block_num = 0

@@ -80,10 +80,9 @@ class FastParser extends EccParser
         if epoch
             # if even the transaction will not 
             # be valid (signature assertion exception)
-            # TODO 999
             epoch = Math.ceil(epoch / 1000)
-            if epoch % 2 is 0
-                console.log 'WARN: fc may reject epoch value: '+epoch
+            #if epoch % 2 is 0
+            #    console.log 'WARN: fc may reject epoch value: '+epoch
             b.writeInt32 epoch
             return
         else

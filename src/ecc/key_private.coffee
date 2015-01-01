@@ -5,6 +5,7 @@ class PrivateKey
     secp256k1 = require('ecurve').getCurveByName 'secp256k1'
     BigInteger = require 'bigi'
     {PublicKey} = require './key_public'
+    {Aes} = require './aes'
     base58 = require 'bs58'
     hash = require './hash'
     assert = require 'assert'
@@ -66,6 +67,13 @@ class PrivateKey
         ecies.r = @toBuffer()
         S = ecies.getSfromPubkey()
 
+    get_shared_secret:(public_key)->
+        @sharedSecret public_key.toUncompressed()
+    
+    sharedAes: (public_key) ->
+        S = @get_shared_secret public_key
+        Aes.fromSharedSecret_ecies S
+        
     ### <helper_functions> ###
     
     PrivateKey.fromHex = (hex) ->

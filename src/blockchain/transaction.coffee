@@ -16,7 +16,7 @@ bts::blockchain::operation, (type)(data)
 ###
 class Transaction
     
-    constructor: (@expiration, @slate_id, @operations) ->
+    constructor: (@expiration, @slate_id = null, @operations = []) ->
         
     id:->
         h = hash.sha512 @toBuffer()
@@ -93,5 +93,6 @@ class Transaction
         b.toHex()
         
     ### </helper_functions> ###
+        
     
 exports.Transaction = Transaction

@@ -20,10 +20,10 @@ bts::blockchain::public_key_type, (key_data)
 ###
 class WithdrawSignatureType
 
-    constructor: (@owner, @one_time_key, @encrypted_memo) ->
+    constructor: (@owner, @one_time_key = null, @encrypted_memo = new Buffer("")) ->
         @type_name = "withdraw_signature_type"
         @type_id = types.withdraw[@type_name]
-        
+    
     WithdrawSignatureType.fromByteBuffer= (b) ->
         owner = fp.ripemd160 b
         one_time_key = null
@@ -33,18 +33,17 @@ class WithdrawSignatureType
             encrypted_memo = fp.variable_buffer b
         
         new WithdrawSignatureType(owner, one_time_key, encrypted_memo)
-        
+    
     appendByteBuffer: (b) ->
         fp.ripemd160 b, @owner
-        if @one_time_key and @encrypted_memo
+        if @one_time_key # be sure to include otk
             fp.optional b, true
             fp.public_key b, @one_time_key
             fp.variable_buffer b, @encrypted_memo
-            
+    
     toJson: (o) ->
         o.owner = new Address(@owner).toString()
-        o.memo = null
-        if @one_time_key and @encrypted_memo
+        if @one_time_key # make sure the one_time_key gets included
             memo = o.memo = {}
             memo.one_time_key = @one_time_key.toBtsPublic()
             memo.encrypted_memo_data = @encrypted_memo.toString('hex')

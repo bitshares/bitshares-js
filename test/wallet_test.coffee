@@ -18,7 +18,6 @@ describe "Wallet API (non-RPC)", ->
         wallet_object = JSON.parse wallet_object_string
         wallet_db = new WalletDb wallet_object, "default"
         wallet = new Wallet wallet_db
-        #builder = new TransactionBuilder wallet_db
         @wallet_api = new WalletAPI wallet
         
     afterEach ->

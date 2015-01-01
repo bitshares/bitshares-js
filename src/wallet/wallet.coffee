@@ -2,9 +2,10 @@
 {TransactionLedger} = require '../wallet/transaction_ledger'
 {TransactionBuilder} = require '../wallet/transaction_builder'
 {ChainInterface} = require '../blockchain/chain_interface'
+{BlockchainAPI} = require '../blockchain/blockchain_api'
 {ExtendedAddress} = require '../ecc/extended_address'
-#{PrivateKey} = require '../ecc/key_private'
-#{PublicKey} = require '../ecc/key_public'
+{PrivateKey} = require '../ecc/key_private'
+{PublicKey} = require '../ecc/key_public'
 {Aes} = require '../ecc/aes'
 
 #{Transaction} = require '../blockchain/transaction'
@@ -22,10 +23,16 @@ q = require 'q'
 class Wallet
 
     constructor: (@wallet_db, @rpc) ->
-        throw "required parameter" unless @wallet_db
+        throw new Error "required parameter" unless @wallet_db
         @transaction_ledger = new TransactionLedger @wallet_db
-        @transaction_builder = new TransactionBuilder @wallet_db, @rpc, @transaction_ledger
-        @chain_interface = new ChainInterface @rpc
+        @blockchain_api = new BlockchainAPI @rpc
+        @chain_interface = new ChainInterface @blockchain_api
+    
+    transaction_builder:()->
+        LE.throw 'wallet.must_be_unlocked' unless @aes_root
+        new TransactionBuilder(
+            @, @rpc, @transaction_ledger, @aes_root
+        )
     
     Wallet.entropy = null
     Wallet.add_entropy = (data) ->
@@ -122,9 +129,6 @@ class Wallet
     get_transaction_fee:->
         @wallet_db.get_transaction_fee()
         
-    get_account:(name)->
-        @wallet_db.lookup_account name
-    
     list_accounts:->
         accounts = @wallet_db.list_accounts()
         accounts.sort (a, b)->
@@ -133,17 +137,36 @@ class Wallet
             else 0
         accounts
         
-    ###* Get a blockchain account, cache in wallet_db ###
-    lookup_account:(name)->
+    ###*
+        Get an account, try to sync with blockchain account 
+        cache in wallet_db.
+    ###
+    get_account:(name)->
         defer = q.defer()
-        @rpc.request("blockchain_get_account", [name]).then(
-            (result)->
-                @wallet_db.account_update_or_save result
-                defer.resolve result
+        @blockchain_api.get_account(name).then(
+            (chain_account)=>
+                local_account = @wallet_db.lookup_account name
+                unless local_account or chain_account
+                    error = new LE "general.unknown_account", [name]
+                    defer.reject error
+                    return
+                    
+                if local_account and chain_account
+                    if local_account.owner_key isnt chain_account.owner_key
+                        error = new LE "wallet.conflicting_accounts", [name]
+                        defer.reject error
+                        return
+                
+                if chain_account
+                    # store or update
+                    @wallet_db.store_or_update_account chain_account
+                    local_account = @wallet_db.lookup_account name
+                
+                defer.resolve local_account
             (error)->
                 defer.reject error
         ).done()
-        defer.promise()
+        defer.promise
     
     ###* @return {string} public key ###
     account_create:(account_name, private_data)->
@@ -165,45 +188,39 @@ class Wallet
         ).done()
         defer.promise
         
-    get_new_private_key:(account_name)->
+    getNewPrivateKey:(account_name, save = true)->
         LE.throw 'wallet.must_be_unlocked' unless @aes_root
-        @wallet_db.generate_new_account_child_key @aes_root, account_name
-        
-    wallet_transfer:()->
-        
-    
-    wallet_transfer_to_address:(
-        amount
-        asset
-        from_name
-        to_address
-        memo_message = ""
-        vote_method = ""#vote_recommended"
+        @wallet_db.generate_new_account_child_key @aes_root, account_name, save
+    ###
+    wallet_transfer:(
+        amount, asset, 
+        paying_name, from_name, to_name
+        memo_message = "", vote_method = ""
     )->
+        LE.throw 'wallet.must_be_unlocked' unless @aes_root
         defer = q.defer()
-        @transaction_builder.wallet_transfer_to_address(
-            amount
-            asset
-            from_name
-            to_address
-            memo_message
-            vote_method
-            @aes_root
-        ).then(
-            (signed_trx)=>
-                console.log 'signed_trx',JSON.stringify signed_trx,null,2
-                @rpc.request("blockchain_broadcast_transaction", [signed_trx]).then(
-                    (result)->
-                        # returns void
-                        defer.resolve signed_trx
-                    (error)->
-                        defer.reject error
-                ).done()
+        to_public = @wallet_db.getActiveKey to_name
+        #console.log to_name,to_public?.toBtsPublic()
+        @rpc.request("blockchain_get_account",[to_name]).then(
+            (result)=>
+                unless result or to_public
+                    error = new LE 'blockchain.unknown_account', [to_name]
+                    defer.reject error
+                    return
+                
+                recipient = @wallet_db.get_account to_name if result
+                    @wallet_db.index_account result # cache
+                    to_public = @wallet_db.getActiveKey to_name
+                
+                builder = @transaction_builder()
+                
             (error)->
                 defer.reject error
         ).done()
         defer.promise
-        
+    
+
+    ###
     account_register:(
         account_name
         pay_from_account
@@ -214,7 +231,7 @@ class Wallet
         defer = q.defer()
         @chain_interface.valid_unique_account(account_name).then(
             (resolve)=>
-                @transaction_builder.account_register(
+                @transaction_builder().account_register(
                     account_name
                     pay_from_account
                     public_data
@@ -222,13 +239,7 @@ class Wallet
                     account_type
                 ).then(
                     (signed_trx)=>
-                        @rpc.request("blockchain_broadcast_transaction", [signed_trx]).then(
-                            (result)->
-                                # returns void
-                                defer.resolve signed_trx
-                            (error)->
-                                defer.reject error
-                        ).done()
+                        @broadcast defer, signed_trx
                     (error)->
                         defer.reject error
                 ).done()
@@ -237,6 +248,25 @@ class Wallet
         ).done()
         defer.promise
     
+    broadcast_transaction:(record)->
+        @wallet_db.add_transaction_record record
+        @blockchain_api.broadcast_transaction(record.trx).then(
+            (result)=>
+        ).done()
+                
+        ###
+        notices = builder->encrypted_notifications()
+        for notice in notices
+            mail.send_encrypted_message(
+                notice, sender, receiver, 
+                sender.owner_key
+            )
+            # a second copy for one's self
+            mail.send_encrypted_message(
+                notice, sender, sender, 
+                sender.owner_key
+            )
+        ###
     account_transaction_history:(
         account_name=""
         asset_id=0
@@ -273,8 +303,13 @@ class Wallet
         return history.slice 0, limit if limit > 0
         history.slice history.length - -1 * limit, history.length
         
+    
     valid_unique_account:(account_name) ->
         @chain_interface.valid_unique_account account_name
+    
+    asset_can_pay_fee:(asset_id)->
+        fee = @get_transaction_fee()
+        fee.asset_id is asset_id
     
     dump_private_key:(account_name)->
         LE.throw 'wallet.must_be_unlocked' unless @aes_root
@@ -283,21 +318,52 @@ class Wallet
         rec = @wallet_db.get_key_record account.owner_key
         return null unless rec
         @aes_root.decryptHex rec.encrypted_private_key
+    
+    get_new_private_key:(account_name, save) ->
+        @generate_new_account_child_key @aes_root, account_name, save
         
-    ###* @return {PrivateKey} ###
-    getOwnerKeyPrivate: (account_name)->
+    get_new_public_key:(account_name) ->
+        @get_new_private_key(account_name).toPublicKey()
+    
+    getOwnerKey: (account_name)->
+        account = @wallet_db.lookup_account account_name
+        return null unless account
+        PublicKey.fromBtsPublic account.owner_key
+    
+    getOwnerPrivate: (aes_root, account_name)->
         LE.throw 'wallet.must_be_unlocked' unless @aes_root
-        @wallet_db.getOwnerKeyPrivate @aes_root, account_name
+        account = @wallet_db.lookup_account account_name
+        return null unless account
+        account.owner_key
+        @getPrivateKey @aes_root, account.owner_key
+    
+    lookup_active_key:(account_name)->
+        @wallet_db.lookup_active_key account_name
+    
+    lookup_account_by_address:(address)->
+        @wallet_db.lookup_key address
+    
+    lookup_private:(bts_public_key)->
+        LE.throw 'wallet.must_be_unlocked' unless @aes_root
+        key_record = @wallet_db.get_key_record bts_public_key
+        return null unless key_record and key_record.encrypted_private_key
+        PrivateKey.fromHex @aes_root.decryptHex key_record.encrypted_private_key
+        
+    getPrivateKey: (bts_public_key)->
+        PrivateKey.fromHex @lookup_private bts_public_key
+    
+    getNewPublicKey:(account_name)->
+        
     
     ###* @return {PublicKey} ###
     getActiveKey: (account_name) ->
-        @wallet_db.getActiveKey account_name
-    
+        active_key = @wallet_db.lookup_active_key account_name
+        return null unless active_key
+        PublicKey.fromBtsPublic active_key
+        
     ###* @return {PrivateKey} ###
     getActivePrivate: (account_name) ->
         LE.throw 'wallet.must_be_unlocked' unless @aes_root
         @wallet_db.getActivePrivate @aes_root, account_name
-
-
     
 exports.Wallet = Wallet

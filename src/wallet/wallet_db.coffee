@@ -1,20 +1,22 @@
 hash = require '../ecc/hash'
 LE = require('../common/exceptions').LocalizedException
+EC = require('../common/exceptions').ErrorWithCause
 {Aes} = require '../ecc/aes'
 {config} = require './config'
 {PublicKey} = require '../ecc/key_public'
 {PrivateKey} = require '../ecc/key_private'
 {ExtendedAddress} = require '../ecc/extended_address'
+{WithdrawCondition} = require '../blockchain/withdraw_condition'
 
 class WalletDb
     
     localStorage = window?.localStorage ||
-        # NodeJs development and testing (WARNING: get and set are not atomic)
+        # WARNING: NodeJs get and set are not atomic
         # https://github.com/lmaccherone/node-localstorage/issues/6
         new (require('node-localstorage').LocalStorage)('./localstorage-bitshares-js')
             
     constructor: (@wallet_object, @wallet_name = "default") ->
-        throw new Error "required parameter" unless @wallet_object
+        EC.throw "required parameter" unless @wallet_object
         invalid_format = -> LE.throw "wallet.invalid_format", [@wallet_name]
         invalid_format() unless @wallet_object?.length > 0
         throwLE "wallet.missing_local_storage" unless localStorage
@@ -47,20 +49,54 @@ class WalletDb
         invalid() unless @master_key
         @resolve_address_to_name()
     
-    # Updates and inserts
-    index_account:(data)->
+    # Support update or insert or cache (no save)
+    index_account:(data, update_key_records = false)->
         account_name = data.name
         @account[account_name] = data
-        max_key_datestr = "0"
+        max_key_datestr = ""
         @ownerKey[data.owner_key] = data if data.owner_key
         for keyrec in data.active_key_history
             datestr = keyrec[0]
             key = keyrec[1]
             @activeKey_account[key] = data
             if datestr > max_key_datestr
+                #console.log 'account_activeKey',account_name,key
                 # most recent active key
                 @account_activeKey[account_name] = key
                 max_key_datestr = datestr
+        
+        if update_key_records
+            public_keys = []
+            public_keys.push data.owner_key
+            for key in data.active_key_history
+                public_keys.push key[1]
+            if data.delegate_info?.signing_key_history
+                for key in data.active_key_history
+                    public_keys.push key[0]
+            for key in public_keys
+                key_record = @key_record[account_name]
+                unless key_record
+                    public_key = PublicKey.fromBtsPublic key
+                    @add_key_record
+                        account_address: public_key.toBtsAddy()
+                        public_key: key
+                else
+                    if key_record.encrypted_private_key
+                        # It is awkward to update the account here.. 
+                        # probably not needed
+                        throw 'Not implemented'
+                        ###
+                        unless data.is_my_account
+                            data.is_my_account = true
+                            #store
+                        public_key = PublicKey.fromBtsPublic key
+                        account_address = public_key.toBtsAddy()
+                        owner_public = PublicKey.fromBtsPublic data.owner_key
+                        owner_address = owner_public.toBtsAddy()
+                        if account_address isnt owner_address
+                            key_record.account_address = owner_address
+                            store key_record
+                        ###
     
     index_key_record:(data)->
         @key_record[data.public_key] = data
@@ -70,6 +106,15 @@ class WalletDb
         @property[data.key] = data.value
         
     index_transaction:(data)->
+        EC.throw "Expecting transaction record to contain: trx" unless data.trx
+        EC.throw "Expecting transaction record to contain: ledger_entries" unless data.ledger_entries
+        
+        for entry in data.ledger_entries
+            continue unless entry.to_account
+            to = @transaction_to[entry.to_account]
+            unless to
+                @transaction_to[entry.to_account] = to = []
+            to.push data
         ###
         for entry in data.ledger_entries
             continue unless entry.from_account
@@ -84,13 +129,6 @@ class WalletDb
                 @transaction_from[entry.memo_from_account] = from = []
             from.push data
         ###
-        for entry in data.ledger_entries
-            continue unless entry.to_account
-            to = @transaction_to[entry.to_account]
-            unless to
-                @transaction_to[entry.to_account] = to = []
-            to.push data
-        
             
     
     ###*
@@ -162,6 +200,10 @@ class WalletDb
         localStorage.setItem("wallet-" + @wallet_name, wallet_string)
         return
         
+    ### This does not work with Date objects ###
+    _clone:(obj)->
+        JSON.parse JSON.stringify obj
+    
     get_key_record:(public_key)->
         @key_record[public_key]
         ###
@@ -211,7 +253,7 @@ class WalletDb
         exp = new Date(exp.toISOString().split('.')[0])
     
     get_transaction_fee:->
-        @get_setting "transaction_fee"
+        @_clone @get_setting "transaction_fee"
     
     list_accounts:->
         for entry in @wallet_object
@@ -249,13 +291,16 @@ class WalletDb
     lookup_active_key:(account_name)->
         @account_activeKey[account_name]
         
+    lookup_owner_key:(account_name)->
+        @lookup_account(account_name).owner_key
+        
     get_account_for_address:(public_key_string)->
         @activeKey_account[public_key_string] or
         @ownerKey[public_key_string]
     
-    get_wallet_child_key:(aes_root, key_index)->
-        master_key = @master_private_key aes_root
-        ExtendedAddress.private_key master_key key_index
+    #get_wallet_child_key:(aes_root, key_index)->
+    #    master_key = @master_private_key aes_root
+    #    ExtendedAddress.private_key master_key key_index
         
     generate_new_account:(aes_root, account_name, private_data, save = true)->
         LE.throw 'wallet.account_already_exists' if @account[account_name]
@@ -291,42 +336,51 @@ class WalletDb
             registration_date: null
             is_my_account: yes
         @set_child_key_index key_index, false
-        @add_key_record key, false
         @add_account_record account, false
+        @add_key_record key, false
         @save() if save
         public_key_string
     
     add_account_record:(rec, save = true)->
         if @lookup_account rec.name
-            EC.new "Account already exists"
+            EC.throw "Account already exists"
         @index_account rec
         @_append('account_record_type',rec)
         @save() if save
-    
-    account_update_or_save:(rec, save = true)->
-        # New accounts in the backups all use an id of 0
-        rec.id = 0 #last_account_index + 1
-        existing = @lookup_account rec.name
-        if existing
-            for i in [0...@wallet_object.length] by 1
-                entry = @wallet_object[i]
-                data = entry.data
-                switch entry.type
-                    when "account_record_type"
-                        if data.name is rec.name
-                            console.log 'account_update_or_save updated', rec.name
-                            @wallet_object[i] = rec
-        else
-            @_append('account_record_type',rec)
         
-        @index_account rec
+    add_transaction_record:(rec, save = true)->
+        @index_transaction rec
+        @_append('transaction_record_type',rec)
         @save() if save
     
+    _wallet_index:(matches)->
+        for i in [0...@wallet_object.length] by 1
+            return i if matches @wallet_object[i]
     
+    ###* store or update ###
+    store_account:(account, save = true)->
+        EC.throw "missing account name" unless account.name
+        EC.throw "missing owner key" unless account.owner_key
+        # New accounts in the backups all use an id of 0
+        account.id = 0 #last_account_index + 1
+        existing = @lookup_account account.name
+        if existing
+            i = @_wallet_index (o)->
+                o.type is "account_record_type" and o.name is account.name
+            @console.log 'store_account updated', account.name
+            @wallet_object[i] = account
+        else
+            @_append('account_record_type',account)
+        
+        @index_account account, true
+        @save() if save
+    
+        
+    ###* @return {PrivateKey} ###
     generate_new_account_child_key:(aes_root, account_name, save = true)->
-        private_key = @getActivePrivate account_name
-        EC.new "Account '#{account_name}' does not have a private key in this wallet" unless private_key
-        account = @wallet_db.lookup_account account_name
+        private_key = @getActivePrivate aes_root, account_name
+        LE.throw 'wallet.account_not_found',[account_name] unless current_account unless private_key
+        account = @lookup_account account_name
         seq = account.last_used_gen_sequence
         seq = 0 unless seq
         child_private = child_public = child_address = null
@@ -340,7 +394,7 @@ class WalletDb
                 console.log "Error creating child key index #{seq} for account #{account_name}", error  # very rare
             
         account.last_used_gen_sequence = seq
-        add_key_record
+        @add_key_record
             account_address: child_address
             public_key: child_public.toBtsPublic()
             encrypted_private_key: aes_root.encryptHex child_private.toHex()
@@ -358,11 +412,11 @@ class WalletDb
         @wallet_object.push
             type: key
             data: rec
-        #@_debug_last '_append'
+        @_debug_last key
         return
     
     _debug_last:(ref)->
-        console.log "#{ref} last entry",JSON.stringify @wallet_object[@wallet_object.length - 1].data,null,4
+        console.log "#{ref}",JSON.stringify @wallet_object[@wallet_object.length - 1].data,null,4
         return
     
     get_child_key_index:->
@@ -377,6 +431,25 @@ class WalletDb
         for entry in @wallet_object
             continue unless entry.type is "transaction_record_type"
             entry.data
+            
+    ###* @return {array} WithdrawCondition ###
+    getWithdrawConditions:(account_name)->
+        wcs = []
+        account = @lookup_account account_name
+        to = @transaction_to[account.owner_key]
+        return balance_ids unless to
+        for record in to
+            continue unless tx = record.trx
+            #console.log 'tx',JSON.stringify tx,null,4
+            for op in tx.operations
+                #console.log 'op',JSON.stringify op,null,4
+                continue unless op.type is 'deposit_op_type'
+                condition = op.data.condition
+                unless condition.type is 'withdraw_signature_type'
+                    console.log "WARN unsupported balance record #{balance.condition.type}"
+                    continue
+                wcs.push WithdrawCondition.fromJson op.data.condition
+        wcs
     
     ###* @throws {key:'wallet.invalid_password'} ###
     validate_password: (password)->
@@ -385,37 +458,12 @@ class WalletDb
         unless @master_key.checksum is checksum.toString 'hex'
             LE.throw 'wallet.invalid_password'
             
-    getOwnerKey: (account_name)->
-        account = @lookup_account account_name
-        return null unless account
-        PublicKey.fromBtsPublic account.owner_key
-    
-    ###* @return {PrivateKey} ###
-    getOwnerKeyPrivate: (aes_root, account_name)->
-        account = @lookup_account account_name
-        return null unless account
-        account.owner_key
-        @getPrivateKey aes_root, account.owner_key
-        
-        
-    getPrivateKey: (aes_root, bts_public_key)->
-        key_record = @get_key_record bts_public_key
-        return null unless key_record
-        PrivateKey.fromHex aes_root.decryptHex key_record.encrypted_private_key
-        
-    ###* @return {PublicKey} ###
-    getActiveKey: (account_name) ->
-        active_key = @lookup_active_key account_name
-        return null unless active_key
-        PublicKey.fromBtsPublic active_key
-        
-    ###* @return {PrivateKey} ###
-    getActivePrivate: (aes_root, account_name) ->
+    getActivePrivate:(aes_root, account_name)->
+        throw new Error 'missing required parameter' unless account_name
         active_key = @lookup_active_key account_name
         return null unless active_key
         key_record = @get_key_record active_key
         return null unless key_record
         PrivateKey.fromHex aes_root.decryptHex key_record.encrypted_private_key
     
-        
 exports.WalletDb = WalletDb

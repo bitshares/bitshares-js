@@ -7,15 +7,15 @@ https://www.joyent.com/developers/node/design/errors
 ###
 class ErrorWithCause
     
-    constructor: (message, cause)->
-        ErrorWithCause.throw message, cause
+    constructor: (@message, cause)->
+        stack = (new Error).stack
+        if cause
+            caused_by = if cause.stack then cause.stack else JSON.stringify cause
+            @message += "\tcaused by:\n\t#{caused_by}"
+        @message += '\n'+stack
 
     ErrorWithCause.throw = (message, cause)->
-        error = new Error()
-        error.message = message
-        if cause
-            error.message += "\tcaused by:\n\t#{cause.stack}" 
-        throw error
+        throw new ErrorWithCause message, cause
     
 ###*
 Localization separates values from the error message key.
@@ -24,17 +24,22 @@ Errors that may be reported to the end user.
 ###
 class LocalizedException
     
-    constructor: (key, key_params, cause)->
-        LocalizedException.throw key, key_params, cause
+    constructor: (@key, key_params=[], cause)->
+        @message = @substitute_params key, key_params
+        stack = (new Error).stack
+        if cause
+            caused_by = if cause.stack then cause.stack else JSON.stringify cause
+            @message += "\tcaused by:\n\t#{caused_by}"
+        @message += '\n'+stack
+        #console.log JSON.stringify @,null,4
+    
+    LocalizedException.throw = (key, key_params, cause)->
+        throw new LocalizedException key, key_params, cause
         
-    LocalizedException.throw = (key, key_params=[], cause)->
-        error = new Error()
-        error.key = key
-        error.message = key
-        error.key_params = key_params
-        if cause 
-            error.message += "\tcaused by:\n\t#{cause.stack}" 
-        throw error
+    substitute_params:(key, params)->
+        #get locale-*
+        #for i in [0...params] by 1
+        return key + JSON.stringify params
         
 exports.LocalizedException = LocalizedException
 exports.ErrorWithCause = ErrorWithCause

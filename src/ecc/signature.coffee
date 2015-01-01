@@ -61,7 +61,7 @@ class Signature
             der = ecsignature.toDER()
             lenR = der[3]
             lenS = der[5+lenR]
-            console.log 'len r',lenR, 'len s',lenS
+            #console.log 'len r',lenR, 'len s',lenS
             if lenR is 32 and lenS is 32 # canonical
                 e = BigInteger.fromBuffer(_hash);
                 i = ecdsa.calcPubKeyRecoveryParam curve, e, ecsignature, private_key.toPublicKey().Q

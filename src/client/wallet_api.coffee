@@ -1,8 +1,11 @@
 {Wallet} = require '../wallet/wallet'
 {WalletDb} = require '../wallet/wallet_db'
+{TransactionLedger} = require '../wallet/transaction_ledger'
 {Aes} = require '../ecc/aes'
 {ExtendedAddress} = require '../ecc/extended_address'
 {ChainInterface} = require '../blockchain/chain_interface'
+{BlockchainAPI} = require '../blockchain/blockchain_api'
+
 {config} = require '../wallet/config'
 LE = require('../common/exceptions').LocalizedException
 q = require 'q'
@@ -15,7 +18,8 @@ q = require 'q'
 class WalletAPI
     
     constructor:(@wallet, @rpc)->
-        @chain_interface = new ChainInterface @rpc
+        @blockchain_api = new BlockchainAPI @rpc
+        @chain_interface = new ChainInterface @blockchain_api
     
     ###* open from persistent storage ###
     open: (wallet_name = "default")->
@@ -23,6 +27,7 @@ class WalletAPI
         unless wallet_db
             throw new LE 'wallet.not_found', [wallet_name]
         
+        @transaction_ledger = new TransactionLedger @wallet_db
         @wallet = new Wallet wallet_db, @rpc
         return
     
@@ -62,7 +67,57 @@ class WalletAPI
         LE.throw "wallet.must_be_opened" unless @wallet
         @wallet.account_create account_name, private_data
     
-    wallet_transfer_to_address:(
+    ###* TITAN ###
+    transfer:( 
+        amount, asset_symbol, 
+        from_name, to_name
+        memo_message = "", vote_method = ""
+    )->
+        @transfer_from(
+            amount, asset_symbol, 
+            from_name, from_name, to_name
+            memo_message, vote_method
+        )
+    
+    ###* TITAN ###
+    transfer_from:(
+        amount, asset_symbol, 
+        paying_name, from_name, to_name
+        memo_message = "", vote_method = ""
+    )->
+        
+        LE.throw "wallet.must_be_opened" unless @wallet
+        defer = q.defer()
+        asset = @chain_interface.get_asset(asset_symbol)
+        payer = @wallet.get_account paying_name
+        sender = @wallet.get_account from_name
+        recipient = @wallet.get_account to_name
+        try
+            q.all( asset:asset, payer: payer, sender:sender, recipient:recipient ).then( (result)=>
+                asset = result.asset
+                unless asset
+                    error = new LE 'blockchain.unknown_asset', [asset]
+                    defer.reject error
+                    return
+            
+                builder = @wallet.transaction_builder()
+                amount = {amount:amount, asset_id:asset.id}
+                record = builder.deposit_asset(
+                    result.payer, result.recipient, amount
+                    memo_message, vote_method, sender.owner_key
+                )
+                @wallet.sign(record)
+                @wallet.broadcast_transaction(record).then(
+                    (result)->
+                        defer.resolve record
+                ).done()
+            ).done()
+        catch error
+            defer.reject error
+        defer.promise
+        
+        ###* Transfer to a public address (non TITAN) ##
+    transfer_to_address:(
         amount
         asset_symbol
         from
@@ -75,19 +130,16 @@ class WalletAPI
         @chain_interface.get_asset(asset_symbol).then(
             (asset)=>
                 unless asset
-                    error = new LE 'chain.unknown_asset', [asset]
+                    error = new LE 'blockchain.unknown_asset', [asset]
                     defer.reject error
                     return
-                @wallet.wallet_transfer_to_address(
-                    amount
-                    asset
-                    from
-                    to_address
-                    memo_message = ""
-                    vote_method = ""#vote_recommended"
+                builder = @ransaction_builder()
+                builder.wallet_transfer_to_address(
+                    amount, asset, from, to_address
+                    memo_message, vote_method
                 ).then(
-                    (trx)->
-                        defer.resolve trx
+                    (signed_trx)=>
+                        @broadcast defer, signed_trx
                     (error)->
                         defer.reject error
                 ).done()
@@ -95,7 +147,8 @@ class WalletAPI
                 defer.reject error
         ).done()
         defer.promise
-        
+    ###
+    
     account_register:(
         account_name
         pay_from_account
@@ -112,7 +165,22 @@ class WalletAPI
             account_type
         )
     
+    #account_retract:(account_to_update, pay_from_account)->
+    #   record = @wallet.retract_account( account_to_update, pay_from_account, true );
+    #   @wallet.cache_transaction( record );
+    #   @network_broadcast_transaction( record.trx );
+    #   record
         
+    broadcast_transaction:(defer, signed_trx)->
+        #console.log 'signed_trx',JSON.stringify signed_trx,null,2
+        @rpc.request("blockchain_broadcast_transaction", [signed_trx]).then(
+            (result)->
+                # returns void
+                defer.resolve signed_trx
+            (error)->
+                defer.reject error
+        ).done()
+    
     #<account_name> <pay_from_account> [public_data] [delegate_pay_rate] [account_type]
     
 
@@ -168,7 +236,7 @@ class WalletAPI
     
     #batch wallet_check_vote_proportion
     
-    ### Query by asset symbol (if needed).. Better if the caller can provide the asset_id instead
+    ### Query by asset symbol .. 
     account_transaction_history:(
         account_name=""
         asset=""

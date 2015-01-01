@@ -10,7 +10,8 @@ bts::blockchain::signed_transaction, (bts::blockchain::transaction), (signatures
 ###
 class SignedTransaction
 
-    constructor: (@transaction, @signatures) ->
+    constructor: (@transaction, @signatures = []) ->
+        throw new Error 'required parameter' unless @transaction
         
     SignedTransaction.fromByteBuffer= (b) ->
         transaction = Transaction.fromByteBuffer b

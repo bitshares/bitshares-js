@@ -4,7 +4,13 @@ q = require 'q'
 
 class ChainInterface
     
-    constructor:(@rpc)->
+    localStorage = window?.localStorage ||
+        # WARNING: NodeJs get and set are not atomic
+        # https://github.com/lmaccherone/node-localstorage/issues/6
+        new (require('node-localstorage').LocalStorage)('./localstorage-bitshares-js')
+    
+    
+    constructor:(@blockchain_api)->
     
     ChainInterface.is_valid_account_orThrow=(account_name)->
         unless ChainInterface.is_valid_account_name account_name
@@ -33,9 +39,9 @@ class ChainInterface
         defer = q.defer()
         try
             ChainInterface.is_valid_account_orThrow account_name
-            @rpc.request("blockchain_get_account",[account_name]).then (resp)=>
+            @blockchain_api.get_account(account_name).then (resp)=>
                 if resp
-                    error = new LE 'wallet.blockchain_account_already_exists', [account_name]
+                    error = new LE 'blockchain.account_already_exists', [account_name]
                     defer.reject error
                 else
                     defer.resolve()
@@ -43,26 +49,32 @@ class ChainInterface
         catch error
             defer.reject error
         defer.promise
-        
-    get_asset:(symbol_name)->
+    
+    ###* Use cache or query ###
+    get_asset:(symbol_name, refresh_cache = false)->
         defer = q.defer()
-        try
-            @rpc.request("blockchain_get_asset",[symbol_name]).then (asset)=>
-                if asset
-                    unless asset.precision
-                        #ref: wallet::transfer_asset_to_address
-                        asset.precision = 1
-                        console.log 'Using default precision',asset
-                defer.resolve asset
-            .done()
-        catch error
-            defer.reject error
-        defer.promise
+        cache_key = 'chain-asset-'+symbol_name
+        unless refresh_cache
+            asset_string = localStorage.getItem cache_key
+            if asset_string
+                return JSON.parse asset_string
         
-    ###* compare blockchain and local account, make sure ther is no conflict ###
+        @blockchain_api.get_asset(symbol_name).then (asset)=>
+            defer.resolve null unless asset
+            console.log asset
+            unless asset.precision
+                #ref: wallet::transfer_asset_to_address
+                asset.precision = 1
+                console.log 'Using default precision',asset
+            asset_string = JSON.stringify asset,null,0
+            localStorage.setItem cache_key, asset_string
+            defer.resolve asset
+        , (error)->defer.reject error
+        .done()
+        defer.promise
+    
+    # refresh_assets:-> blockchain_list_assets probably once a day or if the user requests a refresh ...
+        
     
     
-    #is_valid_account_name
-    
-
 exports.ChainInterface = ChainInterface
