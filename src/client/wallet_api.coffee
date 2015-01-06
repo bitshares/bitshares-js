@@ -93,7 +93,8 @@ class WalletAPI
         sender = @wallet.get_account from_name
         recipient = @wallet.get_account to_name
         try
-            q.all( asset:asset, payer: payer, sender:sender, recipient:recipient ).then( (result)=>
+            q.all( asset:asset, payer: payer, sender:sender, recipient:recipient ).then (result)=>
+                console.log '... result',JSON.stringify result
                 asset = result.asset
                 unless asset
                     error = new LE 'blockchain.unknown_asset', [asset]
@@ -111,7 +112,7 @@ class WalletAPI
                     (result)->
                         defer.resolve record
                 ).done()
-            ).done()
+            .done()
         catch error
             defer.reject error
         defer.promise

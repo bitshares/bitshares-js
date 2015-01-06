@@ -60,12 +60,13 @@ class ChainInterface
                 return JSON.parse asset_string
         
         @blockchain_api.get_asset(symbol_name).then (asset)=>
-            defer.resolve null unless asset
-            console.log asset
+            unless asset
+                defer.resolve null
+                return
             unless asset.precision
                 #ref: wallet::transfer_asset_to_address
                 asset.precision = 1
-                console.log 'Using default precision',asset
+                console.log 'INFO using default precision 1',asset
             asset_string = JSON.stringify asset,null,0
             localStorage.setItem cache_key, asset_string
             defer.resolve asset

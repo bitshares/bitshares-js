@@ -72,10 +72,11 @@ class WalletDb
                 public_keys.push key[1]
             if data.delegate_info?.signing_key_history
                 for key in data.active_key_history
-                    public_keys.push key[0]
+                    public_keys.push key[1]
             for key in public_keys
                 key_record = @key_record[account_name]
                 unless key_record
+                    
                     public_key = PublicKey.fromBtsPublic key
                     @add_key_record
                         account_address: public_key.toBtsAddy()
@@ -357,8 +358,7 @@ class WalletDb
         for i in [0...@wallet_object.length] by 1
             return i if matches @wallet_object[i]
     
-    ###* store or update ###
-    store_account:(account, save = true)->
+    store_account_or_update:(account, save = true)->
         EC.throw "missing account name" unless account.name
         EC.throw "missing owner key" unless account.owner_key
         # New accounts in the backups all use an id of 0
@@ -366,8 +366,8 @@ class WalletDb
         existing = @lookup_account account.name
         if existing
             i = @_wallet_index (o)->
-                o.type is "account_record_type" and o.name is account.name
-            @console.log 'store_account updated', account.name
+                o.type is "account_record_type" and o.data.name is account.name
+            #console.log 'store_account_or_update', account.name,i
             @wallet_object[i] = account
         else
             @_append('account_record_type',account)

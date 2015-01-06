@@ -42,8 +42,10 @@ class TransactionBuilder
         memo_message, vote_method
         memo_sender_public #BTS Public Key String
     )->
-        unless payer and recipient and amount
-            EC.throw 'missing required parameter'
+        console.log '... payer',JSON.stringify payer
+        EC.throw 'missing payer' unless payer?.name
+        EC.throw 'missing recipient' unless recipient?.name
+        EC.throw 'missing amount' unless amount?.amount
         
         if recipient.is_retracted #active_key() == public_key_type()
             LE.throw 'blockchain.account_retracted',[recipient.name]
@@ -58,7 +60,6 @@ class TransactionBuilder
         payerActivePublic = @wallet.getActiveKey payer.name
         
         unless memo_sender_public
-            console.log JSON.stringify payer,'bk'
             memo_sender_public = @wallet.lookup_active_key payer.name
         memoSenderPrivate = @wallet.getPrivateKey memo_sender_public
         
