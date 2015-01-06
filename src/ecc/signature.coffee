@@ -74,7 +74,10 @@ class Signature
             throw new Error "Too many attempts: "+nonce if nonce is 100
         
         new Signature ecsignature.r, ecsignature.s, i
-        
+    
+    Signature.sign = (string, private_key)->
+        Signature.signBuffer new Buffer(string), private_key
+    
     ###*
     @param {Buffer} un-hashed
     @param {./PublicKey}

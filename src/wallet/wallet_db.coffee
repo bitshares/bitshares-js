@@ -74,19 +74,18 @@ class WalletDb
                 for key in data.active_key_history
                     public_keys.push key[1]
             for key in public_keys
-                key_record = @key_record[account_name]
+                key_record = @key_record[key]
                 unless key_record
-                    
                     public_key = PublicKey.fromBtsPublic key
                     @add_key_record
                         account_address: public_key.toBtsAddy()
                         public_key: key
+                # It is awkward to update the account here.. 
+                # probably not needed
+                ###
                 else
                     if key_record.encrypted_private_key
-                        # It is awkward to update the account here.. 
-                        # probably not needed
-                        throw 'Not implemented'
-                        ###
+                        
                         unless data.is_my_account
                             data.is_my_account = true
                             #store
@@ -97,7 +96,7 @@ class WalletDb
                         if account_address isnt owner_address
                             key_record.account_address = owner_address
                             store key_record
-                        ###
+                ###
     
     index_key_record:(data)->
         @key_record[data.public_key] = data
@@ -417,6 +416,8 @@ class WalletDb
     
     _debug_last:(ref)->
         console.log "#{ref}",JSON.stringify @wallet_object[@wallet_object.length - 1].data,null,4
+        console.log '... (new Error).stack',(new Error).stack
+        (new Error).stack
         return
     
     get_child_key_index:->
@@ -437,12 +438,10 @@ class WalletDb
         wcs = []
         account = @lookup_account account_name
         to = @transaction_to[account.owner_key]
-        return balance_ids unless to
+        return [] unless to
         for record in to
             continue unless tx = record.trx
-            #console.log 'tx',JSON.stringify tx,null,4
             for op in tx.operations
-                #console.log 'op',JSON.stringify op,null,4
                 continue unless op.type is 'deposit_op_type'
                 condition = op.data.condition
                 unless condition.type is 'withdraw_signature_type'

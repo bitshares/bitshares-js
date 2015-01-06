@@ -36,9 +36,9 @@ describe "Account", ->
     it "Transfer TITAN", (done) ->
         wallet_api = new_wallet_api @rpc
         wallet_api.unlock 9, PASSWORD
-        wallet_api.transfer(1, 'XTS', 'bob', 'delegate0').then(
+        wallet_api.transfer(1, 'XTS', 'delegate2', 'delegate3').then(
             (trx)->
-               console.log 1,JSON.stringify trx
+               console.log '... transactions::trx',JSON.stringify trx
                done()
        ).done()
    

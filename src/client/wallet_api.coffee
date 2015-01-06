@@ -93,9 +93,7 @@ class WalletAPI
         sender = @wallet.get_account from_name
         recipient = @wallet.get_account to_name
         try
-            q.all( asset:asset, payer: payer, sender:sender, recipient:recipient ).then (result)=>
-                console.log '... result',JSON.stringify result
-                asset = result.asset
+            q.all([asset, payer, sender, recipient] ).spread (asset, payer, sender, recipient)=>
                 unless asset
                     error = new LE 'blockchain.unknown_asset', [asset]
                     defer.reject error
@@ -103,15 +101,17 @@ class WalletAPI
             
                 builder = @wallet.transaction_builder()
                 amount = {amount:amount, asset_id:asset.id}
-                record = builder.deposit_asset(
-                    result.payer, result.recipient, amount
+                builder.deposit_asset(
+                    payer, recipient, amount
                     memo_message, vote_method, sender.owner_key
                 )
-                @wallet.sign(record)
-                @wallet.broadcast_transaction(record).then(
-                    (result)->
-                        defer.resolve record
-                ).done()
+                builder.finalize().then ()=>
+                    builder.sign_transaction()
+                    trx = builder.get_transaction_record()
+                    @wallet.save_and_broadcast_transaction(trx).then(
+                        (result)->
+                            defer.resolve record
+                    ).done()
             .done()
         catch error
             defer.reject error

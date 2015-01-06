@@ -126,9 +126,30 @@ class Wallet
     set_setting: (key, value) ->
         @wallet_db.set_setting key, value
         
-    get_transaction_fee:->
-        @wallet_db.get_transaction_fee()
-        
+    get_transaction_fee:()->#desired_asset_id = 0
+        #defer = q.defer()
+        default_fee = @wallet_db.get_transaction_fee()
+        return default_fee #if desired_asset_id is 0
+        #@blockchain_api.get_asset(desired_asset_id).then(
+        #    (asset)=>
+        #        if asset.is_market_issued
+        #            @blockchain_api.get_active_feed_price(desired_asset_id).then(
+        #                (median_price)->
+        #                    fee = default_fee.amount
+        #                    fee += fee + fee
+        #                    # fee paid in something other than XTS is discounted 50%
+        #                    alt_fee = fee * median_price
+        #                    defer.resolve alt_fee
+        #                    return
+        #            ).done()
+        #        else
+        #            defer.resolve null
+        #).done()
+        #defer.promise
+    
+    get_trx_expiration:->
+        @wallet_db.get_trx_expiration()
+    
     list_accounts:->
         accounts = @wallet_db.list_accounts()
         accounts.sort (a, b)->
@@ -160,6 +181,7 @@ class Wallet
                 @wallet_db.store_account_or_update chain_account
                 local_account = @wallet_db.lookup_account name
             defer.resolve local_account
+            return
         , (error)->defer.reject error
         .done()
         defer.promise
@@ -183,7 +205,10 @@ class Wallet
                 defer.reject error
         ).done()
         defer.promise
-        
+    
+    getWithdrawConditions:(account_name)->
+        @wallet_db.getWithdrawConditions account_name
+    
     getNewPrivateKey:(account_name, save = true)->
         LE.throw 'wallet.must_be_unlocked' unless @aes_root
         @wallet_db.generate_new_account_child_key @aes_root, account_name, save
@@ -244,11 +269,13 @@ class Wallet
         ).done()
         defer.promise
     
-    broadcast_transaction:(record)->
+    save_and_broadcast_transaction:(record)->
+        defer = q.defer()
         @wallet_db.add_transaction_record record
         @blockchain_api.broadcast_transaction(record.trx).then(
-            (result)=>
+            (result)=>defer.resolve()
         ).done()
+        defer.promise
                 
         ###
         notices = builder->encrypted_notifications()
@@ -298,14 +325,13 @@ class Wallet
         return history if limit is 0 or Math.abs(limit) >= history.length
         return history.slice 0, limit if limit > 0
         history.slice history.length - -1 * limit, history.length
-        
     
     valid_unique_account:(account_name) ->
         @chain_interface.valid_unique_account account_name
     
-    asset_can_pay_fee:(asset_id)->
-        fee = @get_transaction_fee()
-        fee.asset_id is asset_id
+    #asset_can_pay_fee:(asset_id)->
+    #    fee = @get_transaction_fee()
+    #    fee.asset_id is asset_id
     
     dump_private_key:(account_name)->
         LE.throw 'wallet.must_be_unlocked' unless @aes_root
@@ -331,7 +357,7 @@ class Wallet
         account = @wallet_db.lookup_account account_name
         return null unless account
         account.owner_key
-        @getPrivateKey @aes_root, account.owner_key
+        @getPrivateKey account.owner_key
     
     lookup_active_key:(account_name)->
         @wallet_db.lookup_active_key account_name
@@ -339,16 +365,14 @@ class Wallet
     lookup_account_by_address:(address)->
         @wallet_db.lookup_key address
     
-    lookup_private:(bts_public_key)->
+    #lookup_private:(bts_public_key)->@getPrivateKey bts_public_key
+    getPrivateKey:(bts_public_key)->
         LE.throw 'wallet.must_be_unlocked' unless @aes_root
         key_record = @wallet_db.get_key_record bts_public_key
         return null unless key_record and key_record.encrypted_private_key
         PrivateKey.fromHex @aes_root.decryptHex key_record.encrypted_private_key
         
-    getPrivateKey: (bts_public_key)->
-        PrivateKey.fromHex @lookup_private bts_public_key
-    
-    getNewPublicKey:(account_name)->
+    #getNewPublicKey:(account_name)->
         
     
     ###* @return {PublicKey} ###
