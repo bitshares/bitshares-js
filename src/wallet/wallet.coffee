@@ -133,6 +133,7 @@ class Wallet
         #@blockchain_api.get_asset(desired_asset_id).then(
         #    (asset)=>
         #        if asset.is_market_issued
+        #            #get_active_feed_price is not implemented (alt is to use blockchain_list_assets then blockchain_market_status {current_feed_price}
         #            @blockchain_api.get_active_feed_price(desired_asset_id).then(
         #                (median_price)->
         #                    fee = default_fee.amount

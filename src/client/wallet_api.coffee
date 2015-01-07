@@ -107,10 +107,9 @@ class WalletAPI
                 )
                 builder.finalize().then ()=>
                     builder.sign_transaction()
-                    trx = builder.get_transaction_record()
-                    @wallet.save_and_broadcast_transaction(trx).then(
-                        (result)->
-                            defer.resolve record
+                    record = builder.get_transaction_record()
+                    @wallet.save_and_broadcast_transaction(record).then(
+                        (result)->defer.resolve()
                     ).done()
             .done()
         catch error

@@ -39,7 +39,7 @@ class TransactionBuilder
         @account_balance_records = {}
         @operations = []
         @order_keys = {}
-        @slate_id = 0
+        @slate_id = null
     
     ### @return record with private journal entries ###
     get_transaction_record:()->
@@ -110,7 +110,7 @@ class TransactionBuilder
             @deposit_to_account( # trx
                 recipientActivePublic, amount
                 memoSenderPrivate, memo_message
-                @slate_id # @wallet.select_slate_id trx, amount.asset_id, vote_method
+                0 # @wallet.select_slate_id trx, amount.asset_id, vote_method
                 oneTimePrivate, 'from_memo'
             )
         
@@ -521,8 +521,9 @@ class TransactionBuilder
             )
     
     ###
+    # 
     _pay_fee:->
-        available_balances = @_all_negative_balances()
+        available_balances = @_all_positive_balances()
         required_fee = { amount:0, asset_id: -1 }
         # see if one asset can pay fee
         for asset_id in Object.keys available_balances
@@ -555,20 +556,21 @@ class TransactionBuilder
         
         LE.throw 'wallet.unable_to_pay_fee'
             
-    _all_negative_balances:->
+    # nonempty if there’s a margin position closed and the collateral is returned
+    _all_positive_balances:->
         balances = {}
         for address in Object.keys @outstanding_balances
             #rec = asset_id: amount.asset_id, account: account, amount: amount
             rec = @outstanding_balances[address]
-            continue unless rec.amount < 0
+            continue unless rec.amount > 0
             balance = balances[rec.asset_id]
             balances[rec.asset_id] = 0 unless balance
             balances[rec.asset_id] += -1 * rec.amount
         return balances
             
-    
+    # typical case where the fee will get paid
     _withdraw_fee_other_asset:->
-        throw new Error 'not implemented'
+        throw new Error 'not implemented @wallet.get_account_balances'
         account_balances = @wallet.get_account_balances "", false
         for address in Object.keys @outstanding_balances
             #rec = asset_id: amount.asset_id, account: account, amount: amount
