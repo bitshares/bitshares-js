@@ -39,10 +39,13 @@ class TransactionBuilder
         @account_balance_records = {}
         @operations = []
         @order_keys = {}
+        @slate_id = 0
     
     ### @return record with private journal entries ###
     get_transaction_record:()->
         record = @transaction_record
+        record.trx.expiration = @expiration.toISOString().split('.')[0]
+        record.trx.slate_id = @slate_id
         record.trx.operations = ops = []
         for op in @operations
             op.toJson(o = {})
@@ -50,14 +53,14 @@ class TransactionBuilder
         
         record.trx.signatures = sigs = []
         sigs.push sig.toHex() for sig in @signatures
-        record.trx.expiration = @expiration.toISOString().split('.')[0]
+        
         record
     
     get_binary_transaction:()->
         trx = @transaction_record.trx
         new Transaction(
             expiration = @expiration
-            trx.slate_id
+            @slate_id
             @operations
         )
     
@@ -107,7 +110,7 @@ class TransactionBuilder
             @deposit_to_account( # trx
                 recipientActivePublic, amount
                 memoSenderPrivate, memo_message
-                0 # @wallet.select_slate_id trx, amount.asset_id, vote_method
+                @slate_id # @wallet.select_slate_id trx, amount.asset_id, vote_method
                 oneTimePrivate, 'from_memo'
             )
         
@@ -146,7 +149,7 @@ class TransactionBuilder
         deposit = new Deposit amount.amount, new WithdrawCondition(
             amount.asset_id, slate_id
             type_id(types.withdraw, "withdraw_signature_type"), 
-            new WithdrawSignatureType recipientPublic.toBtsAddy()
+            new WithdrawSignatureType new Buffer recipientPublic.toBtsAddy()
         )
         @operations.push new Operation deposit.type_id, deposit
     
@@ -163,10 +166,10 @@ class TransactionBuilder
             oneTimePrivate, recipientPublic, memoSenderPrivate,
             memo_message, memoSenderPublic, memo_type
         )###
-        encrypted_memo_data = ""
+        encrypted_memo_data = null
         oneTimePublic = oneTimePrivate.toPublicKey()
         wws = new WithdrawSignatureType(
-            recipientPublic.toBtsAddy()
+            recipientPublic.toBlockchainAddress()
             oneTimePublic, encrypted_memo_data
         )
         wc = new WithdrawCondition(
@@ -479,7 +482,6 @@ class TransactionBuilder
         #else
         #    slate_id = 0
         
-        slate_id = 0
         p = []
         for address in Object.keys @outstanding_balances
             #rec = asset_id: amount.asset_id, account: account, amount: amount
@@ -492,7 +494,7 @@ class TransactionBuilder
             
             if rec.amount > 0
                 depositAddress = @order_key_for_account address, account_name
-                @deposit depositAddress, balance, slate_id
+                @deposit depositAddress, balance
             else
                 balance.amount = -rec.amount
                 p.push @withdraw_to_transaction balance, account_name
