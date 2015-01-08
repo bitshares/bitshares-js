@@ -285,7 +285,7 @@ class WalletDb
     lookup_account:(account_name)->
         @account[account_name]
         
-    lookup_key:(account_address)->
+    lookup_key:(account_address)-> #lookup_account
         @account_address[account_address]
         
     lookup_active_key:(account_name)->
@@ -294,7 +294,7 @@ class WalletDb
     lookup_owner_key:(account_name)->
         @lookup_account(account_name).owner_key
         
-    get_account_for_address:(public_key_string)->
+    get_account_for_address:(public_key_string)-> #lookup_account
         @activeKey_account[public_key_string] or
         @ownerKey[public_key_string]
     
@@ -357,7 +357,7 @@ class WalletDb
         for i in [0...@wallet_object.length] by 1
             return i if matches @wallet_object[i]
     
-    store_account_or_update:(account, save = true)->
+    store_account_or_update:(account, save = true)-> #store_account
         EC.throw "missing account name" unless account.name
         EC.throw "missing owner key" unless account.owner_key
         # New accounts in the backups all use an id of 0
@@ -374,7 +374,37 @@ class WalletDb
         @index_account account, true
         @save() if save
     
-        
+    ###* @return {PrivateKey} ###
+    generate_new_one_time_key:(aes_root)->
+        one_time_private_key = PrivateKey.newRandom()
+        one_time_public = one_time_private_key.toPublicKey()
+        one_time_address = one_time_public.toBtsAddy()
+        key_record = @lookup_key one_time_address
+        throw new Error 'key exists' if key_record
+        @store_key
+            public_key: one_time_public
+            encrypted_private_key: aes_root.encryptHex one_time_private_key.toHex()
+        one_time_private_key
+    
+    store_key:(key, save)->
+       key_record = @lookup_key key.public_key.getBtsAddy()
+       key_record = {} unless key_record
+       @add_key_record key_record, save = off
+       if key_record.encrypted_private_key
+           account_record = @get_account_for_address key.public_key
+           unless account_record
+               account_record = @lookup_key key.account_address
+           if account_record
+               account_record_address = PublicKey.fromHex(account_record.owner_key).toBtsAddy()
+               if key_record.account_address isnt account_record_address
+                   throw 'address miss match'
+               #    key_record.account_address = account_record_address
+               #    @add_key_record key_record, save = off
+               unless account_record.is_my_account
+                   account_record.is_my_account = yes
+                   @store_account_or_update account_record, save = off
+       @save()
+    
     ###* @return {PrivateKey} ###
     generate_new_account_child_key:(aes_root, account_name, save = true)->
         private_key = @getActivePrivate aes_root, account_name
@@ -400,7 +430,7 @@ class WalletDb
         , save
         child_private
         
-    add_key_record:(rec, save = true)->
+    add_key_record:(rec, save = true)-> # store_and_reload_record
         @index_key_record rec
         @_append('key_record_type',rec)
         @save() if save

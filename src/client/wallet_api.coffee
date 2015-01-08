@@ -1,6 +1,7 @@
 {Wallet} = require '../wallet/wallet'
 {WalletDb} = require '../wallet/wallet_db'
 {TransactionLedger} = require '../wallet/transaction_ledger'
+{TransactionBuilder} = require '../wallet/transaction_builder'
 {Aes} = require '../ecc/aes'
 {ExtendedAddress} = require '../ecc/extended_address'
 {ChainInterface} = require '../blockchain/chain_interface'
@@ -67,56 +68,70 @@ class WalletAPI
         LE.throw "wallet.must_be_opened" unless @wallet
         @wallet.account_create account_name, private_data
     
+    _transaction_builder:()->
+        LE.throw "wallet.must_be_opened" unless @wallet
+        LE.throw 'wallet.must_be_unlocked' unless @wallet.aes_root
+        new TransactionBuilder(
+            @wallet, @rpc, @transaction_ledger, @wallet.aes_root
+        )
+    
     ###* TITAN ###
     transfer:( 
         amount, asset_symbol, 
         from_name, to_name
-        memo_message = "", vote_method = ""
+        memo_message = "", selection_method = ""
     )->
         @transfer_from(
             amount, asset_symbol, 
             from_name, from_name, to_name
-            memo_message, vote_method
+            memo_message, selection_method
         )
     
-    ###* TITAN ###
     transfer_from:(
-        amount, asset_symbol, 
-        paying_name, from_name, to_name
-        memo_message = "", vote_method = ""
+        amount_to_transfer, asset_symbol, 
+        paying_account_name, from_account_name, to_account_name
+        memo_message = "", selection_method = ""
     )->
         
         LE.throw "wallet.must_be_opened" unless @wallet
         defer = q.defer()
+        amount = {amount:amount_to_transfer, asset_id:asset.id}
         asset = @chain_interface.get_asset(asset_symbol)
-        payer = @wallet.get_account paying_name
-        sender = @wallet.get_account from_name
-        recipient = @wallet.get_account to_name
+        payer = @wallet.get_account paying_account_name
+        sender = @wallet.get_account from_account_name
+        recipient = @wallet.get_account to_account_name
         try
-            q.all([asset, payer, sender, recipient] ).spread (asset, payer, sender, recipient)=>
+            q.all([asset, payer, sender, recipient]).spread (asset, payer, sender, recipient)=>
                 unless asset
                     error = new LE 'blockchain.unknown_asset', [asset]
                     defer.reject error
                     return
             
-                builder = @wallet.transaction_builder()
-                amount = {amount:amount, asset_id:asset.id}
+                builder = @_transaction_builder()
+                
                 builder.deposit_asset(
                     payer, recipient, amount
-                    memo_message, vote_method, sender.owner_key
+                    memo_message, selection_method, sender.owner_key
                 )
                 builder.finalize().then ()=>
                     builder.sign_transaction()
                     record = builder.get_transaction_record()
-                    @wallet.save_and_broadcast_transaction(record).then(
-                        (result)->defer.resolve()
-                    ).done()
+                    p = []
+                    p.push @wallet.save_and_broadcast_transaction record
+                    for notice in build.encrypted_notifications()
+                        p.push @mail_client.send_encrypted_message(
+                            notice,from_account_name
+                            to_account_name
+                            recipient.owner_key
+                        )
+                    q.all(p).then (result)->
+                        defer.resolve record
             .done()
         catch error
             defer.reject error
         defer.promise
         
-        ###* Transfer to a public address (non TITAN) ##
+    ###* Transfer to a public address (non TITAN) ##
     transfer_to_address:(
         amount
         asset_symbol

@@ -7,6 +7,7 @@
 {WithdrawSignatureType} = require '../blockchain/withdraw_signature_type'
 {SignedTransaction} = require '../blockchain/signed_transaction'
 {Operation} = require '../blockchain/operation'
+{MemoData} = require '../blockchain/memo_data'
 
 {Address} = require '../ecc/address'
 {PublicKey} = require '../ecc/key_public'
@@ -26,7 +27,6 @@ class TransactionBuilder
     
     constructor:(@wallet, @rpc, @transaction_ledger, @aes_root)->
         @blockchain_api = new BlockchainAPI @rpc
-        @mail_trx_notices = []
         now = new Date().toISOString().split('.')[0]
         @transaction_record =
             trx: {}
@@ -37,6 +37,7 @@ class TransactionBuilder
         @required_signatures = []
         @outstanding_balances = {}
         @account_balance_records = {}
+        @notices = []
         @operations = []
         @order_keys = {}
         @slate_id = null
@@ -57,86 +58,104 @@ class TransactionBuilder
         record
     
     get_binary_transaction:()->
-        trx = @transaction_record.trx
-        new Transaction(
-            expiration = @expiration
-            @slate_id
-            @operations
-        )
+        return @binary_transaction if @binary_transaction
+        throw new Error 'call sign_transaction first'
     
     ### @return public transaction for broadcast ###
-    get_signed_trx:()->
-        sigs = @signatures
-        if sigs.length is 0
-            throw new Error 'call sign_transaction first'
-            
-        transaction = @get_binary_transaction()
-        new SignedTransaction transaction, sigs
+    get_signed_transaction:()->
+        return @signed_transaction if @signed_transaction
+        throw new Error 'call sign_transaction first'
     
     deposit_asset:(
         payer, recipient, amount
-        memo_message, vote_method
-        memo_sender_public #BTS Public Key String
+        memo, vote_method
+        memo_sender #BTS Public Key String
     )->
         throw new Error 'missing payer' unless payer?.name
         throw new Error 'missing recipient' unless recipient?.name
         throw new Error 'missing amount' unless amount?.amount
         
-        if recipient.is_retracted #active_key() == public_key_type()
-            LE.throw 'blockchain.account_retracted',[recipient.name]
+        #TODO
+        #if recipient.is_retracted #active_key() == public_key_type()
+        #    LE.throw 'blockchain.account_retracted',[recipient.name]
         
         unless amount and amount.amount > 0
             LE.throw 'Invalid amount', [amount]
         
-        if memo_message?.length > BTS_BLOCKCHAIN_MAX_MEMO_SIZE
+        if memo?.length > BTS_BLOCKCHAIN_MAX_MEMO_SIZE
             LE.throw 'chain.memo_too_long'
         
         recipientActivePublic = @wallet.getActiveKey recipient.name
         payerActivePublic = @wallet.getActiveKey payer.name
         
-        unless memo_sender_public
-            memo_sender_public = @wallet.lookup_active_key payer.name
-        memoSenderPrivate = @wallet.getPrivateKey memo_sender_public
+        unless memo_sender
+            memo_sender = @wallet.lookup_active_key payer.name
         
-        oneTimePublic = null
+        titan_one_time_key = null
         if recipient.meta_data?.type? is "public_account"
             @deposit(
                 recipientActivePublic, amount, 
                 0 #@wallet.select_slate trx, amount.asset_id, vote_method
             )
         else
-            oneTimePrivate = @wallet.getNewPrivateKey payer.name
-            oneTimePublic = oneTimePrivate.toPublicKey()
-            @deposit_to_account( # trx
+            one_time_key = @wallet.getNewPrivateKey payer.name
+            titan_one_time_key = one_time_key.toPublicKey()
+            memoSenderPrivate = @wallet.getPrivateKey memo_sender
+            memoSenderPublic = memoSenderPrivate.getPublicKey()
+            @deposit_to_account(
                 recipientActivePublic, amount
-                memoSenderPrivate, memo_message
+                memoSenderPrivate, memo
                 0 # @wallet.select_slate_id trx, amount.asset_id, vote_method
-                oneTimePrivate, 'from_memo'
+                memoSenderPublic
+                one_time_key, 'from_memo'
             )
         
         fee = @wallet.get_transaction_fee()
         @transaction_record.fee = fee
-        @_deduct_balance payer.owner_key, fee, payer
+        @_deduct_balance payer.owner_key, fee, payer # simple fee
         @_deduct_balance payer.owner_key, amount, payer
         
         @transaction_record.ledger_entries.push ledger_entry =
             from_account: payer.owner_key
             to_account: recipient.owner_key
             amount: amount
-            memo: memo_message
-        if memo_sender_public isnt payerActivePublic
-            ledger_entry.memo_from_account = memo_sender_public
+            memo: memo
+        if memo_sender isnt payerActivePublic.toBtsPublic()
+            ledger_entry.memo_from_account = memo_sender
         
-        @mail_trx_notices.push (=>
-            sig = Signature.sign memo_message, memoSenderPrivate
-            [
-                extended_memo: memo_message
-                one_time_private: oneTimePrivate
-                memo_signature: sig
-            ,
-                recipientActivePublic
-            ]
-        )()
+        memo_signature= =>
+            private = @wallet.get_private_key memo_sender
+            Signature.sign memo, private
+        
+        @notices.push
+            transaction_notice:  new TransactionNotice(
+                null, new Buffer memo
+                titan_one_time_key
+                memo_signature()
+            )
+            recipient_active_key: recipientActivePublic
+    
+    encrypted_notifications:->
+        signed_transaction = @get_signed_transaction()
+        messages = []
+        for notice in notices
+            notice.transaction_notice.signed_transaction = signed_transaction
+            
+        for notice in notices
+            one_time_key = @wallet_db.generate_new_one_time_key @aes_root
+            mail = new Mail(
+                1 #transaction_notice
+                notice.recipient_active_key.toBlockchainAddress()
+                0 #nonce
+                new Date()                notice.transaction_notice.toBuffer()
+            )
+            aes = one_time_key.sharedAes notice.recipient_active_key
+            encrypted_mail = new EncryptedMail(
+                one_time_key.toPublicKey()
+                aes.encrypt mail.toBuffer()
+            )
+            messages.push encrypted_mail
+        messages
     
     order_key_for_account:(account_address, account_name)->
         order_key = @order_keys[account_address]
@@ -154,23 +173,21 @@ class TransactionBuilder
         @operations.push new Operation deposit.type_id, deposit
     
     deposit_to_account:(
-        recipientPublic, amount
-        memoSenderPrivate, memo_message, slate_id
-        oneTimePrivate, memo_type
+        receiver_Public, amount
+        from_Private, memo_message, slate_id
+        memo_Public, one_time_Private, memo_type
     )->
         throw new Error 'not implemented' if memo_message
-        
-        memoSenderPublic = memoSenderPrivate.toPublicKey()
-        ###
-        receiver_address = WithdrawTypes.encrypt_memo_data(
-            oneTimePrivate, recipientPublic, memoSenderPrivate,
-            memo_message, memoSenderPublic, memo_type
-        )###
+        #TITAN used for memos
+        receiver_address = @encrypt_memo_data(
+            one_time_Private, receiver_Public, from_Private,
+            memo_message, memo_Public, memo_type
+        )
         encrypted_memo_data = null
-        oneTimePublic = oneTimePrivate.toPublicKey()
+        memo_oneTimePublic = memo_oneTimePrivate.toPublicKey()
         wws = new WithdrawSignatureType(
             recipientPublic.toBlockchainAddress()
-            oneTimePublic, encrypted_memo_data
+            memo_oneTimePublic, encrypted_memo_data
         )
         wc = new WithdrawCondition(
             amount.asset_id, slate_id
@@ -179,6 +196,28 @@ class TransactionBuilder
         )
         deposit = new Deposit amount.amount, wc
         @operations.push new Operation deposit.type_id, deposit
+    
+    encrypt_memo_data:(
+        one_time_Private, to_Public, from_Private,
+        memo_message, memo_Public, memo_type
+    )->
+        secret_Public = ExtendedAddress.deriveS_PublicKey(
+            one_time_Private, to_Public
+        )
+        memo_content=->
+            check_secret = from_Private.sharedSecret secret_Public
+            new MemoData(
+                memo_Public.toBtsPublic()
+                check_secret
+                new Buffer memo_message
+                memo_type
+            )
+        @memo.one_time_key: one_time_Private.toPublicKey()
+        @memo.encrypted_memo_data = (->
+            
+            aes.encrypt memo_content().toBuffer()
+        )()
+        secret_Public
     
     ###
     wallet_transfer:(
@@ -511,14 +550,26 @@ class TransactionBuilder
             throw new Error 'already signed'
         
         chain_id_buffer = new Buffer config.chain_id, 'hex'
-        trx_buffer = @get_binary_transaction().toBuffer()
+        @binary_transaction = new Transaction(
+            expiration = @expiration
+            @slate_id
+            @operations
+        )
+        trx_buffer = @binary_transaction.toBuffer()
         trx_sign = Buffer.concat([trx_buffer, chain_id_buffer])
         #console.log 'digest',hash.sha256(trx_sign).toString('hex')
         for private_key in @required_signatures
-            #console.log 'sign by', private_key.toPublicKey().toBtsPublic()
-            @signatures.push(
-                Signature.signBuffer trx_sign, private_key
-            )
+            try
+                #console.log 'sign by', private_key.toPublicKey().toBtsPublic()
+                @signatures.push(
+                    Signature.signBuffer trx_sign, private_key
+                )
+            catch error
+                console.log "WARNING unable to sign for address #{private_key.toPublicKey().toBtsPublic()}", error
+        
+        @signed_transaction = new SignedTransaction(
+            @binary_transaction, @signatures
+        )
     
     ###
     # 

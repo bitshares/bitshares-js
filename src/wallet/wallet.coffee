@@ -1,6 +1,5 @@
 {WalletDb} = require './wallet_db'
 {TransactionLedger} = require '../wallet/transaction_ledger'
-{TransactionBuilder} = require '../wallet/transaction_builder'
 {ChainInterface} = require '../blockchain/chain_interface'
 {BlockchainAPI} = require '../blockchain/blockchain_api'
 {ExtendedAddress} = require '../ecc/extended_address'
@@ -28,11 +27,6 @@ class Wallet
         @blockchain_api = new BlockchainAPI @rpc
         @chain_interface = new ChainInterface @blockchain_api
     
-    transaction_builder:()->
-        LE.throw 'wallet.must_be_unlocked' unless @aes_root
-        new TransactionBuilder(
-            @, @rpc, @transaction_ledger, @aes_root
-        )
     
     Wallet.entropy = null
     Wallet.add_entropy = (data) ->
