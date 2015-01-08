@@ -1,8 +1,8 @@
 hash = require '../ecc/hash'
 LE = require('../common/exceptions').LocalizedException
 EC = require('../common/exceptions').ErrorWithCause
+config = require './config'
 {Aes} = require '../ecc/aes'
-{config} = require './config'
 {PublicKey} = require '../ecc/key_public'
 {PrivateKey} = require '../ecc/key_private'
 {ExtendedAddress} = require '../ecc/extended_address'

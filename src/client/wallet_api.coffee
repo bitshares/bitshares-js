@@ -7,7 +7,7 @@
 {ChainInterface} = require '../blockchain/chain_interface'
 {BlockchainAPI} = require '../blockchain/blockchain_api'
 
-{config} = require '../wallet/config'
+config = require '../wallet/config'
 LE = require('../common/exceptions').LocalizedException
 q = require 'q'
 
@@ -95,7 +95,6 @@ class WalletAPI
         
         LE.throw "wallet.must_be_opened" unless @wallet
         defer = q.defer()
-        amount = {amount:amount_to_transfer, asset_id:asset.id}
         asset = @chain_interface.get_asset(asset_symbol)
         payer = @wallet.get_account paying_account_name
         sender = @wallet.get_account from_account_name
@@ -107,8 +106,8 @@ class WalletAPI
                     defer.reject error
                     return
             
+                amount = ChainInterface.to_ugly_asset amount_to_transfer, asset
                 builder = @_transaction_builder()
-                
                 builder.deposit_asset(
                     payer, recipient, amount
                     memo_message, selection_method, sender.owner_key

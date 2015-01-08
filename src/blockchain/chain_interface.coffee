@@ -1,4 +1,4 @@
-{config} = require './config'
+config = require './config'
 LE = require('../common/exceptions').LocalizedException
 q = require 'q'
 
@@ -35,6 +35,15 @@ class ChainInterface
         return true if supername is ""
         is_valid_acccount_name supername
         
+    ###* @return asset ###
+    ChainInterface.to_ugly_asset=(amount_to_transfer, asset)->
+        amount = amount_to_transfer
+        amount *= asset.precision
+        #example: 100.500019 becomes 10050001
+        amount = parseInt amount.toString().split('.')[0]
+        amount:amount
+        asset_id:asset.id
+    
     valid_unique_account:(account_name)->
         defer = q.defer()
         try

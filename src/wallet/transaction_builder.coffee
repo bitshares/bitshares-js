@@ -101,13 +101,13 @@ class TransactionBuilder
             one_time_key = @wallet.getNewPrivateKey payer.name
             titan_one_time_key = one_time_key.toPublicKey()
             memoSenderPrivate = @wallet.getPrivateKey memo_sender
-            memoSenderPublic = memoSenderPrivate.getPublicKey()
+            memoSenderPublic = memoSenderPrivate.toPublicKey()
             @deposit_to_account(
                 recipientActivePublic, amount
                 memoSenderPrivate, memo
                 0 # @wallet.select_slate_id trx, amount.asset_id, vote_method
                 memoSenderPublic
-                one_time_key, 'from_memo'
+                one_time_key, 0 # memo_flags_enum from_memo
             )
         
         fee = @wallet.get_transaction_fee()
@@ -179,25 +179,24 @@ class TransactionBuilder
         from_Private, memo_message, slate_id
         memo_Public, one_time_Private, memo_type
     )->
-        throw new Error 'not implemented' if memo_message
         #TITAN used for memos
-        receiver_address = @encrypt_memo_data(
+        memo = @encrypt_memo_data(
             one_time_Private, receiver_Public, from_Private,
             memo_message, memo_Public, memo_type
         )
-        encrypted_memo_data = null
-        memo_oneTimePublic = memo_oneTimePrivate.toPublicKey()
-        wws = new WithdrawSignatureType(
-            recipientPublic.toBlockchainAddress()
-            memo_oneTimePublic, encrypted_memo_data
-        )
-        wc = new WithdrawCondition(
-            amount.asset_id, slate_id
-            type_id(types.withdraw, "withdraw_signature_type"), 
-            wws
-        )
-        deposit = new Deposit amount.amount, wc
+        withdraw_condition = =>
+            new WithdrawCondition(
+                amount.asset_id, slate_id
+                type_id(types.withdraw, "withdraw_signature_type"), 
+                new WithdrawSignatureType(
+                    #owner, one_time_key, encrypted_memo
+                    memo.owner, memo.one_time_key
+                    memo.encrypted_memo_data
+                )
+            )
+        deposit = new Deposit amount.amount, withdraw_condition()
         @operations.push new Operation deposit.type_id, deposit
+        memo.receiver_address_Public
     
     encrypt_memo_data:(
         one_time_Private, to_Public, from_Private,
@@ -209,15 +208,19 @@ class TransactionBuilder
         memo_content=->
             check_secret = from_Private.sharedSecret secret_Public
             new MemoData(
-                memo_Public.toBtsPublic()
+                memo_Public
                 check_secret
                 new Buffer memo_message
                 memo_type
             )
-        @memo.one_time_key = one_time_Private.toPublicKey()
-        @memo.encrypted_memo_data =
+        
+        owner: secret_Public.toBlockchainAddress()
+        one_time_key: one_time_Private.toPublicKey()
+        encrypted_memo_data: (->
+            aes = one_time_Private.sharedAes to_Public
             aes.encrypt memo_content().toBuffer()
-        secret_Public
+        )()
+        receiver_address_Public: secret_Public
     
     ###
     wallet_transfer:(

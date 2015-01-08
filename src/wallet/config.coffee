@@ -1,4 +1,4 @@
-exports.config = 
+module.exports =
     BTS_WALLET_VERSION: 109
 
     BTS_WALLET_MIN_PASSWORD_LENGTH: 8
