@@ -37,7 +37,7 @@ class TransactionBuilder
         @required_signatures = []
         @outstanding_balances = {}
         @account_balance_records = {}
-        @notices = []
+        #@notices = []
         @operations = []
         @order_keys = {}
         @slate_id = null
@@ -122,10 +122,10 @@ class TransactionBuilder
             memo: memo
         if memo_sender isnt payerActivePublic.toBtsPublic()
             ledger_entry.memo_from_account = memo_sender
-        
+        ###
         memo_signature= =>
-            private = @wallet.get_private_key memo_sender
-            Signature.sign memo, private
+            private_key = @wallet.get_private_key memo_sender
+            Signature.sign memo, private_key
         
         @notices.push
             transaction_notice:  new TransactionNotice(
@@ -134,14 +134,16 @@ class TransactionBuilder
                 memo_signature()
             )
             recipient_active_key: recipientActivePublic
-    
+        ###
+    ###
     encrypted_notifications:->
         signed_transaction = @get_signed_transaction()
         messages = []
         for notice in notices
             notice.transaction_notice.signed_transaction = signed_transaction
             
-        for notice in notices
+        for notice in @notices
+            # chnage generate_new_one_time_key to deterministic (better security)
             one_time_key = @wallet_db.generate_new_one_time_key @aes_root
             mail = new Mail(
                 1 #transaction_notice
@@ -156,7 +158,7 @@ class TransactionBuilder
             )
             messages.push encrypted_mail
         messages
-    
+    ###
     order_key_for_account:(account_address, account_name)->
         order_key = @order_keys[account_address]
         unless order_key
@@ -212,11 +214,9 @@ class TransactionBuilder
                 new Buffer memo_message
                 memo_type
             )
-        @memo.one_time_key: one_time_Private.toPublicKey()
-        @memo.encrypted_memo_data = (->
-            
+        @memo.one_time_key = one_time_Private.toPublicKey()
+        @memo.encrypted_memo_data =
             aes.encrypt memo_content().toBuffer()
-        )()
         secret_Public
     
     ###

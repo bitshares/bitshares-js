@@ -118,12 +118,14 @@ class WalletAPI
                     record = builder.get_transaction_record()
                     p = []
                     p.push @wallet.save_and_broadcast_transaction record
-                    for notice in build.encrypted_notifications()
+                    ###
+                    for notice in builder.encrypted_notifications()
                         p.push @mail_client.send_encrypted_message(
                             notice,from_account_name
                             to_account_name
                             recipient.owner_key
                         )
+                    ###
                     q.all(p).then (result)->
                         defer.resolve record
             .done()

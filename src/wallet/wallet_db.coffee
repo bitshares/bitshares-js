@@ -373,9 +373,12 @@ class WalletDb
         
         @index_account account, true
         @save() if save
-    
-    ###* @return {PrivateKey} ###
+    ###
+    ##* @return {PrivateKey} ##
     generate_new_one_time_key:(aes_root)->
+        throw new Error 'not implemented'
+        # Deterministic instead of random to piggy-back
+        # on the extra entropy used in the master key
         one_time_private_key = PrivateKey.newRandom()
         one_time_public = one_time_private_key.toPublicKey()
         one_time_address = one_time_public.toBtsAddy()
@@ -385,7 +388,7 @@ class WalletDb
             public_key: one_time_public
             encrypted_private_key: aes_root.encryptHex one_time_private_key.toHex()
         one_time_private_key
-    
+    ###
     store_key:(key, save)->
        key_record = @lookup_key key.public_key.getBtsAddy()
        key_record = {} unless key_record

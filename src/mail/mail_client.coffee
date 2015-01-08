@@ -2,7 +2,7 @@
 
 
 class MailClient
-
+    ###
     send_encrypted_message:(
         ciphertext, from, to
         recipient_key
@@ -13,5 +13,5 @@ class MailClient
         mail_rec = new Mail(from, to, recipient_key, ciphertext)
         @process_outgoing_mail mail_rec
         return mail_rec.id
-    
+    ###
 exports.MailClient = MailClient

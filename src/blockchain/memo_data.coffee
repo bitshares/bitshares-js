@@ -35,7 +35,7 @@ class MemoData
     appendByteBuffer: (b) ->
         fp.public_key b, @from
         b.writeUint64 @from_signature
-        fp.fixed_date, MAX_MEMO, @message
+        fp.fixed_date b, MAX_MEMO, @message
         b.writeUint8 @memo_flags
     
      ### <helper_functions> ###
