@@ -45,6 +45,7 @@ class TransactionBuilder
     
     ### @return record with private journal entries ###
     get_transaction_record:()->
+        throw new Error 'call finalized first' unless @finalized
         record = @transaction_record
         record.trx.expiration = @expiration.toISOString().split('.')[0]
         record.trx.slate_id = @slate_id
@@ -59,11 +60,13 @@ class TransactionBuilder
         record
     
     get_binary_transaction:()->
+        throw new Error 'call finalized first' unless @finalized
         return @binary_transaction if @binary_transaction
         throw new Error 'call sign_transaction first'
     
     ### @return public transaction for broadcast ###
     get_signed_transaction:()->
+        throw new Error 'call finalized first' unless @finalized
         return @signed_transaction if @signed_transaction
         throw new Error 'call sign_transaction first'
     
@@ -522,6 +525,8 @@ class TransactionBuilder
         
     finalize:()->
         defer = q.defer()
+        throw new Error 'already finalized' if @finalized
+        @finalized = true
         throw new Error 'empty transaction' if @operations.length is 0
         if (Object.keys @outstanding_balances).length is 0
             throw new Error 'nothing to finalize'
