@@ -22,6 +22,7 @@ types = require '../blockchain/types'
 type_id = types.type_id
 
 BTS_BLOCKCHAIN_MAX_MEMO_SIZE = 19
+TITAN_DEPOSIT = off
 
 class TransactionBuilder
     
@@ -179,18 +180,25 @@ class TransactionBuilder
         from_Private, memo_message, slate_id
         memo_Public, one_time_Private, memo_type
     )->
-        #TITAN used for memos
+        #TITAN is always used for memos
         memo = @encrypt_memo_data(
             one_time_Private, receiver_Public, from_Private,
             memo_message, memo_Public, memo_type
         )
+        console.log '... TITAN_DEPOSIT',JSON.stringify TITAN_DEPOSIT
+        TITAN_DEPOSIT
+        owner =
+            if TITAN_DEPOSIT
+                memo.owner
+            else
+                receiver_Public.toBlockchainAddress()
+        
         withdraw_condition = =>
             new WithdrawCondition(
                 amount.asset_id, slate_id
                 type_id(types.withdraw, "withdraw_signature_type"), 
                 new WithdrawSignatureType(
-                    #owner, one_time_key, encrypted_memo
-                    memo.owner, memo.one_time_key
+                    owner, memo.one_time_key
                     memo.encrypted_memo_data
                 )
             )

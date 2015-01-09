@@ -48,7 +48,7 @@ init&
 set -o xtrace
 
 ${GDB-} \
-"${BTS_BUILD}/programs/client/bitshares_client"\
+"${BTS_BUILD}/programs/client/bitsharestestnet_client"\
  --data-dir "$testnet_datadir"\
  --genesis-config "$BTS_JS/testnet/config/genesis.json"\
  --server\
