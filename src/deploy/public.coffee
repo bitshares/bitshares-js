@@ -3,4 +3,4 @@ module.exports =
   ecc: require "../ecc"
   common: require "../common"
   wallet: require "../wallet"
-  client: require "../client'
+  client: require "../client"
