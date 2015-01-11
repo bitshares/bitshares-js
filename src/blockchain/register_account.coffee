@@ -46,10 +46,13 @@ class RegisterAccount
         
     RegisterAccount.fromByteBuffer= (b) ->
         name = fp.variable_buffer b
-        public_data = fp.variable_buffer b
+        public_data = JSON.parse fp.variable_buffer b
         owner_key = fp.public_key
         active_key = fp.public_key
         delegate_pay_rate = b.readUint8()
+        if delegate_pay_rate is 255
+            delegate_pay_rate = -1
+        
         meta_data = null
         if fc.optional b
             meta_data=
@@ -62,19 +65,39 @@ class RegisterAccount
         )
     
     appendByteBuffer: (b) ->
-        fp.variable_buffer b, @name
-        fp.variable_buffer b, @public_data
+        fp.variable_buffer b, @name.toString()
+        fp.variable_buffer b, new Buffer(JSON.stringify @public_data)
         fp.public_key b, @owner_key
         fp.public_key b, @active_key
-        b.writeUint8 @delegate_pay_rate
+        if @delegate_pay_rate is -1
+            b.writeUint8 255
+        else
+            b.writeUint8 @delegate_pay_rate
+        
         if fp.optional b, @meta_data
             b.writeUint32 @meta_data.type
             fp.variable_buffer b, @meta_data.data
+        b.printDebug()
 
     toBuffer: ->
         b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
         @appendByteBuffer(b)
         b_copy = b.copy(0, b.offset)
         return new Buffer(b_copy.toBinary(), 'binary')
+    
+    toJson: (o) ->
+        o.name = @name.toString()
+        o.public_data = @public_data
+        o.owner_key = @owner_key.toBtsPublic()
+        o.active_key = @active_key.toBtsPublic()
+        if @delegate_pay_rate is -1
+            o.delegate_pay_rate = 255
+        else
+            o.delegate_pay_rate = @delegate_pay_rate
+        o.meta_data = unless @meta_data then null
+        else
+            o.meta_data =
+                type: @meta_data.type
+                data: @meta_data.data.toString()
     
 exports.RegisterAccount = RegisterAccount

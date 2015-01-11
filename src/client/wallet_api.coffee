@@ -112,21 +112,8 @@ class WalletAPI
                     payer, recipient, amount
                     memo_message, selection_method, sender.owner_key
                 )
-                builder.finalize().then ()=>
-                    builder.sign_transaction()
-                    record = builder.get_transaction_record()
-                    p = []
-                    p.push @wallet.save_and_broadcast_transaction record
-                    ###
-                    for notice in builder.encrypted_notifications()
-                        p.push @mail_client.send_encrypted_message(
-                            notice,from_account_name
-                            to_account_name
-                            recipient.owner_key
-                        )
-                    ###
-                    q.all(p).then (result)->
-                        defer.resolve record
+                @_sign_and_send(builder).then (record)->
+                    defer.resolve record 
             .done()
         catch error
             defer.reject error
@@ -167,19 +154,29 @@ class WalletAPI
     
     account_register:(
         account_name
-        pay_from_account
+        pay_with_account
         public_data = null
         delegate_pay_rate = -1
         account_type = 'titan_account'
     )->
         LE.throw "wallet.must_be_opened" unless @wallet
-        @wallet.account_register(
-            account_name
-            pay_from_account
-            public_data
-            delegate_pay_rate
-            account_type
-        )
+        defer = q.defer()
+        @chain_interface.valid_unique_account(account_name).then ()=>
+            builder = @_transaction_builder()
+            builder.account_register(
+                account_name
+                pay_with_account
+                public_data
+                delegate_pay_rate
+                account_type
+            )
+            @_sign_and_send(builder).then (record)->
+                defer.resolve record
+            .done()
+        , (error)->
+            defer.reject error
+        .done()
+        defer.promise
     
     #account_retract:(account_to_update, pay_from_account)->
     #   record = @wallet.retract_account( account_to_update, pay_from_account, true );
@@ -309,5 +306,38 @@ class WalletAPI
         result:active_key:"",akhistory,approved:0,id,index,is_my_account...
     ###
     
+    _sign_and_send:(builder)->
+        defer = q.defer()
+        builder.finalize().then ()=>
+            builder.sign_transaction()
+            record = builder.get_transaction_record()
+            p = []
+            @wallet.save_transaction record
+            p.push @blockchain_api.broadcast_transaction(record.trx)
+            ###
+            for notice in builder.encrypted_notifications()
+                p.push @mail_client.send_encrypted_message(
+                    notice,from_account_name
+                    to_account_name
+                    recipient.owner_key
+                )
+            ###
+            ### cpp
+            notices = builder->encrypted_notifications()
+            for notice in notices
+                mail.send_encrypted_message(
+                    notice, sender, receiver, 
+                    sender.owner_key
+                )
+                # a second copy for one's self
+                mail.send_encrypted_message(
+                    notice, sender, sender, 
+                    sender.owner_key
+                )
+            ###
+            q.all(p).then ()->
+                defer.resolve record
+        .done()
+        defer.promise
     
 exports.WalletAPI = WalletAPI

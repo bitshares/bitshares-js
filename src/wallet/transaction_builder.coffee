@@ -45,7 +45,7 @@ class TransactionBuilder
     
     ### @return record with private journal entries ###
     get_transaction_record:()->
-        throw new Error 'call finalized first' unless @finalized
+        throw new Error 'call finalize first' unless @finalized
         record = @transaction_record
         record.trx.expiration = @expiration.toISOString().split('.')[0]
         record.trx.slate_id = @slate_id
@@ -60,13 +60,13 @@ class TransactionBuilder
         record
     
     get_binary_transaction:()->
-        throw new Error 'call finalized first' unless @finalized
+        throw new Error 'call finalize first' unless @finalized
         return @binary_transaction if @binary_transaction
         throw new Error 'call sign_transaction first'
     
     ### @return public transaction for broadcast ###
     get_signed_transaction:()->
-        throw new Error 'call finalized first' unless @finalized
+        throw new Error 'call finalize first' unless @finalized
         return @signed_transaction if @signed_transaction
         throw new Error 'call sign_transaction first'
     
@@ -127,6 +127,7 @@ class TransactionBuilder
         if memo_sender isnt payerActivePublic.toBtsPublic()
             ledger_entry.memo_from_account = memo_sender
         ###
+        # mailbox notification for titan
         memo_signature= =>
             private_key = @wallet.get_private_key memo_sender
             Signature.sign memo, private_key
@@ -140,6 +141,7 @@ class TransactionBuilder
             recipient_active_key: recipientActivePublic
         ###
     ###
+    # mailbox notification for titan
     encrypted_notifications:->
         signed_transaction = @get_signed_transaction()
         messages = []
@@ -183,13 +185,11 @@ class TransactionBuilder
         from_Private, memo_message, slate_id
         memo_Public, one_time_Private, memo_type
     )->
-        #TITAN is always used for memos
+        #TITAN used for memos even if it is not used for the transfer...
         memo = @encrypt_memo_data(
             one_time_Private, receiver_Public, from_Private,
             memo_message, memo_Public, memo_type
         )
-        console.log '... TITAN_DEPOSIT',JSON.stringify TITAN_DEPOSIT
-        TITAN_DEPOSIT
         owner =
             if TITAN_DEPOSIT
                 memo.owner
@@ -269,27 +269,29 @@ class TransactionBuilder
         defer.promise
     ###
     account_register:(
-        account_name
+        account_to_register
         pay_from_account
         public_data=null
         delegate_pay_rate = -1
         account_type = "titan_account"
     )->
-        defer = q.defer()
         LE.throw "wallet.must_be_opened" unless @wallet
+        as_delegate = no
         if delegate_pay_rate isnt -1
             throw new Error 'Not implemented'
+            as_delegate = yes
         
-        owner_key = @wallet.getOwnerKey account_name
+        owner_key = @wallet.getOwnerKey account_to_register
+        active_key = @wallet.getActiveKey account_to_register
         unless owner_key
-            throw new Error "Create account before registering"
+            LE.throw "create_account_before_register"
         
-        active_key = @wallet.getActiveKey account_name
-        unless active_key
+        pay_from_OwnerKey = @wallet.getOwnerKey pay_from_account
+        unless pay_from_OwnerKey
             throw new Error "Unknown pay_from account #{pay_from_account}"
         
         meta_data = null
-        if account_type
+        if account_type is "public_account"
             type_id = RegisterAccount.type[account_type]
             if type_id is undefined
                 throw new Error "Unknown account type: #{account_type}"
@@ -299,10 +301,9 @@ class TransactionBuilder
         if delegate_pay_rate > 100
             LE.throw 'wallet.delegate_pay_rate_invalid', [delegate_pay_rate]
         
-        public_data = "" unless public_data
         register = new RegisterAccount(
-            new Buffer account_name
-            new Buffer public_data
+            new Buffer account_to_register
+            public_data
             owner_key
             active_key
             delegate_pay_rate
@@ -310,7 +311,7 @@ class TransactionBuilder
         )
         @operations.push new Operation register.type_id, register
         
-        account_segments = account_name.split '.'
+        account_segments = account_to_register.split '.'
         if account_segments.length > 1
             throw new Error 'untested'
             ###
@@ -320,26 +321,33 @@ class TransactionBuilder
                 unless account
                     LE.throw 'wallet.need_parent_for_registration', [parent]
                 
-                #continue if account.is_retracted #active_key == public_key
+                #continue if account.is_retracted #pay_from_OwnerKey == public_key
                 @wallet.has_private_key account
                 @required_signatures.push @wallet.lookup_active_key parent
             ###
         
-        #fees = @wallet.get_transaction_fee()
+        fee = @wallet.get_transaction_fee()
+        @_deduct_balance pay_from_OwnerKey.toBtsPublic(), fee 
         
-        #if delegate_pay_rate isnt -1
+        if delegate_pay_rate isnt -1
             #calc and add delegate fee
-        @withdraw_to_transaction( fees, pay_from_account ).then ()->  
-            defer.resolve()
-            return
-        .done()
-        defer.promise
+            throw new Error 'not implemented'
+        
+        @transaction_record.ledger_entries.push ledger_entry =
+            from_account: pay_from_OwnerKey.toBtsPublic()
+            to_account: owner_key.toBtsPublic()
+            amount: {amount:0, asset_id: 0}
+            memo: "register " + account_to_register + (if as_delegate then " as a delegate" else "")
+            memo_from_account:null
+        
+        @transaction_record.fee = fee
         
     withdraw_to_transaction:(
         amount_to_withdraw
         from_account_name
     )->
         defer = q.defer()
+        throw new Error 'missing from account' unless from_account_name
         amount_remaining = amount_to_withdraw.amount
         withdraw_asset_id = amount_to_withdraw.asset_id
         owner_private=(balance_record)=>
@@ -347,11 +355,11 @@ class TransactionBuilder
             balance = balance_record[1]
             if balance.snapshot_info?.original_address
                 activePrivate = @wallet.getActivePrivate from_account_name
-                throw new Error "account '#{from_account_name}' is missing active private key" unless   activePrivate
+                throw new Error "account '#{from_account_name}' is missing active private key" unless activePrivate
                 return activePrivate
             
-            throw new Error "... correct one_time_public \t"+JSON.stringify balance_record
-            #one_time_public = balance_record.memo.one_time_public
+            throw new Error "... correct one_time_public path \t"+JSON.stringify balance_record
+            #one_time_public = balance_record[1].memo.one_time_public
             #sender_private = @wallet.getActivePrivate @aes_root, from_account_name
             #ExtendedAddress.private_key_child sender_private, one_time_public
         
@@ -539,22 +547,22 @@ class TransactionBuilder
         
         p = []
         for address in Object.keys @outstanding_balances
-            #rec = asset_id: amount.asset_id, account: account, amount: amount
+            #account_rec = asset_id: amount.asset_id, amount: amount
             rec = @outstanding_balances[address]
             continue if rec.amount is 0
-            console.log '... rec.amount',JSON.stringify rec.amount
             balance = {amount:rec.amount, asset_id: rec.asset_id}
-            account_name = rec.account.name
-            #address->ownerkey lookup 
+            account = @wallet.lookup_account_by_address address         #address->ownerkey lookup
             
             if rec.amount > 0
-                depositAddress = @order_key_for_account address, account_name
+                depositAddress = @order_key_for_account address, account.name
                 @deposit depositAddress, balance
             else
                 balance.amount = -rec.amount
-                p.push @withdraw_to_transaction balance, account_name
+                p.push @withdraw_to_transaction balance, account.name
         
-        @outstanding_balances.length = 0
+        for k in Object.keys @outstanding_balances
+            delete @outstanding_balances[k]
+        
         @expiration = @wallet.get_trx_expiration()
         q.all p
     
@@ -576,7 +584,7 @@ class TransactionBuilder
         #console.log 'digest',hash.sha256(trx_sign).toString('hex')
         for private_key in @required_signatures
             try
-                #console.log 'sign by', private_key.toPublicKey().toBtsPublic()
+                console.log '...sign by', private_key.toPublicKey().toBtsPublic()
                 @signatures.push(
                     Signature.signBuffer trx_sign, private_key
                 )
@@ -605,7 +613,7 @@ class TransactionBuilder
         if required_fee.asset_id isnt -1
             @transaction_record.fee = required_fee
             for address in @outstanding_balances
-                #rec = asset_id: amount.asset_id, account: account, amount: amount
+                #account_rec = asset_id: amount.asset_id, amount: amount
                 rec = @outstanding_balances[address]
                 continue if rec.asset_id isnt required_fee.asset_id
                 if required_fee.amount > rec.amount
@@ -627,7 +635,7 @@ class TransactionBuilder
     _all_positive_balances:->
         balances = {}
         for address in Object.keys @outstanding_balances
-            #rec = asset_id: amount.asset_id, account: account, amount: amount
+            #account_rec = asset_id: amount.asset_id, amount: amount
             rec = @outstanding_balances[address]
             continue unless rec.amount > 0
             balance = balances[rec.asset_id]
@@ -640,9 +648,10 @@ class TransactionBuilder
         throw new Error 'not implemented @wallet.get_account_balances'
         account_balances = @wallet.get_account_balances "", false
         for address in Object.keys @outstanding_balances
-            #rec = asset_id: amount.asset_id, account: account, amount: amount
+            #account_rec = asset_id: amount.asset_id, amount: amount
             rec = @outstanding_balances[address]
-            balances = account_balances[key.account.name]
+            account = @wallet_db.lookup_key rec.address
+            balances = account_balances[account.name]
             continue unless balances
             for balance in balances
                 fee = @wallet.get_transaction_fee balance.asset_id
@@ -654,7 +663,7 @@ class TransactionBuilder
     ###
     
     # manually tweak an account's balance in this transaction
-    _deduct_balance:(address, amount, account)->
+    _deduct_balance:(address, amount)->
         unless amount.amount >= 0
             throw new Error "amount must be positive"
         record = @outstanding_balances[address]
@@ -662,12 +671,11 @@ class TransactionBuilder
             @outstanding_balances[address] = record =
                 address:address
                 asset_id: amount.asset_id
-                account: account
                 amount: 0
         record.amount -= amount.amount
         
     # manually tweak an account's balance in this transaction
-    _credit_balance:(address, amount, account)->
+    _credit_balance:(address, amount)->
         unless amount.amount >= 0
             throw new Error "amount must be positive"
         record = @outstanding_balances[address]
@@ -675,7 +683,6 @@ class TransactionBuilder
             @outstanding_balances[address] = record =
                 address:address
                 asset_id: amount.asset_id
-                account: account
                 amount: 0
         record.amount += amount.amount
 

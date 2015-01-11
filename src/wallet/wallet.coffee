@@ -237,54 +237,11 @@ class Wallet
     
 
     ###
-    account_register:(
-        account_name
-        pay_from_account
-        public_data=null
-        delegate_pay_rate = -1
-        account_type = "titan_account"
-    )->
-        defer = q.defer()
-        @chain_interface.valid_unique_account(account_name).then(
-            (resolve)=>
-                @transaction_builder().account_register(
-                    account_name
-                    pay_from_account
-                    public_data
-                    delegate_pay_rate
-                    account_type
-                ).then(
-                    (signed_trx)=>
-                        @broadcast defer, signed_trx
-                    (error)->
-                        defer.reject error
-                ).done()
-            (error)->
-                defer.reject error
-        ).done()
-        defer.promise
     
-    save_and_broadcast_transaction:(record)->
-        defer = q.defer()
+    save_transaction:(record)->
         @wallet_db.add_transaction_record record
-        @blockchain_api.broadcast_transaction(record.trx).then(
-            (result)=>defer.resolve()
-        ).done()
-        defer.promise
-                
-        ###
-        notices = builder->encrypted_notifications()
-        for notice in notices
-            mail.send_encrypted_message(
-                notice, sender, receiver, 
-                sender.owner_key
-            )
-            # a second copy for one's self
-            mail.send_encrypted_message(
-                notice, sender, sender, 
-                sender.owner_key
-            )
-        ###
+        return
+    
     account_transaction_history:(
         account_name=""
         asset_id=0
@@ -358,7 +315,7 @@ class Wallet
         @wallet_db.lookup_active_key account_name
     
     lookup_account_by_address:(address)->
-        @wallet_db.lookup_key address
+        @wallet_db.get_account_for_address address
     
     #lookup_private:(bts_public_key)->@getPrivateKey bts_public_key
     getPrivateKey:(bts_public_key)->

@@ -32,24 +32,23 @@ describe "Account", ->
     afterEach ->
         @rpc.close()
     
-    
     it "Transfer TITAN", (done) ->
         wallet_api = new_wallet_api @rpc
         wallet_api.unlock 9, PASSWORD
-        wallet_api.transfer(100.500019, 'XTS', 'delegate2', 'delegate3').then(
+        wallet_api.transfer(100.500019, 'XTS', 'delegate0', 'delegate1').then(
             (trx)->
                console.log '... transactions::trx',JSON.stringify trx
                done()
        ).done()
    
-    account_create=(name)->
-        it "account_create "+name, (done) ->
-            wallet_api = new_wallet_api @rpc
-            wallet_api.unlock 9, PASSWORD
-            wallet_api.account_create(name).then (key)->
-                PublicKey.fromBtsPublic key
-                done()
-            .done()
+    it "account_create", (done) ->
+        suffix = secureRandom.randomBuffer(2).toString 'hex'
+        wallet_api = new_wallet_api @rpc
+        wallet_api.unlock 9, PASSWORD
+        wallet_api.account_create("newaccount-"+suffix).then (key)->
+            PublicKey.fromBtsPublic key
+            done()
+        .done()
     
     wallet_transfer_to_address=(data)->
         it "wallet_transfer_to_address (public)", (done) ->
@@ -83,25 +82,25 @@ describe "Account", ->
             #console.log trx
         .done()
    
-    account_register=(data)->
-        it "Register", (done) ->
-            wallet_api = new_wallet_api @rpc
-            wallet_api.unlock 9, PASSWORD
-            try
-                # bob has a withdraw signature transaction in the wallet.json
+    it "Register", (done) ->
+        suffix = secureRandom.randomBuffer(2).toString 'hex'
+        wallet_api = new_wallet_api @rpc
+        wallet_api.unlock 9, PASSWORD
+        try
+            wallet_api.account_create("bob-" + suffix).then (key)->
                 wallet_api.account_register(
-                    account_name = "bob"
-                    pay_from_account = "bob"
-                    public_data = { url:'bobsbarricades' }
+                    account_name = "bob-" + suffix
+                    pay_from_account = "delegate0"
+                    public_data = null#{ data:'value' }
                     delegate_pay_rate = -1
                     account_type = "titan_account"
-                ).then( (trx)=>
+                ).then (trx)=>
                     EC.throw 'expecting transaction' unless trx
                     #console.log trx
                     done()
-                ).done()
-            catch ex
-                console.log 'ex',ex
+                .done()
+        catch ex
+            console.log 'ex',ex
     
     it "dump_private_key", ->
         wallet_api = new_wallet_api @rpc

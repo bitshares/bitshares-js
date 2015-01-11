@@ -347,11 +347,13 @@ class WalletDb
         @index_account rec
         @_append('account_record_type',rec)
         @save() if save
+        return
         
     add_transaction_record:(rec, save = true)->
         @index_transaction rec
         @_append('transaction_record_type',rec)
         @save() if save
+        return
     
     _wallet_index:(matches)->
         for i in [0...@wallet_object.length] by 1
@@ -449,8 +451,7 @@ class WalletDb
     
     _debug_last:(ref)->
         console.log "#{ref}",JSON.stringify @wallet_object[@wallet_object.length - 1].data,null,4
-        console.log '... (new Error).stack',(new Error).stack
-        (new Error).stack
+        #console.log '... (new Error).stack',(new Error).stack
         return
     
     get_child_key_index:->
