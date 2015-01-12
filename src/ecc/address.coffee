@@ -26,6 +26,9 @@ class Address
         assert.deepEqual checksum, new_checksum, 'Checksum did not match'
         new Address(addy)
         
+    Address.fromPtsBuffer = (buffer) ->
+        new Address hash.ripemd160 buffer
+    
     toBuffer: ->
         @addy
         

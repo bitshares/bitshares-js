@@ -49,7 +49,28 @@ test = (key) ->
             aes = Aes.fromSecret "Password00"
             d = aes.decryptHex key.encrypted_private_key
             assert.equal key.private_key, d
+        
             
+        it "BTS/BTC uncompressed", ->
+            public_key = PublicKey.fromBtsPublic key.public_key
+            address = public_key.toPtsBtsAddress false, 0
+            assert.equal key.Uncompressed_BTC, address.toString()
+        
+        it "BTS/BTC compressed", ->
+            public_key = PublicKey.fromBtsPublic key.public_key
+            address = public_key.toPtsBtsAddress true, 0
+            assert.equal key.Compressed_BTC, address.toString()
+        
+        it "BTS/PTS uncompressed", ->
+            public_key = PublicKey.fromBtsPublic key.public_key
+            address = public_key.toPtsBtsAddress false, 56
+            assert.equal key.Uncompressed_PTS, address.toString()
+        
+        it "BTS/PTS compressed", ->
+            public_key = PublicKey.fromBtsPublic key.public_key
+            address = public_key.toPtsBtsAddress true, 56
+            assert.equal key.Compressed_PTS, address.toString()
+
 test
     # delegate0
     # sourced from: ./bitshares/programs/utils/bts_create_key
@@ -60,3 +81,9 @@ test
     pts_address: "Po3mqkgMzBL4F1VXJArwQxeWf3fWEpxUf3"
     encrypted_private_key: "5e1ae410919c450dce1c476ae3ed3e5fe779ad248081d85b3dcf2888e698744d0a4b60efb7e854453bec3f6883bcbd1d"
     blockchain_address: "4f3a560442a05e4fbb257e8dc5859b736306bace"
+    # https://github.com/BitShares/bitshares/blob/2602504998dcd63788e106260895769697f62b07/libraries/wallet/wallet_db.cpp#L103-L108
+    Uncompressed_BTC:	"XTSLAFmEtM8as1mbmjVcj5dphLdPguXquimn"
+    Compressed_BTC:	"XTSANNTSEaUviJgWLzJBersPmyFZBY4jJETY"
+    Uncompressed_PTS:	"XTSEgj7RM6FBwSoccGaESJLC3Mi18785bM3T"
+    Compressed_PTS:	"XTSD5rYtofD6D4UHJH6mo953P5wpBfMhdMEi"
+
