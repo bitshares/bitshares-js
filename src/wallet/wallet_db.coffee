@@ -3,6 +3,7 @@ LE = require('../common/exceptions').LocalizedException
 EC = require('../common/exceptions').ErrorWithCause
 config = require './config'
 {Aes} = require '../ecc/aes'
+{Address} = require '../ecc/address'
 {PublicKey} = require '../ecc/key_public'
 {PrivateKey} = require '../ecc/key_private'
 {ExtendedAddress} = require '../ecc/extended_address'
@@ -101,12 +102,14 @@ class WalletDb
     index_key_record:(data)->
         @key_record[data.public_key] = data
         @account_address[data.account_address] = data
-        ###
-        console.log '... data.public_key',JSON.stringify data.public_key
-        pub = PublicKey.fromBtsPublic(data.public_key)
-        console.log data.name,'addy compressed\t',pub.toBtsAddy true
-        console.log data.name,'addy uncompressed\t',pub.toBtsAddy false
-        ###
+        public_key = PublicKey.fromBtsPublic data.public_key
+        
+        #https://github.com/BitShares/bitshares/blob/2602504998dcd63788e106260895769697f62b07/libraries/wallet/wallet_db.cpp#L103-L108
+        index=(addr)=>@account_address[addr.toString()] = data
+        index Address.fromPublic public_key, false, 0
+        index Address.fromPublic public_key, true, 0
+        index Address.fromPublic public_key, false, 56
+        index Address.fromPublic public_key, true, 56
         
     index_property:(data)->
         @property[data.key] = data.value
