@@ -91,7 +91,7 @@ describe "Account", ->
                 wallet_api.account_register(
                     account_name = "bob-" + suffix
                     pay_from_account = "delegate0"
-                    public_data = null#{ data:'value' }
+                    public_data = null#{data:'value'}
                     delegate_pay_rate = -1
                     account_type = "titan_account"
                 ).then (trx)=>

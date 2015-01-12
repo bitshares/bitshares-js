@@ -39,7 +39,7 @@ class Transaction
         b.writeVarint32(@operations.length)
         for operation in @operations
             operation.appendByteBuffer(b)
-        
+    
     toJson: (o) ->
         exp = new Date(@expiration).toISOString()
         #exp = exp.replace /[-:]/g, ''

@@ -46,7 +46,7 @@ class RegisterAccount
         
     RegisterAccount.fromByteBuffer= (b) ->
         name = fp.variable_buffer b
-        public_data = JSON.parse fp.variable_buffer b
+        public_data = {} #JSON.parse fp.variable_buffer b
         owner_key = fp.public_key
         active_key = fp.public_key
         delegate_pay_rate = b.readUint8()
@@ -66,7 +66,7 @@ class RegisterAccount
     
     appendByteBuffer: (b) ->
         fp.variable_buffer b, @name.toString()
-        fp.variable_buffer b, new Buffer(JSON.stringify @public_data)
+        fp.variable_buffer b, new Buffer("")#JSON.stringify @public_data)
         fp.public_key b, @owner_key
         fp.public_key b, @active_key
         if @delegate_pay_rate is -1
@@ -77,7 +77,6 @@ class RegisterAccount
         if fp.optional b, @meta_data
             b.writeUint32 @meta_data.type
             fp.variable_buffer b, @meta_data.data
-        b.printDebug()
 
     toBuffer: ->
         b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)

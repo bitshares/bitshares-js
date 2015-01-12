@@ -271,7 +271,7 @@ class TransactionBuilder
     account_register:(
         account_to_register
         pay_from_account
-        public_data=null
+        public_data=""
         delegate_pay_rate = -1
         account_type = "titan_account"
     )->
@@ -355,7 +355,8 @@ class TransactionBuilder
             balance = balance_record[1]
             if balance.snapshot_info?.original_address
                 activePrivate = @wallet.getActivePrivate from_account_name
-                throw new Error "account '#{from_account_name}' is missing active private key" unless activePrivate
+                unless activePrivate
+                    throw new Error "account '#{from_account_name}' is missing active private key"
                 return activePrivate
             
             throw new Error "... correct one_time_public path \t"+JSON.stringify balance_record
@@ -375,7 +376,8 @@ class TransactionBuilder
                     balance_id = record[0]
                     balance_asset_id = record[1].condition.asset_id
                     balance_owner = record[1].condition.data.owner
-                    
+                    console.log '... balance_owner',JSON.stringify balance_owner
+                    console.log '... @wallet.wallet_db.lookup_key balance_owner',JSON.stringify @wallet.wallet_db.lookup_key balance_owner
                     continue if balance_amount <= 0
                     continue if balance_asset_id isnt withdraw_asset_id
                     if amount_remaining > balance_amount

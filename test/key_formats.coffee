@@ -5,6 +5,7 @@ Aes = Ecc.Aes
 Signature = Ecc.Signature
 PrivateKey = Ecc.PrivateKey
 PublicKey = Ecc.PublicKey
+Address = Ecc.Address
 
 
 test = (key) ->
@@ -53,22 +54,22 @@ test = (key) ->
             
         it "BTS/BTC uncompressed", ->
             public_key = PublicKey.fromBtsPublic key.public_key
-            address = public_key.toPtsBtsAddress false, 0
+            address = Address.fromPublic public_key, false, 0
             assert.equal key.Uncompressed_BTC, address.toString()
         
         it "BTS/BTC compressed", ->
             public_key = PublicKey.fromBtsPublic key.public_key
-            address = public_key.toPtsBtsAddress true, 0
+            address = Address.fromPublic public_key, true, 0
             assert.equal key.Compressed_BTC, address.toString()
         
         it "BTS/PTS uncompressed", ->
             public_key = PublicKey.fromBtsPublic key.public_key
-            address = public_key.toPtsBtsAddress false, 56
+            address = Address.fromPublic public_key, false, 56
             assert.equal key.Uncompressed_PTS, address.toString()
         
         it "BTS/PTS compressed", ->
             public_key = PublicKey.fromBtsPublic key.public_key
-            address = public_key.toPtsBtsAddress true, 56
+            address = Address.fromPublic public_key, true, 56
             assert.equal key.Compressed_PTS, address.toString()
 
 test

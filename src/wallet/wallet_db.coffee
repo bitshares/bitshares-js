@@ -101,6 +101,12 @@ class WalletDb
     index_key_record:(data)->
         @key_record[data.public_key] = data
         @account_address[data.account_address] = data
+        ###
+        console.log '... data.public_key',JSON.stringify data.public_key
+        pub = PublicKey.fromBtsPublic(data.public_key)
+        console.log data.name,'addy compressed\t',pub.toBtsAddy true
+        console.log data.name,'addy uncompressed\t',pub.toBtsAddy false
+        ###
         
     index_property:(data)->
         @property[data.key] = data.value

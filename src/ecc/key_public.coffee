@@ -1,15 +1,16 @@
+BigInteger = require 'bigi'
+ecurve = require('ecurve')
+secp256k1 = ecurve.getCurveByName 'secp256k1'
+BigInteger = require 'bigi'
+base58 = require 'bs58'
+hash = require './hash'
+config = require '../config'
+assert = require 'assert'
+
+# !!! Importing Address here will break transactions in: npm test
+#{Address} = require './address'
 
 class PublicKey
-
-    BigInteger = require 'bigi'
-    ecurve = require('ecurve')
-    secp256k1 = ecurve.getCurveByName 'secp256k1'
-    BigInteger = require 'bigi'
-    base58 = require 'bs58'
-    hash = require './hash'
-    config = require '../config'
-    assert = require 'assert'
-    {Address} = require './address'
 
     ###* @param {ecurve.Point} public key ###
     constructor: (@Q) ->
@@ -48,20 +49,6 @@ class PublicKey
         checksum = hash.ripemd160 pub_buf
         addy = Buffer.concat [pub_buf, checksum.slice 0, 4]
         config.bts_address_prefix + base58.encode addy
-    
-    toPtsBtsAddress:(compressed, version = 56)->
-        sha2 = if compressed
-            hash.sha256 @toBuffer()
-        else
-            hash.sha256 @toBuffer false
-            
-        rep = hash.ripemd160 sha2
-        versionBuffer = new Buffer(1)
-        versionBuffer.writeUInt8((0xFF & version), 0)
-        addr = Buffer.concat [versionBuffer, rep]
-        check = hash.sha256 addr
-        check = hash.sha256 check
-        Address.fromPtsBuffer Buffer.concat [addr, check.slice 0, 4]
     
     ###*
     {param1} public_key string
