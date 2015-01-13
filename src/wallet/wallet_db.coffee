@@ -280,7 +280,7 @@ class WalletDb
     list_my_accounts:->
         for entry in @wallet_object
             continue unless entry.type is "account_record_type"
-            continue unless entry.is_my_account
+            continue unless entry.data.is_my_account
             data = entry.data
             unless data["active_key"]
                 hist = data.active_key_history
@@ -306,6 +306,11 @@ class WalletDb
     get_account_for_address:(public_key_string)-> #lookup_account
         @activeKey_account[public_key_string] or
         @ownerKey[public_key_string]
+    
+    is_my_account:(owner_key)->
+        rec = @get_key_record account.owner_key
+        return yes if rec?.encrypted_private_key
+        return no
     
     #get_wallet_child_key:(aes_root, key_index)->
     #    master_key = @master_private_key aes_root
@@ -503,8 +508,8 @@ class WalletDb
                 continue unless op.type is 'deposit_op_type'
                 condition = op.data.condition
                 unless condition.type is 'withdraw_signature_type'
-                    console.log "WARN unsupported balance record #{balance.condition.type}"
                     continue
+                
                 wcs.push WithdrawCondition.fromJson op.data.condition
         wcs
     

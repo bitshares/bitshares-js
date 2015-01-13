@@ -243,7 +243,56 @@ class WalletAPI
         LE.throw "wallet.must_be_opened" unless @wallet
         @wallet.dump_private_key account_name
         
-    #wallet_account_balance
+    account_balance:(account_name)->
+        LE.throw "wallet.must_be_opened" unless @wallet
+        totals_by_account={}
+        total=(account_name, asset_id, balance)->
+            totals = totals_by_account[account_name]
+            unless totals
+                totals = {}
+                totals_by_account[account_name] = totals
+            
+            amount = totals[asset_id]
+            amount = 0 unless amount
+            totals[asset_id] = amount + balance
+        
+        by_account=(account_name)=>
+            defer = q.defer()
+            builder = @_transaction_builder()
+            builder.get_account_balance_records(account_name).then (balance_records)=>
+                for record in balance_records
+                    #balance_id = record[0]
+                    rec = record[1]
+                    asset_id = rec.condition.asset_id
+                    balance = builder.get_spendable_balance(rec)
+                    total account_name, asset_id, balance
+                defer.resolve()
+            .done()
+            defer.promise
+        
+        account_name = null if account_name is ""
+        p=[]
+        if account_name
+            p.push by_account(account_name)
+        else
+            for account in @wallet.list_my_accounts()
+                p.push by_account account.name
+        
+        defer = q.defer()
+        q.all(p).then (records)->
+            account_balances = []
+            for account_name in Object.keys totals_by_account
+                totals = totals_by_account[account_name]
+                balences = []
+                for asset_id in Object.keys totals
+                    balance = totals[asset_id]
+                    balences.push [asset_id, balance]
+                account_balances.push [
+                    account_name
+                    balences
+                ]
+            defer.resolve account_balances
+        defer.promise
     
     #wallet_account_yield
     

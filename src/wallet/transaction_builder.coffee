@@ -446,6 +446,7 @@ class TransactionBuilder
         return
     
     get_account_balance_records:(account_name)->
+        throw new Error 'account_name is required' unless account_name
         defer = q.defer()
         if @account_balance_records[account_name]
             defer.resolve @account_balance_records[account_name]
@@ -455,7 +456,7 @@ class TransactionBuilder
         owner_pts = (=>
             # genesis credit
             owner_public = @wallet.getOwnerKey account_name
-            owner_public.toPtsAddy()
+            Address.fromPublic(owner_public).toString()
         )()
         try
             @blockchain_api.list_address_balances(owner_pts).then(
@@ -464,12 +465,14 @@ class TransactionBuilder
                     balance_records.push balance for balance in result if result
                     wcs = @wallet.getWithdrawConditions account_name
                     balance_ids = []
-                    #balance_ids.push wc.getBalanceId() for wc in wcs
+                    balance_ids.push wc.getBalanceId() for wc in wcs
                     if balance_ids.length is 0
                         defer.resolve balance_records
                         return
+                    
                     @blockchain_lookup_balances(balance_ids).then(
                         (result)->
+                            console.log '... blockchain_lookup_balances result',JSON.stringify result
                             balance_records.push balance for balance in result if result
                             @account_balance_records[account_name]=balance_records
                             defer.resolve balance_records

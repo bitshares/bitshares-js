@@ -32,7 +32,7 @@ describe "Account", ->
     afterEach ->
         @rpc.close()
     
-    it "Transfer TITAN", (done) ->
+    it "wallet_transfer", (done) ->
         wallet_api = new_wallet_api @rpc
         wallet_api.unlock 9, PASSWORD
         wallet_api.transfer(100.500019, 'XTS', 'delegate0', 'delegate1').then(
@@ -49,7 +49,29 @@ describe "Account", ->
             PublicKey.fromBtsPublic key
             done()
         .done()
-    
+        
+    it "account_balance (single)", (done) ->
+        wallet_api = new_wallet_api @rpc
+        wallet_api.unlock 9, PASSWORD
+        wallet_api.account_balance("delegate0").then (balances)->
+            console.log '... balances',JSON.stringify balances,4
+            unless balances?[0]?[0] is "delegate0"
+                throw new Error('invalid')
+            
+            done()
+        .done()
+    ### core dump
+    it "account_balance (multiple)", (done) ->
+        wallet_api = new_wallet_api @rpc
+        wallet_api.unlock 9, PASSWORD
+        wallet_api.account_balance().then (balances)->
+            console.log '... balances',JSON.stringify balances,4
+            unless balances[0]?.length > 1
+                throw new Error('invalid')
+            
+            done()
+        .done()
+    ###
     wallet_transfer_to_address=(data)->
         it "wallet_transfer_to_address (public)", (done) ->
             wallet_api = new_wallet_api @rpc
@@ -82,7 +104,7 @@ describe "Account", ->
             #console.log trx
         .done()
    
-    it "Register", (done) ->
+    it "account_register", (done) ->
         suffix = secureRandom.randomBuffer(2).toString 'hex'
         wallet_api = new_wallet_api @rpc
         wallet_api.unlock 9, PASSWORD

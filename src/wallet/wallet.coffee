@@ -153,6 +153,9 @@ class Wallet
             else 0
         accounts
         
+    list_my_accounts:()->
+        @wallet_db.list_my_accounts()
+    
     ###*
         Get an account, try to sync with blockchain account 
         cache in wallet_db.
@@ -277,6 +280,11 @@ class Wallet
         return history if limit is 0 or Math.abs(limit) >= history.length
         return history.slice 0, limit if limit > 0
         history.slice history.length - -1 * limit, history.length
+    
+    
+    get_spendable_account_balances:(account_name)->
+        
+    
     
     valid_unique_account:(account_name) ->
         @chain_interface.valid_unique_account account_name

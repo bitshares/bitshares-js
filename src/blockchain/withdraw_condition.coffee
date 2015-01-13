@@ -40,7 +40,10 @@ class WithdrawCondition
         b.writeInt64(@slate_id)
         b.writeUint8(@type_id)
         fp.variable_buffer b, @condition.toBuffer()
-        
+    
+    getBalanceId:->
+        Address.fromBuffer(@toBuffer()).toString()
+    
     toJson: (o) ->
         o.asset_id = @asset_id
         o.slate_id = @slate_id.toString()
