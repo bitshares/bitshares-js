@@ -25,7 +25,6 @@ npm install -g coffee-script
 Open: test/index.html
 
 ## DEPLOY ##
-(Mac, Linux or Cygwin needed for packaging)
 
 `npm run-script deploy`
 
