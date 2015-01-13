@@ -8,8 +8,10 @@ Run the Mocha unit tests and view sample code from your [browser](http://dev.jca
 
 ## INSTALL ##
 
-`npm install`
-`npm install -g coffee-script`
+```
+npm install
+npm install -g coffee-script
+```
 
 ## NODEJS TEST ##
 
