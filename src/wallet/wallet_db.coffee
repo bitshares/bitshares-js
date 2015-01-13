@@ -81,8 +81,8 @@ class WalletDb
                     @add_key_record
                         account_address: public_key.toBtsAddy()
                         public_key: key
-                # It is awkward to update the account here.. 
-                # probably not needed
+                # "index" should not make write operations. 
+                # in bts' code, not needed in bitshares-js
                 ###
                 else
                     if key_record.encrypted_private_key
@@ -315,40 +315,55 @@ class WalletDb
         LE.throw 'wallet.account_already_exists' if @account[account_name]
         key_index = @get_child_key_index()
         master_key = @master_private_key aes_root
-        private_key = public_key = address = null
+        owner_private_key = owner_public_key = owner_address = null
         while true
             ++key_index
-            private_key = ExtendedAddress.private_key master_key, key_index
-            public_key = private_key.toPublicKey()
-            address = public_key.toBtsAddy()
-            record = @lookup_account address
-            continue if record
-            key = @lookup_key address
-            continue if key
+            throw new Error "overflow" if key_index > Math.pow(2,32)
+            owner_private_key = ExtendedAddress.private_key master_key, key_index
+            owner_public_key = owner_private_key.toPublicKey()
+            owner_address = owner_public_key.toBtsAddy()
+            continue if @lookup_account owner_address
+            continue if (@lookup_key owner_address)?.key?.encrypted_private_key
+            
+            active_private_key = ExtendedAddress.private_key owner_private_key, 0
+            active_public_key = active_private_key.toPublicKey()
+            active_address = active_public_key.toBtsAddy()
+            continue if @lookup_account active_address
+            continue if (@lookup_key active_address)?.key?.encrypted_private_key
+            
             break
-        public_key_string = public_key.toBtsPublic()
-        key =
-            account_address: address
-            public_key: public_key_string
-            encrypted_private_key: aes_root.encryptHex private_key.toHex()
+        
+        active_key =
+            account_address: active_address
+            public_key: active_public_key.toBtsPublic()
+            encrypted_private_key: aes_root.encryptHex active_private_key.toHex()
+            gen_seq_number: 0
+        
+        owner_key =
+            account_address: owner_address
+            public_key: owner_public_key.toBtsPublic()
+            encrypted_private_key: aes_root.encryptHex owner_private_key.toHex()
             gen_seq_number: key_index
+        
         account =
             name: account_name
-            owner_key: public_key_string
+            owner_key: owner_public_key.toBtsPublic()
             active_key_history: [
                 [
                     (new Date().toISOString()).split('.')[0] # blockchain::now()
-                    public_key_string
+                    active_public_key.toBtsPublic()
                 ]
             ]
             private_data: private_data
             registration_date: null
             is_my_account: yes
+        
+        @add_key_record active_key, false
         @set_child_key_index key_index, false
+        @add_key_record owner_key, false
         @add_account_record account, false
-        @add_key_record key, false
         @save() if save
-        public_key_string
+        owner_public_key.toBtsPublic()
     
     add_account_record:(rec, save = true)->
         if @lookup_account rec.name
