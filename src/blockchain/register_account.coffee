@@ -86,13 +86,10 @@ class RegisterAccount
     
     toJson: (o) ->
         o.name = @name.toString()
-        o.public_data = @public_data
+        o.public_data = null#@public_data
         o.owner_key = @owner_key.toBtsPublic()
         o.active_key = @active_key.toBtsPublic()
-        if @delegate_pay_rate is -1
-            o.delegate_pay_rate = 255
-        else
-            o.delegate_pay_rate = @delegate_pay_rate
+        o.delegate_pay_rate = @delegate_pay_rate
         o.meta_data = unless @meta_data then null
         else
             o.meta_data =
