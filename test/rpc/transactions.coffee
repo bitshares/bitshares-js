@@ -47,6 +47,8 @@ describe "Account", ->
         wallet_api.unlock 9, PASSWORD
         wallet_api.account_create("newaccount-"+suffix).then (key)->
             PublicKey.fromBtsPublic key
+            account = wallet_api.get_account "newaccount-"+suffix
+            throw new Error "could not fetch new account" unless account
             done()
         .done()
         
@@ -57,10 +59,9 @@ describe "Account", ->
             console.log '... balances',JSON.stringify balances,4
             unless balances?[0]?[0] is "delegate0"
                 throw new Error('invalid')
-            
             done()
         .done()
-    ### core dump
+    ## core dump
     it "account_balance (multiple)", (done) ->
         wallet_api = new_wallet_api @rpc
         wallet_api.unlock 9, PASSWORD
@@ -71,7 +72,7 @@ describe "Account", ->
             
             done()
         .done()
-    ###
+    ##
     wallet_transfer_to_address=(data)->
         it "wallet_transfer_to_address (public)", (done) ->
             wallet_api = new_wallet_api @rpc

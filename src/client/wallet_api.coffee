@@ -63,10 +63,14 @@ class WalletAPI
     locked: ->
         LE.throw "wallet.must_be_opened" unless @wallet
         @wallet.locked()
-        
+    
+    ###* @return promise: {string} public key ###
     account_create:(account_name, private_data)->
         LE.throw "wallet.must_be_opened" unless @wallet
         @wallet.account_create account_name, private_data
+    
+    get_account:(account_name)->
+        @wallet.get_account account_name
     
     _transaction_builder:()->
         LE.throw "wallet.must_be_opened" unless @wallet
@@ -238,6 +242,14 @@ class WalletAPI
     list_accounts:->
         LE.throw "wallet.must_be_opened" unless @wallet
         @wallet.list_accounts()
+    
+    list_my_accounts:->
+        LE.throw "wallet.must_be_opened" unless @wallet
+        @wallet.list_my_accounts()
+    
+    account_yield:->
+        console.log 'WARN: account_yield is not implemented'
+        []
         
     dump_private_key:(account_name)->
         LE.throw "wallet.must_be_opened" unless @wallet

@@ -49,7 +49,7 @@ describe "Wallet API (non-RPC)", ->
         finally
             WalletDb.delete "default"
     
-    it "create and open", (done) ->
+    it "wallet create and open", (done) ->
         @wallet_api.wallet.wallet_db.save()
         try
             @wallet_api.open("WalletNotFound")
@@ -112,13 +112,14 @@ describe "Wallet API (non-RPC)", ->
     it "list accounts", ->
         accounts = @wallet_api.list_accounts()
         EC.throw "No accounts" unless accounts or accounts.length > 0
-        
+    
+    it "list my accounts", ->
+        accounts = @wallet_api.list_my_accounts()
+        EC.throw "No accounts" unless accounts or accounts.length > 0
+    
     it "transaction history", ->
         history = @wallet_api.account_transaction_history()
         EC.throw 'no history' unless history?.length > 0
-
-
-       
 
     ###
     it "create brain-key wallet", ->

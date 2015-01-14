@@ -184,7 +184,7 @@ class Wallet
         .done()
         defer.promise
     
-    ###* @return {string} public key ###
+    ###* @return promise: {string} public key ###
     account_create:(account_name, private_data)->
         LE.throw 'wallet.must_be_unlocked' unless @aes_root
         defer = q.defer()

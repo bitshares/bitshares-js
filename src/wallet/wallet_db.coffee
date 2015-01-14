@@ -264,9 +264,11 @@ class WalletDb
     get_transaction_fee:->
         @_clone @get_setting "transaction_fee"
     
-    list_accounts:->
+    list_accounts:(just_mine=false)->
         for entry in @wallet_object
             continue unless entry.type is "account_record_type"
+            if just_mine
+                continue unless entry.data.is_my_account
             data = entry.data
             unless data["active_key"]
                 hist = data.active_key_history
@@ -278,18 +280,7 @@ class WalletDb
             data
             
     list_my_accounts:->
-        for entry in @wallet_object
-            continue unless entry.type is "account_record_type"
-            continue unless entry.data.is_my_account
-            data = entry.data
-            unless data["active_key"]
-                hist = data.active_key_history
-                hist = hist.sort (a,b)-> 
-                    if a[0] < b[0] then-1 
-                    else if a[0] > b[0] then 1 
-                    else 0
-                data["active_key"] = hist[hist.length - 1]
-            data
+        @list_accounts true
 
     lookup_account:(account_name)->
         @account[account_name]
