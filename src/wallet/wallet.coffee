@@ -204,6 +204,14 @@ class Wallet
         ).done()
         defer.promise
     
+    ### @return {promise} [
+        [
+            account_name,[ [asset_id,amount] ]
+        ]
+    ] ###
+    #get_spendable_account_balances:(account_name)->
+        
+    
     getWithdrawConditions:(account_name)->
         @wallet_db.getWithdrawConditions account_name
     
@@ -280,11 +288,6 @@ class Wallet
         return history if limit is 0 or Math.abs(limit) >= history.length
         return history.slice 0, limit if limit > 0
         history.slice history.length - -1 * limit, history.length
-    
-    
-    get_spendable_account_balances:(account_name)->
-        
-    
     
     valid_unique_account:(account_name) ->
         @chain_interface.valid_unique_account account_name

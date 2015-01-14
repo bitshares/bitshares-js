@@ -254,8 +254,18 @@ class WalletAPI
     dump_private_key:(account_name)->
         LE.throw "wallet.must_be_opened" unless @wallet
         @wallet.dump_private_key account_name
-        
+     
+    ###* @return {promise} [
+        [
+            account_name,[ [asset_id,amount] ]
+        ]
+    ] ###
     account_balance:(account_name)->
+        ###
+            LE.throw "wallet.must_be_opened" unless @wallet
+            @wallet.get_spendable_account_balances account_name
+        _account_balance:(account_name)->
+        ###
         LE.throw "wallet.must_be_opened" unless @wallet
         totals_by_account={}
         total=(account_name, asset_id, balance)->
