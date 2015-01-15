@@ -255,12 +255,15 @@ class WalletAPI
         LE.throw "wallet.must_be_opened" unless @wallet
         @wallet.dump_private_key account_name
      
+    account_balance_extended:(account_name)->
+        @account_balance account_name, extended = true
+    
     ###* @return {promise} [
         [
             account_name,[ [asset_id,amount] ]
         ]
     ] ###
-    account_balance:(account_name)->
+    account_balance:(account_name, extended = false)->
         ###
             LE.throw "wallet.must_be_opened" unless @wallet
             @wallet.get_spendable_account_balances account_name
@@ -281,14 +284,15 @@ class WalletAPI
         by_account=(account_name)=>
             defer = q.defer()
             builder = @_transaction_builder()
-            builder.get_account_balance_records(account_name).then (balance_records)=>
+            builder.get_account_balance_records(account_name, extended).then (balance_records)->
                 for record in balance_records
                     #balance_id = record[0]
                     rec = record[1]
                     asset_id = rec.condition.asset_id
-                    continue unless\
-                        rec.condition.type is "withdraw_signature_type"
-                    total account_name, asset_id, rec.balance
+                    total account_name, asset_id, if extended
+                        builder.get_spendable_balance rec
+                    else
+                        rec.balance
                 defer.resolve()
             ,(error)->
                 defer.reject error

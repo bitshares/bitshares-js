@@ -1,3 +1,4 @@
+q = require 'q'
 
 # Subset of blockchain api used by jslib.  This file may be generated
 # in the future.
@@ -13,8 +14,7 @@ class BlockchainAPI
   get_asset: (asset) ->
     @rpc.request('blockchain_get_asset', [asset]).then (response) ->
        response.result
-          
-          
+  
   # Retrieves the record for the given account name or ID
   # parameters: 
   #   string `account` - account name, ID, or public key to retrieve the record for
@@ -22,7 +22,7 @@ class BlockchainAPI
   get_account: (account) ->
     @rpc.request('blockchain_get_account', [account]).then (response) ->
        response.result
-            
+  
   # Lists balance records which are the balance IDs or which can be claimed by signature for this address
   # parameters: 
   #   string `addr` - address to scan for

@@ -445,7 +445,7 @@ class TransactionBuilder
                 console.log "WARN: get_spendable_balance() called on unsupported withdraw type: " + balance_record.condition.type
         return
     
-    get_account_balance_records:(account_name)->
+    get_account_balance_records:(account_name, extended = false)->
         throw new Error 'account_name is required' unless account_name
         defer = q.defer()
         if @account_balance_records[account_name]
@@ -456,8 +456,12 @@ class TransactionBuilder
         owner_pts = (=>
             # genesis credit
             owner_public = @wallet.getOwnerKey account_name
+            return null unless owner_public
             Address.fromPublic(owner_public).toString()
         )()
+        unless owner_pts
+            defer.resolve []
+            return defer.promise
         try
             @blockchain_api.list_address_balances(owner_pts).then(
                 (result)=>
@@ -470,7 +474,7 @@ class TransactionBuilder
                         defer.resolve balance_records
                         return
                     
-                    @blockchain_lookup_balances(balance_ids).then(
+                    @blockchain_lookup_balances(balance_ids, extended).then(
                         (result)=>
                             balance_records.push balance for balance in result if result
                             @account_balance_records[account_name]=balance_records
@@ -481,12 +485,12 @@ class TransactionBuilder
             defer.reject error
         defer.promise
     
-    blockchain_lookup_balances:(balances)->
+    blockchain_lookup_balances:(balances, extended = false)->
         defer = q.defer()
         batch_ids = []
         batch_ids.push [id, 1] for id in balances
         @rpc.request("batch", ["blockchain_list_balances", batch_ids]).then(
-            (batch_balances)->
+            (batch_balances)=>
                 ###
                 blockchain_list_address_balances= = [[
                   "XTS4pca7BPiQqnQLXUZp8ojTxfXo2g4EzBLP"
@@ -514,8 +518,7 @@ class TransactionBuilder
                 balance_records = []
                 for balances in batch_balances
                     for balance in balances
-                        #console.log 'balance',balance
-                        continue unless\
+                        continue unless extended or
                             balance[1].condition.type is "withdraw_signature_type"
                         balance_records.push balance
                 defer.resolve balance_records

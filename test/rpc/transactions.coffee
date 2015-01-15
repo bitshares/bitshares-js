@@ -51,12 +51,20 @@ describe "Account", ->
             throw new Error "could not fetch new account" unless account
             done()
         .done()
-        
+    
+    it "account_balance (none)", (done) ->
+        wallet_api = new_wallet_api @rpc
+        wallet_api.unlock 9, PASSWORD
+        wallet_api.account_balance("account_does_not_exist").then (balances)->
+            unless balances?.length is 0
+                throw new Error 'expecting empty array'
+            done()
+        .done()
+    
     it "account_balance (single)", (done) ->
         wallet_api = new_wallet_api @rpc
         wallet_api.unlock 9, PASSWORD
         wallet_api.account_balance("delegate0").then (balances)->
-            console.log '... balances',JSON.stringify balances,4
             unless balances?[0]?[0] is "delegate0"
                 throw new Error('invalid')
             done()

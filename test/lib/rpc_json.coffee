@@ -56,7 +56,7 @@ class RpcJson
         @run(method, parameters).then(
             (result)->defer.resolve result:result
             (error)->defer.reject error:error
-        )
+        ).done()
         defer.promise
     
     run: (method, parameters) ->

@@ -188,9 +188,11 @@ class Wallet
     account_create:(account_name, private_data)->
         LE.throw 'wallet.must_be_unlocked' unless @aes_root
         defer = q.defer()
+        console.log '... account_name',JSON.stringify account_name
         @chain_interface.valid_unique_account(account_name).then(
-            (resolve)=>
+            ()=>
                 #cnt = @wallet_db.list_my_accounts()
+                console.log '... account_name2',JSON.stringify account_name
                 account = @wallet_db.lookup_account account_name
                 if account
                     e = new LE 'wallet.account_already_exists',[account_name]
@@ -199,7 +201,7 @@ class Wallet
                 
                 key = @wallet_db.generate_new_account @aes_root, account_name, private_data
                 defer.resolve key
-            (error)=>
+            (error)->
                 defer.reject error
         ).done()
         defer.promise
