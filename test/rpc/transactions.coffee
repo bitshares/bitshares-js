@@ -61,16 +61,20 @@ describe "Account", ->
                 throw new Error('invalid')
             done()
         .done()
-    ## core dump
+    
+    ## core dump?
     it "account_balance (multiple)", (done) ->
+        @rpc.debug = off
         wallet_api = new_wallet_api @rpc
         wallet_api.unlock 9, PASSWORD
+        @timeout 20*1000
         wallet_api.account_balance().then (balances)->
-            console.log '... balances',JSON.stringify balances,4
+            #console.log '... balances',JSON.stringify balances,null,1
             unless balances[0]?.length > 1
                 throw new Error('invalid')
             
             done()
+        .finally ()=>@rpc.debug = on
         .done()
     ##
     wallet_transfer_to_address=(data)->

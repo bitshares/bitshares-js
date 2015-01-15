@@ -471,8 +471,7 @@ class TransactionBuilder
                         return
                     
                     @blockchain_lookup_balances(balance_ids).then(
-                        (result)->
-                            console.log '... blockchain_lookup_balances result',JSON.stringify result
+                        (result)=>
                             balance_records.push balance for balance in result if result
                             @account_balance_records[account_name]=balance_records
                             defer.resolve balance_records
@@ -516,11 +515,10 @@ class TransactionBuilder
                 for balances in batch_balances
                     for balance in balances
                         #console.log 'balance',balance
-                        unless balance[1].condition.type is "withdraw_signature_type"
-                            console.log "WARN: unsupported balance record #{balance[1].condition.type}"
-                            continue
+                        continue unless\
+                            balance[1].condition.type is "withdraw_signature_type"
                         balance_records.push balance
-                    defer.resolve balance_records
+                defer.resolve balance_records
             (error)->
                 defer.reject error
         ).done()

@@ -286,16 +286,19 @@ class WalletAPI
                     #balance_id = record[0]
                     rec = record[1]
                     asset_id = rec.condition.asset_id
-                    balance = builder.get_spendable_balance(rec)
-                    total account_name, asset_id, balance
+                    continue unless\
+                        rec.condition.type is "withdraw_signature_type"
+                    total account_name, asset_id, rec.balance
                 defer.resolve()
+            ,(error)->
+                defer.reject error
             .done()
             defer.promise
         
         account_name = null if account_name is ""
         p=[]
         if account_name
-            p.push by_account(account_name)
+            p.push by_account account_name
         else
             for account in @wallet.list_my_accounts()
                 p.push by_account account.name
@@ -313,7 +316,10 @@ class WalletAPI
                     account_name
                     balences
                 ]
-            defer.resolve account_balances
+            
+            defer.resolve account_balances.sort (a,b)->
+                if a[0] < b[0] then -1 else if a[0] > b[0] then 1 else 0
+        
         defer.promise
     
     #wallet_account_yield

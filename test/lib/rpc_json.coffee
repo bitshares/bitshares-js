@@ -3,7 +3,7 @@
 RPC port core dump
 A unit test that runs several RPC commands in the same connection (example: id:1, id:2, ..) quickly triggered a core dump of bitshares_client on ubuntu.  This is intermittent but did not take long.  
 ###
-quicky = off
+quicky = on
 
 class RpcJson
 
