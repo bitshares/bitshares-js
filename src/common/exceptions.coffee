@@ -8,11 +8,14 @@ https://www.joyent.com/developers/node/design/errors
 class ErrorWithCause
     
     constructor: (@message, cause)->
+        if cause?.message
+            @message += "\tcaused by:\t#{cause.message}"
+        
         stack = (new Error).stack
-        if cause
-            caused_by = if cause.stack then cause.stack else JSON.stringify cause
-            @message += "\tcaused by:\n\t#{caused_by}"
-        @message += '\n'+stack
+        if cause?.stack
+            stack += "\tcaused by:\n\t#{cause.stack}"
+        
+        @stack = @message + "\n" + stack
 
     ErrorWithCause.throw = (message, cause)->
         throw new ErrorWithCause message, cause
@@ -26,12 +29,14 @@ class LocalizedException
     
     constructor: (@key, key_params=[], cause)->
         @message = @substitute_params key, key_params
+        if cause?.message
+            @message += "\tcaused by:\t#{cause.message}"
+        
         stack = (new Error).stack
-        if cause
-            caused_by = if cause.stack then cause.stack else JSON.stringify cause
-            @message += "\tcaused by:\n\t#{caused_by}"
-        @message += '\n'+stack
-        #console.log JSON.stringify @,null,4
+        if cause?.stack
+            stack += "\tcaused by:\n\t#{cause.stack}"
+        
+        @stack = @message + "\n" + stack
     
     LocalizedException.throw = (key, key_params, cause)->
         throw new LocalizedException key, key_params, cause

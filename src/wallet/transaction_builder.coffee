@@ -480,7 +480,9 @@ class TransactionBuilder
                             @account_balance_records[account_name]=balance_records
                             defer.resolve balance_records
                     ).done()
-            ).done()
+                (error)->
+                    defer.reject error
+            )
         catch error
             defer.reject error
         defer.promise
@@ -533,7 +535,7 @@ class TransactionBuilder
                 defer.resolve result
             (error)->
                 defer.reject error
-        ).done()
+        )
         ###
         defer.promise
         

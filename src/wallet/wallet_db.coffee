@@ -340,6 +340,7 @@ class WalletDb
         
         account =
             name: account_name
+            public_data: null
             owner_key: owner_public_key.toBtsPublic()
             active_key_history: [
                 [
@@ -347,9 +348,16 @@ class WalletDb
                     active_public_key.toBtsPublic()
                 ]
             ]
-            private_data: private_data
-            registration_date: null
+            registration_date: "1970-01-01T00:00:00"
+            last_update: (new Date().toISOString()).split('.')[0]
+            delegate_info: null
+            meta_data: null
             is_my_account: yes
+            approved: 0
+            is_favorite: false
+            block_production_enabled: false
+            last_used_gen_sequence: 0
+            private_data: private_data
         
         @add_key_record active_key, false
         @set_child_key_index key_index, false
@@ -379,10 +387,11 @@ class WalletDb
     store_account_or_update:(account, save = true)-> #store_account
         EC.throw "missing account name" unless account.name
         EC.throw "missing owner key" unless account.owner_key
-        # New accounts in the backups all use an id of 0
-        account.id = 0 #last_account_index + 1
+        account.last_update = (new Date().toISOString()).split('.')[0]
         existing = @lookup_account account.name
         if existing
+            # New accounts in the backups all use an id of 0
+            account.id = 0 #last_account_index + 1
             i = @_wallet_index (o)->
                 o.type is "account_record_type" and o.data.name is account.name
             #console.log 'store_account_or_update', account.name,i

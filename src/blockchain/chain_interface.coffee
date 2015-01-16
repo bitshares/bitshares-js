@@ -83,7 +83,6 @@ class ChainInterface
             localStorage.setItem cache_key, asset_string
             defer.resolve asset
         , (error)->defer.reject error
-        .done()
         defer.promise
     
     # refresh_assets:-> blockchain_list_assets probably once a day or if the user requests a refresh ...

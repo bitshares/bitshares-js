@@ -139,7 +139,9 @@ class Wallet
         #            ).done()
         #        else
         #            defer.resolve null
-        #).done()
+        #    (error)->
+        #            defer.reject error
+        #)
         #defer.promise
     
     get_trx_expiration:->
@@ -178,7 +180,6 @@ class Wallet
             defer.resolve local_account
             return
         , (error)->defer.reject error
-        .done()
         defer.promise
     
     ###* @return promise: {string} public key ###
