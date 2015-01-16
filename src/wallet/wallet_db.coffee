@@ -279,9 +279,6 @@ class WalletDb
                 data["active_key"] = hist[hist.length - 1]
             data
             
-    list_my_accounts:->
-        @list_accounts true
-
     lookup_account:(account_name)->
         @account[account_name]
         

@@ -145,17 +145,14 @@ class Wallet
     get_trx_expiration:->
         @wallet_db.get_trx_expiration()
     
-    list_accounts:->
-        accounts = @wallet_db.list_accounts()
+    list_accounts:(just_mine=false)->
+        accounts = @wallet_db.list_accounts just_mine
         accounts.sort (a, b)->
             if a.name < b.name then -1
             else if a.name > b.name then 1
             else 0
         accounts
         
-    list_my_accounts:()->
-        @wallet_db.list_my_accounts()
-    
     ###*
         Get an account, try to sync with blockchain account 
         cache in wallet_db.
@@ -188,11 +185,9 @@ class Wallet
     account_create:(account_name, private_data)->
         LE.throw 'wallet.must_be_unlocked' unless @aes_root
         defer = q.defer()
-        console.log '... account_name',JSON.stringify account_name
         @chain_interface.valid_unique_account(account_name).then(
             ()=>
                 #cnt = @wallet_db.list_my_accounts()
-                console.log '... account_name2',JSON.stringify account_name
                 account = @wallet_db.lookup_account account_name
                 if account
                     e = new LE 'wallet.account_already_exists',[account_name]

@@ -40,7 +40,24 @@ describe "Account", ->
                console.log '... transactions::trx',JSON.stringify trx
                done()
        ).done()
-   
+    
+    it "list_accounts", (done) ->
+        suffix = secureRandom.randomBuffer(2).toString 'hex'
+        wallet_api = new_wallet_api @rpc
+        wallet_api.unlock 9, PASSWORD
+        wallet_api.account_create("newaccount-"+suffix).then (key)->
+            accounts = wallet_api.list_accounts()
+            if accounts.length is 0
+                throw new Error "could not fetch any accounts"
+            
+            for account in accounts
+                if account.name is "newaccount-"+suffix
+                    done()
+                    return
+            
+            throw new Error "list_accounts did not return a new account"
+        .done()
+    
     it "account_create", (done) ->
         suffix = secureRandom.randomBuffer(2).toString 'hex'
         wallet_api = new_wallet_api @rpc
@@ -49,7 +66,12 @@ describe "Account", ->
             PublicKey.fromBtsPublic key
             account = wallet_api.get_account "newaccount-"+suffix
             throw new Error "could not fetch new account" unless account
-            done()
+            
+            wallet_api.account_create("newaccount-"+suffix).then (key)->
+                throw new Error "allowed to create an account that already exists"
+            ,(error)->
+                done()
+            
         .done()
     
     it "account_balance (none)", (done) ->

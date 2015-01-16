@@ -245,7 +245,7 @@ class WalletAPI
     
     list_my_accounts:->
         LE.throw "wallet.must_be_opened" unless @wallet
-        @wallet.list_my_accounts()
+        @wallet.list_accounts just_mine=true
     
     account_yield:->
         console.log 'WARN: account_yield is not implemented'
@@ -304,7 +304,7 @@ class WalletAPI
         if account_name
             p.push by_account account_name
         else
-            for account in @wallet.list_my_accounts()
+            for account in @wallet.list_accounts just_mine=true
                 p.push by_account account.name
         
         defer = q.defer()
