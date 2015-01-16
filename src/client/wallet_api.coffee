@@ -11,6 +11,9 @@ config = require '../wallet/config'
 LE = require('../common/exceptions').LocalizedException
 q = require 'q'
 
+# merge from bitshares/libraries/api/wallet_api.json
+libraries_api_wallet = require '../wallet/wallet_api.json'
+
 ###*
     Mimics bitshares_client RPC calls as close as possible. 
     Any functions matching an RPC method will be automatically
@@ -21,6 +24,8 @@ class WalletAPI
     constructor:(@wallet, @rpc)->
         @blockchain_api = new BlockchainAPI @rpc
         @chain_interface = new ChainInterface @blockchain_api
+    
+    WalletAPI.libraries_api_wallet = libraries_api_wallet
     
     ###* open from persistent storage ###
     open: (wallet_name = "default")->
