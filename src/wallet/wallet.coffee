@@ -154,12 +154,18 @@ class Wallet
             else if a.name > b.name then 1
             else 0
         accounts
-        
+    
+    get_local_account:(name)->
+        @wallet_db.lookup_account name
+    
+    is_my_account:(public_key)->
+        @wallet_db.is_my_account public_key
+    
     ###*
         Get an account, try to sync with blockchain account 
         cache in wallet_db.
     ###
-    get_account:(name)->
+    get_chain_account:(name)-> # was lookup_account
         defer = q.defer()
         @blockchain_api.get_account(name).then (chain_account)=>
             local_account = @wallet_db.lookup_account name
@@ -167,7 +173,7 @@ class Wallet
                 error = new LE "general.unknown_account", [name]
                 defer.reject error
                 return
-                
+            
             if local_account and chain_account
                 if local_account.owner_key isnt chain_account.owner_key
                     error = new LE "wallet.conflicting_accounts", [name]
@@ -177,6 +183,7 @@ class Wallet
             if chain_account
                 @wallet_db.store_account_or_update chain_account
                 local_account = @wallet_db.lookup_account name
+            
             defer.resolve local_account
             return
         , (error)->defer.reject error
@@ -332,7 +339,7 @@ class Wallet
         key_record = @wallet_db.get_key_record bts_public_key
         return null unless key_record and key_record.encrypted_private_key
         PrivateKey.fromHex @aes_root.decryptHex key_record.encrypted_private_key
-        
+    
     #getNewPublicKey:(account_name)->
         
     

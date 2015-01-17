@@ -112,7 +112,8 @@ class WalletDb
         index Address.fromPublic public_key, true, 56
         
     index_property:(data)->
-        @property[data.key] = data.value
+        @property[data.key] = data
+        return
         
     index_transaction:(data)->
         EC.throw "Expecting transaction record to contain: trx" unless data.trx
@@ -215,38 +216,27 @@ class WalletDb
     
     get_key_record:(public_key)->
         @key_record[public_key]
-        ###
-        bts_address = public_key.toBtsPublic()
-        for entry in @wallet_object
-            data = entry.data
-            switch entry.type
-                when "key_record_type"
-                    return data if data.public_key is bts_address
-        return
-        ###
         
     get_setting: (key) ->
         @property[key]?.value or config.DEFAULT_SETTING[key]
     
     set_setting: (key, value, save = true) ->
-        property = @property[key]
-        if property
-            property.value = value
-            return
+        data = @property[key]
+        if data
+            data.value = value
+        else
+            index = @wallet_object[@wallet_object.length - 1].data.index
+            throw "invalid index #{index}" unless /[0-9]+/.test index
+            @property[key] = property_record =
+                type: "property_record_type"
+                data:
+                    index: ++index
+                    key: key
+                    value: value
+            @index_property property_record.data
+            @wallet_object.push property_record
         
-        index = @wallet_object[@wallet_object.length - 1].data.index
-        throw "invalid index #{index}" unless /[0-9]+/.test index
-        index += 1
-        data=
-            type: "property_record_type"
-            data:
-                index: index
-                key: key
-                value: value
-        @index_property data
-        @wallet_object.push data
         @save() if save
-        @property[key] = data.data
         return
     
     get_trx_expiration:->
@@ -278,10 +268,15 @@ class WalletDb
                     else 0
                 data["active_key"] = hist[hist.length - 1]
             data
-            
+    
     lookup_account:(account_name)->
-        @account[account_name]
-        
+        account = @account[account_name]
+        return null unless account
+        unless account.registration_date
+            # web_wallet littered with this date
+            account.registration_date = "1970-01-01T00:00:00"
+        account
+    
     lookup_key:(account_address)-> #lookup_account
         @account_address[account_address]
         
@@ -296,7 +291,7 @@ class WalletDb
         @ownerKey[public_key_string]
     
     is_my_account:(owner_key)->
-        rec = @get_key_record account.owner_key
+        rec = @get_key_record owner_key
         return yes if rec?.encrypted_private_key
         return no
     
@@ -348,7 +343,7 @@ class WalletDb
                     active_public_key.toBtsPublic()
                 ]
             ]
-            registration_date: "1970-01-01T00:00:00"
+            registration_date: null
             last_update: (new Date().toISOString()).split('.')[0]
             delegate_info: null
             meta_data: null
@@ -481,7 +476,7 @@ class WalletDb
         return
     
     get_child_key_index:->
-        index = @get_setting('next_child_key_index')?.value
+        index = @get_setting 'next_child_key_index'
         index = 0 unless index
         index
         

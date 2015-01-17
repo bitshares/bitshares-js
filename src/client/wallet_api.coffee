@@ -74,9 +74,6 @@ class WalletAPI
         LE.throw "wallet.must_be_opened" unless @wallet
         @wallet.account_create account_name, private_data
     
-    get_account:(account_name)->
-        @wallet.get_account account_name
-    
     _transaction_builder:()->
         LE.throw "wallet.must_be_opened" unless @wallet
         LE.throw 'wallet.must_be_unlocked' unless @wallet.aes_root
@@ -105,9 +102,9 @@ class WalletAPI
         LE.throw "wallet.must_be_opened" unless @wallet
         defer = q.defer()
         asset = @chain_interface.get_asset(asset_symbol)
-        payer = @wallet.get_account paying_account_name
-        sender = @wallet.get_account from_account_name
-        recipient = @wallet.get_account to_account_name
+        payer = @wallet.get_chain_account paying_account_name
+        sender = @wallet.get_chain_account from_account_name
+        recipient = @wallet.get_chain_account to_account_name
         try
             q.all([asset, payer, sender, recipient]).spread (asset, payer, sender, recipient)=>
                 unless asset
@@ -239,10 +236,7 @@ class WalletAPI
         
     get_account:(name)->
         LE.throw "wallet.must_be_opened" unless @wallet
-        account = @wallet.get_account name
-        unless account.registration_date
-            account.registration_date = "1970-01-01T00:00:00"
-        account
+        @wallet.get_chain_account name
     
     list_accounts:->
         LE.throw "wallet.must_be_opened" unless @wallet
@@ -295,7 +289,7 @@ class WalletAPI
                     rec = record[1]
                     asset_id = rec.condition.asset_id
                     total account_name, asset_id, if extended
-                        builder.get_spendable_balance rec
+                        builder.get_extended_balance rec
                     else
                         rec.balance
                 defer.resolve()

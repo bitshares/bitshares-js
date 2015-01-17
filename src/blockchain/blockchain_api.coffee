@@ -23,12 +23,12 @@ class BlockchainAPI
     @rpc.request('blockchain_get_account', [account]).then (response) ->
        response.result
   
-  # Lists balance records which are the balance IDs or which can be claimed by signature for this address
+  # Lists balance records which can be claimed by signature for this key
   # parameters: 
-  #   string `addr` - address to scan for
-  # return_type: `balance_record_list`
-  list_address_balances: (addr, error_handler = null) ->
-    @rpc.request('blockchain_list_address_balances', [addr]).then (response) ->
+  #   public_key `key` - Key to scan for
+  # return_type: `balance_record_map`
+  list_key_balances: (key, error_handler = null) ->
+    @rpc.request('blockchain_list_key_balances', [key]).then (response) ->
       response.result
 
   # Takes a signed transaction and broadcasts it to the network.

@@ -27,6 +27,7 @@ TITAN_DEPOSIT = off
 class TransactionBuilder
     
     constructor:(@wallet, @rpc, @transaction_ledger, @aes_root)->
+        throw new Error 'wallet is a required parameter' unless @wallet
         @blockchain_api = new BlockchainAPI @rpc
         now = new Date().toISOString().split('.')[0]
         @transaction_record =
@@ -317,7 +318,7 @@ class TransactionBuilder
             ###
             parents = account_segments.slice 1
             for parent in parents
-                account = @wallet.lookup_account parent
+                account = @wallet.get_chain_account parent
                 unless account
                     LE.throw 'wallet.need_parent_for_registration', [parent]
                 
@@ -371,13 +372,11 @@ class TransactionBuilder
                 
                 #console.log 'balance records',JSON.stringify balance_records,null,4
                 for record in balance_records
-                    balance_amount = @get_spendable_balance(record[1])
+                    balance_amount = @get_extended_balance(record[1])
                     continue unless balance_amount
                     balance_id = record[0]
                     balance_asset_id = record[1].condition.asset_id
                     balance_owner = record[1].condition.data.owner
-                    console.log '... balance_owner',JSON.stringify balance_owner
-                    console.log '... @wallet.wallet_db.lookup_key balance_owner',JSON.stringify @wallet.wallet_db.lookup_key balance_owner
                     continue if balance_amount <= 0
                     continue if balance_asset_id isnt withdraw_asset_id
                     if amount_remaining > balance_amount
@@ -409,7 +408,7 @@ class TransactionBuilder
         ).done()
         defer.promise
         
-    get_spendable_balance:(balance_record)->
+    get_extended_balance:(balance_record)-> # renamed from get_spendable_balance
         switch balance_record.condition.type
             when "withdraw_signature_type" or "withdraw_escrow_type" or "withdraw_multisig_type"
                 return balance_record.balance
@@ -440,45 +439,61 @@ class TransactionBuilder
                     
                     return spendable_balance
                 catch error
-                    console.log "WARN: get_spendable_balance() bug in calcuating vesting balance",error,error.stack
+                    console.log "WARN: get_extended_balance() bug in calcuating vesting balance",error,error.stack
             else
-                console.log "WARN: get_spendable_balance() called on unsupported withdraw type: " + balance_record.condition.type
+                console.log "WARN: get_extended_balance() called on unsupported withdraw type: " + balance_record.condition.type
         return
     
     get_account_balance_records:(account_name, extended = false)->
         throw new Error 'account_name is required' unless account_name
         defer = q.defer()
+        ###
         if @account_balance_records[account_name]
             defer.resolve @account_balance_records[account_name]
             return defer.promise
-            
+        ###
         #throw new Error "Account not found #{account_name}"
-        owner_pts = (=>
-            # genesis credit
-            owner_public = @wallet.getOwnerKey account_name
-            return null unless owner_public
-            Address.fromPublic(owner_public).toString()
-        )()
-        unless owner_pts
+        owner_keys = ((account)=>
+            return null unless account
+            key_set = {}
+            key_set[account.owner_key] = on
+            # every public key 
+            key_set[active[1]] = on for active in account.active_key_history
+            for key in Object.keys key_set
+                continue unless @wallet.is_my_account key
+                key
+        )(@wallet.get_local_account account_name)
+        unless owner_keys
             defer.resolve []
             return defer.promise
+        
         try
-            @blockchain_api.list_address_balances(owner_pts).then(
-                (result)=>
-                    balance_records = []
-                    balance_records.push balance for balance in result if result
-                    wcs = @wallet.getWithdrawConditions account_name
-                    balance_ids = []
-                    balance_ids.push wc.getBalanceId() for wc in wcs
-                    if balance_ids.length is 0
+            owner_keys_params = []
+            owner_keys_params.push [key] for key in owner_keys
+            @rpc.request("batch", ["blockchain_list_key_balances", owner_keys_params]).then(
+                (batch_result)=>
+                    @account_balance_records[account_name]=
+                        balance_records = []
+                    
+                    for balances in batch_result.result
+                        for balance in balances
+                            balance_records.push balance
+                    
+                    titan_balance_ids =
+                        for wc in @wallet.getWithdrawConditions account_name
+                            wc.getBalanceId() 
+                    
+                    if titan_balance_ids.length is 0
                         defer.resolve balance_records
                         return
                     
-                    @blockchain_lookup_balances(balance_ids, extended).then(
+                    @blockchain_lookup_balances(titan_balance_ids, extended).then(
                         (result)=>
-                            balance_records.push balance for balance in result if result
-                            @account_balance_records[account_name]=balance_records
+                            if result
+                                balance_records.push balance for balance in result
+                            
                             defer.resolve balance_records
+                            return
                     ).done()
                 (error)->
                     defer.reject error
@@ -494,7 +509,7 @@ class TransactionBuilder
         @rpc.request("batch", ["blockchain_list_balances", batch_ids]).then(
             (batch_balances)=>
                 ###
-                blockchain_list_address_balances= = [[
+                blockchain_list_key_balances= = [[
                   "XTS4pca7BPiQqnQLXUZp8ojTxfXo2g4EzBLP"
                   {
                     condition:
@@ -518,7 +533,7 @@ class TransactionBuilder
                 ###
                 # or [] (no genesis claim)
                 balance_records = []
-                for balances in batch_balances
+                for balances in batch_balances.result
                     for balance in balances
                         continue unless extended or
                             balance[1].condition.type is "withdraw_signature_type"
