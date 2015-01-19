@@ -38,7 +38,7 @@ class TransactionBuilder
         @signatures = []
         @required_signatures = {}
         @outstanding_balances = {}
-        @account_balance_records = {}
+        #@account_balance_records = {}
         #@notices = []
         @operations = []
         @order_keys = {}
@@ -287,7 +287,6 @@ class TransactionBuilder
         unless owner_key
             LE.throw "create_account_before_register"
         
-        console.log '... pay_from_account',JSON.stringify pay_from_account
         pay_from_OwnerKey = @wallet.getOwnerKey pay_from_account
         unless pay_from_OwnerKey
             throw new Error "Unknown pay_from account #{pay_from_account}"
@@ -368,20 +367,23 @@ class TransactionBuilder
             #ExtendedAddress.private_key_child sender_private, one_time_public
         ###
         @get_account_balance_records(from_account_name).then(
-            (balance_records)=>
-                #console.log balance_records,'b'
+            (key_balances)=>
+                balance_records = key_balances.balance_records
+                key_records = key_balances.key_records
                 withdraws = []
                 
                 #console.log 'balance records',JSON.stringify balance_records,null,4
-                for balance_record in balance_records
+                for i in [0...balance_records.length] by 1
+                    balance_record = balance_records[i]
+                    continue if balance_record.length is 0
                     #balance_amount = @get_extended_balance(balance_record[1])
                     balance_amount = balance_record[1].balance
                     #continue unless balance_amount
                     balance_id = balance_record[0]
                     balance_asset_id = balance_record[1].condition.asset_id
                     balance_owner = balance_record[1].condition.data.owner
-                    unless @wallet.hasPrivate balance_owner
-                        console.log "ERROR: balance record without matching private key",balance_record
+                    #unless @wallet.hasPrivate balance_owner
+                    #    console.log "ERROR: balance record without matching private key",balance_record
                     continue if balance_amount <= 0
                     continue if balance_asset_id isnt withdraw_asset_id
                     if amount_remaining > balance_amount
@@ -390,7 +392,7 @@ class TransactionBuilder
                             balance_amount
                         )
                         @operations.push new Operation withdraw.type_id, withdraw
-                        @required_signatures[balance_owner] = on
+                        @required_signatures[key_records[i].public_key] = on
                         amount_remaining -= balance_amount
                     else
                         withdraw = new Withdraw(
@@ -399,7 +401,7 @@ class TransactionBuilder
                         )
                         @operations.push new Operation withdraw.type_id, withdraw
                         amount_remaining = 0
-                        @required_signatures[balance_owner] = on
+                        @required_signatures[key_records[i].public_key] = on
                         break
                     
                 if amount_remaining isnt 0
@@ -449,15 +451,24 @@ class TransactionBuilder
                 console.log "WARN: get_extended_balance() called on unsupported withdraw type: " + balance_record.condition.type
         return
     
+    ###* @return key_records:[key_records],blance_records:[blance_records]
+    ###
     get_account_balance_records:(account_name, extended = false)->
         throw new Error 'account_name is required' unless account_name
+        my_keys = @wallet.get_my_key_records account_name
         defer = q.defer()
+        unless my_keys
+            defer.resolve()
+            return defer.promise
+        
+        # find all public keys for this account where we have a private key
         ###
         if @account_balance_records[account_name]
             defer.resolve @account_balance_records[account_name]
             return defer.promise
         ###
         #throw new Error "Account not found #{account_name}"
+        ### query by active keys too??
         owner_keys = ((account)=>
             return null unless account
             key_set = {}
@@ -468,22 +479,36 @@ class TransactionBuilder
                 continue unless @wallet.is_my_account key
                 key
         )(@wallet.get_local_account account_name)
-        unless owner_keys
+        unless addresses
             defer.resolve []
             return defer.promise
-        
+        ###
+        owner_keys_params = []
+        owner_keys_params.push [key.public_key] for key in my_keys
         try
-            owner_keys_params = []
-            owner_keys_params.push [key] for key in owner_keys
             @rpc.request("batch", ["blockchain_list_key_balances", owner_keys_params]).then(
                 (batch_result)=>
-                    @account_balance_records[account_name]=
-                        balance_records = []
-                    
+                    #@account_balance_records[account_name]=
+                    balance_records = []
                     for balances in batch_result.result
+                        if balances.length is 0
+                            balance_records.push []
+                            continue
+                        
                         for balance in balances
-                            balance_records.push balance
+                            if balance[1].condition.type is "withdraw_signature_type"
+                                balance_records.push balance
+                            else
+                                balance_records.push []
+                        
+                    #if true
+                    defer.resolve 
+                        key_records:my_keys
+                        balance_records:balance_records
                     
+                    return
+                    
+                    ### else  delete soon (wallet has titan keys already) ---v
                     titan_balance_ids =
                         for wc in @wallet.getWithdrawConditions account_name
                             console.log '... wc',JSON.stringify wc
@@ -501,6 +526,7 @@ class TransactionBuilder
                             defer.resolve balance_records
                             return
                     ).done()
+                    ###
                 (error)->
                     defer.reject error
             )
@@ -611,10 +637,10 @@ class TransactionBuilder
         trx_buffer = @binary_transaction.toBuffer()
         trx_sign = Buffer.concat([trx_buffer, chain_id_buffer])
         #console.log 'digest',hash.sha256(trx_sign).toString('hex')
-        for address in Object.keys @required_signatures
+        for public_key in Object.keys @required_signatures
             try
-                private_key = @wallet.lookupPrivateKey address
-                console.log '...sign by', private_key.toPublicKey().toBtsPublic()
+                private_key = @wallet.getPrivateKey public_key
+                #console.log '...sign by', private_key.toPublicKey().toBtsPublic()
                 @signatures.push(
                     Signature.signBuffer trx_sign, private_key
                 )

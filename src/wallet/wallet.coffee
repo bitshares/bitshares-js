@@ -53,7 +53,6 @@ class Wallet
     
     ###* Unless brain_key is used, must add_entropy first ### 
     Wallet.create = (wallet_name, password, brain_key, save = true)->
-        
         wallet_name = wallet_name?.trim()
         unless wallet_name and wallet_name.length > 0
             LE.throw "wallet.invalid_name"
@@ -83,8 +82,8 @@ class Wallet
         set_version( BTS_WALLET_VERSION );
         set_transaction_fee( asset( BTS_WALLET_DEFAULT_TRANSACTION_FEE ) );
         set_transaction_expiration( BTS_WALLET_DEFAULT_TRANSACTION_EXPIRATION_SEC );
-        ###
         wallet_db.save() if save
+        ###
         wallet_db
     
     lock: ->
@@ -314,6 +313,9 @@ class Wallet
         
     get_new_public_key:(account_name) ->
         @get_new_private_key(account_name).toPublicKey()
+    
+    get_my_key_records:(owner_key) ->
+        @wallet_db.get_my_key_records owner_key
     
     getOwnerKey: (account_name)->
         account = @wallet_db.lookup_account account_name

@@ -480,6 +480,7 @@ class WalletDb
         index = 0 unless index
         index
         
+    
     set_child_key_index:(value, save = true)->
         @set_setting 'next_child_key_index', value, save
         
@@ -487,7 +488,17 @@ class WalletDb
         for entry in @wallet_object
             continue unless entry.type is "transaction_record_type"
             entry.data
-            
+    
+    get_my_key_records:(account_name)->
+        account = @lookup_account account_name
+        return null unless account
+        public_key = PublicKey.fromBtsPublic account.owner_key
+        addy = public_key.toBtsAddy()
+        for entry in @wallet_object
+            continue unless entry.type is "key_record_type"
+            continue unless entry.data.account_address is addy
+            entry.data
+    
     ###* @return {array} WithdrawCondition (withdraw_signature_type only) ###
     getWithdrawConditions:(account_name)->
         wcs = []

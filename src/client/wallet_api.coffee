@@ -283,15 +283,19 @@ class WalletAPI
         by_account=(account_name)=>
             defer = q.defer()
             builder = @_transaction_builder()
-            builder.get_account_balance_records(account_name, extended).then (balance_records)->
-                for record in balance_records
-                    #balance_id = record[0]
-                    rec = record[1]
-                    asset_id = rec.condition.asset_id
-                    total account_name, asset_id, if extended
-                        builder.get_extended_balance rec
-                    else
-                        rec.balance
+            builder.get_account_balance_records(account_name, extended).then (key_records)->
+                if key_records
+                    balance_records = key_records.balance_records
+                    #console.log '... balance_records',JSON.stringify balance_records
+                    for record in balance_records
+                        continue if record.length is 0
+                        rec = record[1]
+                        asset_id = rec.condition.asset_id
+                        # total keeps the results returned by the if statement
+                        total account_name, asset_id, if extended
+                            builder.get_extended_balance rec
+                        else
+                            rec.balance
                 defer.resolve()
             ,(error)->
                 defer.reject error

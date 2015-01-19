@@ -15,12 +15,10 @@ new_wallet_api= (rpc, backup_file = '../fixtures/wallet.json') ->
         wallet_json_string = JSON.stringify require backup_file
         # JSON.parse is used to clone (so internals can't change)
         wallet_object = JSON.parse wallet_json_string
-        wallet_api = new WalletAPI(
+        new WalletAPI(
             new Wallet (new WalletDb wallet_object), rpc
             rpc
         )
-        wallet_api.unlock 9, PASSWORD
-        wallet_api
     else
         throw new Error 'not used...'
         # create an empty wallet
@@ -28,13 +26,13 @@ new_wallet_api= (rpc, backup_file = '../fixtures/wallet.json') ->
         Wallet.add_entropy new Buffer entropy
         wallet_db = Wallet.create 'TestWallet', PASSWORD, brain_key=false, save=false
         wallet = new Wallet wallet_db, rpc
-        wallet_api = new WalletAPI wallet, rpc
-        wallet_api.unlock 10, PASSWORD
-        wallet_api
+        new WalletAPI wallet, rpc
     (# avoid a blockchain deterministic key conflit
-        rnd = parseInt (secureRandom.randomBuffer 10).toString()
+        rnd = 0
+        rnd += i for i in secureRandom.randomUint8Array 10
         wallet_api.wallet.wallet_db.set_child_key_index rnd, save = false
     )
+    wallet_api.unlock 10, PASSWORD
     wallet_api
 
 ### 
@@ -49,23 +47,21 @@ describe "Account", ->
     
     beforeEach ->
         @rpc=new Rpc(debug=on, 45000, "localhost", "test", "test")
-        
+    
     afterEach ->
         @rpc.close()
     
     it "wallet_transfer", (done) ->
         wallet_api = new_wallet_api @rpc
-        wallet_api.unlock 9, PASSWORD
         wallet_api.transfer(100.500019, 'XTS', 'delegate0', 'delegate1').then(
             (trx)->
-               console.log '... transactions::trx',JSON.stringify trx
+               throw new Error 'missing trx' unless trx.trx
                done()
        ).done()
     
     it "list_accounts", (done) ->
         suffix = secureRandom.randomBuffer(2).toString 'hex'
         wallet_api = new_wallet_api @rpc
-        wallet_api.unlock 9, PASSWORD
         wallet_api.account_create("newaccount-"+suffix).then (key)->
             accounts = wallet_api.list_accounts()
             if accounts.length is 0
@@ -82,7 +78,6 @@ describe "Account", ->
     it "account_create", (done) ->
         suffix = secureRandom.randomBuffer(2).toString 'hex'
         wallet_api = new_wallet_api @rpc
-        wallet_api.unlock 9, PASSWORD
         wallet_api.account_create("newaccount-"+suffix).then (key)->
             PublicKey.fromBtsPublic key
             account = wallet_api.get_account "newaccount-"+suffix
@@ -97,7 +92,6 @@ describe "Account", ->
     
     it "account_balance (none)", (done) ->
         wallet_api = new_wallet_api @rpc
-        wallet_api.unlock 9, PASSWORD
         wallet_api.account_balance("account_does_not_exist").then (balances)->
             unless balances?.length is 0
                 throw new Error 'expecting empty array'
@@ -106,8 +100,8 @@ describe "Account", ->
     
     it "account_balance (single)", (done) ->
         wallet_api = new_wallet_api @rpc
-        wallet_api.unlock 9, PASSWORD
         wallet_api.account_balance("delegate0").then (balances)->
+            console.log '... balances',JSON.stringify balances
             unless balances?[0]?[0] is "delegate0"
                 throw new Error('invalid')
             done()
@@ -117,8 +111,7 @@ describe "Account", ->
     it "account_balance (multiple)", (done) ->
         @rpc.debug = off
         wallet_api = new_wallet_api @rpc
-        wallet_api.unlock 9, PASSWORD
-        @timeout 20*1000
+        @timeout 10*1000
         wallet_api.account_balance().then (balances)->
             #console.log '... balances',JSON.stringify balances,null,1
             unless balances[0]?.length > 1
@@ -131,7 +124,6 @@ describe "Account", ->
     wallet_transfer_to_address=(data)->
         it "wallet_transfer_to_address (public)", (done) ->
             wallet_api = new_wallet_api @rpc
-            wallet_api.unlock 9, PASSWORD
             address = "XTS2Kpf4whNd3TkSi6BZ6it4RXRuacUY1qsj" # delegate1
             wallet_api.transfer_to_address(
                 amount = 10000
@@ -162,15 +154,6 @@ describe "Account", ->
    
     it "account_register", (done) ->
         wallet_api = new_wallet_api @rpc, '../fixtures/del.json'
-        wallet_api.unlock 9, PASSWORD
-        ### empty wallet
-        entropy = secureRandom.randomUint8Array 1000
-        Wallet.add_entropy new Buffer entropy
-        wallet_db = Wallet.create 'TestWallet', PASSWORD, brain_key=false, save=false
-        wallet = new Wallet wallet_db, @rpc
-        wallet_api = new WalletAPI wallet, @rpc
-        wallet_api.unlock 10, PASSWORD
-        ###
         suffix = secureRandom.randomBuffer(2).toString 'hex'
         try
             wallet_api.account_create("bob-" + suffix).then (key)->
@@ -190,14 +173,14 @@ describe "Account", ->
     
     it "dump_private_key", ->
         wallet_api = new_wallet_api @rpc
-        wallet_api.unlock 9, PASSWORD
         private_key_hex = wallet_api.dump_private_key 'delegate0'
         EC.throw 'expecting private_key_hex' unless private_key_hex
     
     
     it "wallet_create", ->
+        WalletDb.delete 'TestWallet'
         entropy = secureRandom.randomUint8Array 1000
         Wallet.add_entropy new Buffer entropy
-        Wallet.create 'TestWallet', PASSWORD, brain_key=null
+        Wallet.create 'TestWallet', PASSWORD, brain_key=null, save=true
         WalletDb.delete 'TestWallet'
     
