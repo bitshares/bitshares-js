@@ -461,28 +461,6 @@ class TransactionBuilder
             defer.resolve()
             return defer.promise
 
-        # find all public keys for this account where we have a private key
-        ###
-        if @account_balance_records[account_name]
-            defer.resolve @account_balance_records[account_name]
-            return defer.promise
-        ###
-        #throw new Error "Account not found #{account_name}"
-        ### query by active keys too??
-        owner_keys = ((account)=>
-            return null unless account
-            key_set = {}
-            key_set[account.owner_key] = on
-            # every public key 
-            key_set[active[1]] = on for active in account.active_key_history
-            for key in Object.keys key_set
-                continue unless @wallet.is_my_account key
-                key
-        )(@wallet.get_local_account account_name)
-        unless addresses
-            defer.resolve []
-            return defer.promise
-        ###
         owner_keys_params = []
         owner_keys_params.push [key.public_key] for key in my_keys
         try
@@ -507,26 +485,6 @@ class TransactionBuilder
                         balance_records:balance_records
                     
                     return
-                    
-                    ### else  delete soon (wallet has titan keys already) ---v
-                    titan_balance_ids =
-                        for wc in @wallet.getWithdrawConditions account_name
-                            console.log '... wc',JSON.stringify wc
-                            wc.getBalanceId() 
-                    
-                    if titan_balance_ids.length is 0
-                        defer.resolve balance_records
-                        return
-                    
-                    @blockchain_lookup_balances(titan_balance_ids, extended).then(
-                        (result)=>
-                            if result
-                                balance_records.push balance for balance in result
-                            
-                            defer.resolve balance_records
-                            return
-                    ).done()
-                    ###
                 (error)->
                     defer.reject error
             )

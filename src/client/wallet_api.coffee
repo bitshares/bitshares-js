@@ -103,7 +103,7 @@ class WalletAPI
         defer = q.defer()
         asset = @chain_interface.get_asset(asset_symbol)
         payer = @wallet.get_chain_account paying_account_name
-        sender = @wallet.get_chain_account from_account_name
+        sender = if paying_account_name is from_account_name then payer else @wallet.get_chain_account from_account_name
         recipient = @wallet.get_chain_account to_account_name
         try
             q.all([asset, payer, sender, recipient]).spread (asset, payer, sender, recipient)=>
@@ -371,8 +371,7 @@ class WalletAPI
             start_block_num
             end_block_num
         )
-        
-        
+    
     ###
     
     account_transaction_history #["", "", 0, 0, -1]
