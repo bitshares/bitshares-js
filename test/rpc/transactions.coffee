@@ -15,12 +15,10 @@ new_wallet_api= (rpc, backup_file = '../fixtures/wallet.json') ->
         wallet_json_string = JSON.stringify require backup_file
         # JSON.parse is used to clone (so internals can't change)
         wallet_object = JSON.parse wallet_json_string
-        wallet_api = new WalletAPI(
+        new WalletAPI(
             new Wallet (new WalletDb wallet_object), rpc
             rpc
         )
-        wallet_api.unlock 9, PASSWORD
-        wallet_api
     else
         throw new Error 'not used...'
         # create an empty wallet
@@ -28,13 +26,13 @@ new_wallet_api= (rpc, backup_file = '../fixtures/wallet.json') ->
         Wallet.add_entropy new Buffer entropy
         wallet_db = Wallet.create 'TestWallet', PASSWORD, brain_key=false, save=false
         wallet = new Wallet wallet_db, rpc
-        wallet_api = new WalletAPI wallet, rpc
-        wallet_api.unlock 10, PASSWORD
-        wallet_api
+        new WalletAPI wallet, rpc
     (# avoid a blockchain deterministic key conflit
-        rnd = parseInt (secureRandom.randomBuffer 10).toString()
+        rnd = 0
+        rnd += i for i in secureRandom.randomUint8Array 10
         wallet_api.wallet.wallet_db.set_child_key_index rnd, save = false
     )
+    wallet_api.unlock 10, PASSWORD
     wallet_api
 
 ### 
@@ -162,15 +160,6 @@ describe "Account", ->
    
     it "account_register", (done) ->
         wallet_api = new_wallet_api @rpc, '../fixtures/del.json'
-        wallet_api.unlock 9, PASSWORD
-        ### empty wallet
-        entropy = secureRandom.randomUint8Array 1000
-        Wallet.add_entropy new Buffer entropy
-        wallet_db = Wallet.create 'TestWallet', PASSWORD, brain_key=false, save=false
-        wallet = new Wallet wallet_db, @rpc
-        wallet_api = new WalletAPI wallet, @rpc
-        wallet_api.unlock 10, PASSWORD
-        ###
         suffix = secureRandom.randomBuffer(2).toString 'hex'
         try
             wallet_api.account_create("bob-" + suffix).then (key)->

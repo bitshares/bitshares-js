@@ -315,6 +315,9 @@ class Wallet
     get_new_public_key:(account_name) ->
         @get_new_private_key(account_name).toPublicKey()
     
+    get_my_key_records:(owner_key) ->
+        @wallet_db.get_my_key_records owner_key
+    
     getOwnerKey: (account_name)->
         account = @wallet_db.lookup_account account_name
         return null unless account
