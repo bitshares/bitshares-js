@@ -8,14 +8,35 @@
 secureRandom = require 'secure-random'
 
 PASSWORD = "Password00"
-wallet_json_string = JSON.stringify require '../fixtures/wallet.json'
-new_wallet_api= (rpc) ->
-    # JSON.parse is used to clone (so internals can't change)
-    wallet_object = JSON.parse wallet_json_string
-    new WalletAPI(
-        new Wallet (new WalletDb wallet_object), rpc
-        rpc
+PAY_FROM = "delegate0" #(if p=process.env.PAY_FROM then p else "delegate0")
+
+new_wallet_api= (rpc, backup_file = '../fixtures/wallet.json') ->
+    wallet_api = if backup_file
+        wallet_json_string = JSON.stringify require backup_file
+        # JSON.parse is used to clone (so internals can't change)
+        wallet_object = JSON.parse wallet_json_string
+        wallet_api = new WalletAPI(
+            new Wallet (new WalletDb wallet_object), rpc
+            rpc
+        )
+        wallet_api.unlock 9, PASSWORD
+        wallet_api
+    else
+        throw new Error 'not used...'
+        # create an empty wallet
+        entropy = secureRandom.randomUint8Array 1000
+        Wallet.add_entropy new Buffer entropy
+        wallet_db = Wallet.create 'TestWallet', PASSWORD, brain_key=false, save=false
+        wallet = new Wallet wallet_db, rpc
+        wallet_api = new WalletAPI wallet, rpc
+        wallet_api.unlock 10, PASSWORD
+        wallet_api
+    (# avoid a blockchain deterministic key conflit
+        rnd = parseInt (secureRandom.randomBuffer 10).toString()
+        wallet_api.wallet.wallet_db.set_child_key_index rnd, save = false
     )
+    wallet_api
+
 ### 
 TODO: mail
 
@@ -115,7 +136,7 @@ describe "Account", ->
             wallet_api.transfer_to_address(
                 amount = 10000
                 asset = "XTS"
-                from = "delegate0"
+                from = PAY_FROM
                 to_address = address
                 memo_message = "test"
                 vote_method = ""#vote_recommended"
@@ -140,14 +161,22 @@ describe "Account", ->
         .done()
    
     it "account_register", (done) ->
-        suffix = secureRandom.randomBuffer(2).toString 'hex'
-        wallet_api = new_wallet_api @rpc
+        wallet_api = new_wallet_api @rpc, '../fixtures/del.json'
         wallet_api.unlock 9, PASSWORD
+        ### empty wallet
+        entropy = secureRandom.randomUint8Array 1000
+        Wallet.add_entropy new Buffer entropy
+        wallet_db = Wallet.create 'TestWallet', PASSWORD, brain_key=false, save=false
+        wallet = new Wallet wallet_db, @rpc
+        wallet_api = new WalletAPI wallet, @rpc
+        wallet_api.unlock 10, PASSWORD
+        ###
+        suffix = secureRandom.randomBuffer(2).toString 'hex'
         try
             wallet_api.account_create("bob-" + suffix).then (key)->
                 wallet_api.account_register(
                     account_name = "bob-" + suffix
-                    pay_from_account = "delegate0"
+                    pay_from_account = PAY_FROM
                     public_data = null#{data:'value'}
                     delegate_pay_rate = -1
                     account_type = "titan_account"
@@ -165,11 +194,10 @@ describe "Account", ->
         private_key_hex = wallet_api.dump_private_key 'delegate0'
         EC.throw 'expecting private_key_hex' unless private_key_hex
     
-    ###
-    it "create a wallet", ->
-        Wallet.delete 'TestWallet'
+    
+    it "wallet_create", ->
         entropy = secureRandom.randomUint8Array 1000
         Wallet.add_entropy new Buffer entropy
-        Wallet.create 'TestWallet'
-        Wallet.delete 'TestWallet'
-    ###
+        Wallet.create 'TestWallet', PASSWORD, brain_key=null
+        WalletDb.delete 'TestWallet'
+    

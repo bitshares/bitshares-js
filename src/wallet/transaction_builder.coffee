@@ -36,7 +36,7 @@ class TransactionBuilder
             created_time: now
             received_time: now
         @signatures = []
-        @required_signatures = []
+        @required_signatures = {}
         @outstanding_balances = {}
         @account_balance_records = {}
         #@notices = []
@@ -287,6 +287,7 @@ class TransactionBuilder
         unless owner_key
             LE.throw "create_account_before_register"
         
+        console.log '... pay_from_account',JSON.stringify pay_from_account
         pay_from_OwnerKey = @wallet.getOwnerKey pay_from_account
         unless pay_from_OwnerKey
             throw new Error "Unknown pay_from account #{pay_from_account}"
@@ -324,7 +325,7 @@ class TransactionBuilder
                 
                 #continue if account.is_retracted #pay_from_OwnerKey == public_key
                 @wallet.has_private_key account
-                @required_signatures.push @wallet.lookup_active_key parent
+                @required_signatures[@wallet.lookup_active_key parent] = on
             ###
         
         fee = @wallet.get_transaction_fee()
@@ -351,6 +352,7 @@ class TransactionBuilder
         throw new Error 'missing from account' unless from_account_name
         amount_remaining = amount_to_withdraw.amount
         withdraw_asset_id = amount_to_withdraw.asset_id
+        ###
         owner_private=(balance_record)=>
             id = balance_record[0]
             balance = balance_record[1]
@@ -364,28 +366,31 @@ class TransactionBuilder
             #one_time_public = balance_record[1].memo.one_time_public
             #sender_private = @wallet.getActivePrivate @aes_root, from_account_name
             #ExtendedAddress.private_key_child sender_private, one_time_public
-        
+        ###
         @get_account_balance_records(from_account_name).then(
             (balance_records)=>
                 #console.log balance_records,'b'
                 withdraws = []
                 
                 #console.log 'balance records',JSON.stringify balance_records,null,4
-                for record in balance_records
-                    balance_amount = @get_extended_balance(record[1])
-                    continue unless balance_amount
-                    balance_id = record[0]
-                    balance_asset_id = record[1].condition.asset_id
-                    balance_owner = record[1].condition.data.owner
+                for balance_record in balance_records
+                    #balance_amount = @get_extended_balance(balance_record[1])
+                    balance_amount = balance_record[1].balance
+                    #continue unless balance_amount
+                    balance_id = balance_record[0]
+                    balance_asset_id = balance_record[1].condition.asset_id
+                    balance_owner = balance_record[1].condition.data.owner
+                    unless @wallet.hasPrivate balance_owner
+                        console.log "ERROR: balance record without matching private key",balance_record
                     continue if balance_amount <= 0
                     continue if balance_asset_id isnt withdraw_asset_id
                     if amount_remaining > balance_amount
-                        withdraws = new Withdraw(
+                        withdraw = new Withdraw(
                             Address.fromString(balance_id).toBuffer()
                             balance_amount
                         )
                         @operations.push new Operation withdraw.type_id, withdraw
-                        @required_signatures.push owner_private record
+                        @required_signatures[balance_owner] = on
                         amount_remaining -= balance_amount
                     else
                         withdraw = new Withdraw(
@@ -394,7 +399,7 @@ class TransactionBuilder
                         )
                         @operations.push new Operation withdraw.type_id, withdraw
                         amount_remaining = 0
-                        @required_signatures.push owner_private record
+                        @required_signatures[balance_owner] = on
                         break
                     
                 if amount_remaining isnt 0
@@ -481,6 +486,7 @@ class TransactionBuilder
                     
                     titan_balance_ids =
                         for wc in @wallet.getWithdrawConditions account_name
+                            console.log '... wc',JSON.stringify wc
                             wc.getBalanceId() 
                     
                     if titan_balance_ids.length is 0
@@ -605,8 +611,9 @@ class TransactionBuilder
         trx_buffer = @binary_transaction.toBuffer()
         trx_sign = Buffer.concat([trx_buffer, chain_id_buffer])
         #console.log 'digest',hash.sha256(trx_sign).toString('hex')
-        for private_key in @required_signatures
+        for address in Object.keys @required_signatures
             try
+                private_key = @wallet.lookupPrivateKey address
                 console.log '...sign by', private_key.toPublicKey().toBtsPublic()
                 @signatures.push(
                     Signature.signBuffer trx_sign, private_key

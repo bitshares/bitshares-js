@@ -488,7 +488,7 @@ class WalletDb
             continue unless entry.type is "transaction_record_type"
             entry.data
             
-    ###* @return {array} WithdrawCondition ###
+    ###* @return {array} WithdrawCondition (withdraw_signature_type only) ###
     getWithdrawConditions:(account_name)->
         wcs = []
         account = @lookup_account account_name

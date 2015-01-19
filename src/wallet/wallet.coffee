@@ -52,7 +52,7 @@ class Wallet
         hash.sha512 Buffer.concat [rnd, Wallet.entropy]
     
     ###* Unless brain_key is used, must add_entropy first ### 
-    Wallet.create = (wallet_name, password, brain_key)->
+    Wallet.create = (wallet_name, password, brain_key, save = true)->
         
         wallet_name = wallet_name?.trim()
         unless wallet_name and wallet_name.length > 0
@@ -78,15 +78,15 @@ class Wallet
             Wallet.get_secure_random()
         
         epk = ExtendedAddress.fromSha512 data
-        wallet_db = WalletDb.create wallet_name, epk, password
+        wallet_db = WalletDb.create wallet_name, epk, password, save
         ###
         set_version( BTS_WALLET_VERSION );
         set_transaction_fee( asset( BTS_WALLET_DEFAULT_TRANSACTION_FEE ) );
         set_transaction_expiration( BTS_WALLET_DEFAULT_TRANSACTION_EXPIRATION_SEC );
         ###
-        wallet_db.save()
-        return
-        
+        wallet_db.save() if save
+        wallet_db
+    
     lock: ->
         EC.throw "Wallet is already locked" unless @aes_root
         @aes_root.clear()
@@ -333,15 +333,23 @@ class Wallet
     lookup_account_by_address:(address)->
         @wallet_db.get_account_for_address address
     
+    keyrec_to_private:(key_record)->
+        LE.throw 'wallet.must_be_unlocked' unless @aes_root
+        return null unless key_record?.encrypted_private_key
+        PrivateKey.fromHex @aes_root.decryptHex key_record.encrypted_private_key
+        
     #lookup_private:(bts_public_key)->@getPrivateKey bts_public_key
     getPrivateKey:(bts_public_key)->
-        LE.throw 'wallet.must_be_unlocked' unless @aes_root
-        key_record = @wallet_db.get_key_record bts_public_key
-        return null unless key_record and key_record.encrypted_private_key
-        PrivateKey.fromHex @aes_root.decryptHex key_record.encrypted_private_key
+        @keyrec_to_private @wallet_db.get_key_record bts_public_key
+    
+    hasPrivate:(address)->
+        key_record = @wallet_db.lookup_key address
+        if key_record?.encrypted_private_key then yes else no
+        
+    lookupPrivateKey:(address)->
+        @keyrec_to_private @wallet_db.lookup_key address
     
     #getNewPublicKey:(account_name)->
-        
     
     ###* @return {PublicKey} ###
     getActiveKey: (account_name) ->
