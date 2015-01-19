@@ -98,7 +98,6 @@ class WalletAPI
         paying_account_name, from_account_name, to_account_name
         memo_message = "", selection_method = ""
     )->
-        
         LE.throw "wallet.must_be_opened" unless @wallet
         defer = q.defer()
         asset = @chain_interface.get_asset(asset_symbol)
