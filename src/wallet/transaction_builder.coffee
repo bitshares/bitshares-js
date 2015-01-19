@@ -460,7 +460,7 @@ class TransactionBuilder
         unless my_keys
             defer.resolve()
             return defer.promise
-        
+
         # find all public keys for this account where we have a private key
         ###
         if @account_balance_records[account_name]

@@ -477,11 +477,13 @@ class WalletDb
     
     get_child_key_index:->
         index = @get_setting 'next_child_key_index'
+        console.log '... index',JSON.stringify index
         index = 0 unless index
         index
         
     
     set_child_key_index:(value, save = true)->
+        console.log '... set_child_key_index',value
         @set_setting 'next_child_key_index', value, save
         
     get_transactions:->
