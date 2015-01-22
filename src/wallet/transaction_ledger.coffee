@@ -5,13 +5,12 @@
 
 class TransactionLedger
     
-    constructor:(@wallet_db)->
-    
-    get_transaction_history:(
-        account_name = null
+    format_transaction_history:( #get_transaction_history
+        account_name
         start_block_num = 0
         end_block_num = 0
         asset_id = null
+        transactions
     )->
         if end_block_num isnt -1
             unless start_block_num <= end_block_num
@@ -46,8 +45,6 @@ class TransactionLedger
             amount.amount > 0
         
         history = []
-        transactions = @wallet_db.get_transactions()
-        
         for tx in transactions
             has_asset = no
             # tally all blocks even if they are not in the query

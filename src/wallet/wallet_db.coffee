@@ -2,6 +2,8 @@ hash = require '../ecc/hash'
 LE = require('../common/exceptions').LocalizedException
 EC = require('../common/exceptions').ErrorWithCause
 config = require './config'
+main_config = require '../config'
+localStorage = require '../common/local_storage'
 {Aes} = require '../ecc/aes'
 {Address} = require '../ecc/address'
 {PublicKey} = require '../ecc/key_public'
@@ -11,11 +13,8 @@ config = require './config'
 
 class WalletDb
     
-    localStorage = window?.localStorage ||
-        # WARNING: NodeJs get and set are not atomic
-        # https://github.com/lmaccherone/node-localstorage/issues/6
-        new (require('node-localstorage').LocalStorage)('./localstorage-bitshares-js')
-            
+    CHAIN_SYMBOL = main_config.bts_address_prefix
+    
     constructor: (@wallet_object, @wallet_name = "default") ->
         EC.throw "required parameter" unless @wallet_object
         invalid_format = -> LE.throw "wallet.invalid_format", [@wallet_name]
@@ -167,7 +166,7 @@ class WalletDb
                             entry.memo_from_account_name = @get_account_for_address(entry.memo_from_account)?.name
     
     WalletDb.exists = (wallet_name) ->
-        str = localStorage.getItem("wallet-" + wallet_name)
+        str = localStorage.getItem("wallet-" + CHAIN_SYMBOL + '-' + wallet_name)
     
     WalletDb.create = (wallet_name = "default", extended_private, password, save = true) ->
         if WalletDb.open wallet_name
@@ -190,13 +189,13 @@ class WalletDb
     
     ###* @return {WalletDb} or null ###
     WalletDb.open = (wallet_name = "default") ->
-        wallet_string = localStorage.getItem "wallet-" + wallet_name
+        wallet_string = localStorage.getItem "wallet-" + CHAIN_SYMBOL + '-' + wallet_name
         return undefined unless wallet_string
         wallet_object = JSON.parse wallet_string
         new WalletDb wallet_object, wallet_name
     
     WalletDb.delete = (wallet_name)->
-        localStorage.removeItem "wallet-" + wallet_name
+        localStorage.removeItem "wallet-" + CHAIN_SYMBOL + '-' + wallet_name
         return
     
     master_private_key:(aes_root)->
@@ -207,7 +206,7 @@ class WalletDb
     ###* @throws {QuotaExceededError} ###
     save: ->
         wallet_string = JSON.stringify @wallet_object, null, 0
-        localStorage.setItem("wallet-" + @wallet_name, wallet_string)
+        localStorage.setItem("wallet-" + CHAIN_SYMBOL + '-' + @wallet_name, wallet_string)
         return
         
     ### This does not work with Date objects ###
@@ -266,7 +265,7 @@ class WalletDb
                     if a[0] < b[0] then -1 
                     else if a[0] > b[0] then 1 
                     else 0
-                data["active_key"] = hist[hist.length - 1]
+                data["active_key"] = hist[hist.length - 1][1]
             data
     
     lookup_account:(account_name)->
@@ -390,7 +389,7 @@ class WalletDb
             i = @_wallet_index (o)->
                 o.type is "account_record_type" and o.data.name is account.name
             #console.log 'store_account_or_update', account.name,i
-            @wallet_object[i] = account
+            @wallet_object[i].data = account
         else
             @_append('account_record_type',account)
         
@@ -472,7 +471,6 @@ class WalletDb
     
     _debug_last:(ref)->
         console.log "#{ref}",JSON.stringify @wallet_object[@wallet_object.length - 1].data,null,4
-        #console.log '... (new Error).stack',(new Error).stack
         return
     
     get_child_key_index:->

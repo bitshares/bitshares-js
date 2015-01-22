@@ -33,7 +33,7 @@ class WalletAPI
         unless wallet_db
             throw new LE 'wallet.not_found', [wallet_name]
         
-        @transaction_ledger = new TransactionLedger @wallet_db
+        @transaction_ledger = new TransactionLedger()
         @wallet = new Wallet wallet_db, @rpc
         return
     
@@ -69,6 +69,20 @@ class WalletAPI
         LE.throw "wallet.must_be_opened" unless @wallet
         @wallet.locked()
     
+    backup_create:()->
+        LE.throw "wallet.must_be_opened" unless @wallet
+        if window
+            window.document.location = (
+                'data:Application/octet-stream,' +
+                encodeURIComponent(
+                    JSON.stringify @wallet.wallet_db.wallet_object,null,4
+                )
+            )
+        else
+            throw 'not implemented'
+        
+        return "OK"
+    
     ###* @return promise: {string} public key ###
     account_create:(account_name, private_data)->
         LE.throw "wallet.must_be_opened" unless @wallet
@@ -78,7 +92,7 @@ class WalletAPI
         LE.throw "wallet.must_be_opened" unless @wallet
         LE.throw 'wallet.must_be_unlocked' unless @wallet.aes_root
         new TransactionBuilder(
-            @wallet, @rpc, @transaction_ledger, @wallet.aes_root
+            @wallet, @rpc, @wallet.aes_root
         )
     
     ###* TITAN ###
@@ -118,7 +132,7 @@ class WalletAPI
                     memo_message, selection_method, sender.owner_key
                 )
                 @_sign_and_send(builder).then (record)->
-                    defer.resolve record 
+                    defer.resolve record.trx
             .done()
         catch error
             defer.reject error
@@ -176,7 +190,7 @@ class WalletAPI
                 account_type
             )
             @_sign_and_send(builder).then (record)->
-                defer.resolve record
+                defer.resolve record.trx
             .done()
         , (error)->
             defer.reject error
@@ -373,7 +387,6 @@ class WalletAPI
     
     ###
     
-    account_transaction_history #["", "", 0, 0, -1]
     account_yield
     account_balance
     batch wallet_check_vote_proportion [["acct",]]

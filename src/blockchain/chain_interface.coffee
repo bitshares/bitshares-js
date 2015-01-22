@@ -1,14 +1,9 @@
 config = require './config'
 LE = require('../common/exceptions').LocalizedException
 q = require 'q'
+localStorage = require '../common/local_storage'
 
 class ChainInterface
-    
-    localStorage = window?.localStorage ||
-        # WARNING: NodeJs get and set are not atomic
-        # https://github.com/lmaccherone/node-localstorage/issues/6
-        new (require('node-localstorage').LocalStorage)('./localstorage-bitshares-js')
-    
     
     constructor:(@blockchain_api)->
     

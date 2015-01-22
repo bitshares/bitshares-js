@@ -1,6 +1,7 @@
 {WalletDb} = require './wallet_db'
 {TransactionLedger} = require '../wallet/transaction_ledger'
 {ChainInterface} = require '../blockchain/chain_interface'
+{ChainDatabase} = require '../blockchain/chain_database'
 {BlockchainAPI} = require '../blockchain/blockchain_api'
 {ExtendedAddress} = require '../ecc/extended_address'
 {PrivateKey} = require '../ecc/key_private'
@@ -23,9 +24,10 @@ class Wallet
 
     constructor: (@wallet_db, @rpc) ->
         throw new Error "required parameter" unless @wallet_db
-        @transaction_ledger = new TransactionLedger @wallet_db
+        @transaction_ledger = new TransactionLedger()
         @blockchain_api = new BlockchainAPI @rpc
         @chain_interface = new ChainInterface @blockchain_api
+        @chain_database = new ChainDatabase @wallet_db, @rpc
     
     
     Wallet.entropy = null
@@ -257,41 +259,22 @@ class Wallet
         @wallet_db.add_transaction_record record
         return
     
+    
     account_transaction_history:(
         account_name=""
         asset_id=0
         limit=0
         start_block_num=0
         end_block_num=-1
+        transactions
     )->
-        account_name = null if account_name is ""
-        
-        if asset_id is "" then asset_id = 0
-        unless /^\d+$/.test asset_id
-            throw "asset_id should be a number, instead got: #{asset_id}"
-        
-        history = @transaction_ledger.get_transaction_history(
+        @chain_database.account_transaction_history(
             account_name
+            asset_id
+            limit
             start_block_num
             end_block_num
-            asset_id
         )
-        history.sort (a,b)->
-            if (
-                a.is_confirmed and
-                b.is_confirmed and
-                a.block_num isnt b.block_num
-            )
-                return a.block_num < b.block_num
-                
-            if a.timestamp isnt b.timestamp
-                return a.timestamp < b.timestamp
-                
-            a.trx_id < b.trx_id
-        
-        return history if limit is 0 or Math.abs(limit) >= history.length
-        return history.slice 0, limit if limit > 0
-        history.slice history.length - -1 * limit, history.length
     
     valid_unique_account:(account_name) ->
         @chain_interface.valid_unique_account account_name
