@@ -315,7 +315,7 @@ class Wallet
     lookup_active_key:(account_name)->
         @wallet_db.lookup_active_key account_name
     
-    lookup_account_by_address:(address)->
+    get_account_for_address:(address)->
         @wallet_db.get_account_for_address address
     
     keyrec_to_private:(key_record)->

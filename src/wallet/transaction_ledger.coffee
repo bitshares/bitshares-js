@@ -5,17 +5,10 @@
 
 class TransactionLedger
     
-    format_transaction_history:( #get_transaction_history
-        account_name
-        start_block_num = 0
-        end_block_num = 0
-        asset_id = null
-        transactions
-    )->
-        if end_block_num isnt -1
-            unless start_block_num <= end_block_num
-                throw new Error "start_block_num #{start_block_num} <= end_block_num #{end_block_num}"
-        
+    #constructor:(@chain_database)->
+    
+    # history must start from day 1 (tally balances does not cache)
+    format_transaction_history:(transactions)-> #get_transaction_history
         balances={}
         
         tally=(account, asset_id, amount)=>
@@ -38,19 +31,10 @@ class TransactionLedger
                     }
                 ]
                 
-        include_asset=(entry)->
-            return true unless asset_id
-            amount = entry.amount
-            amount.asset_id is asset_id and 
-            amount.amount > 0
-        
         history = []
         for tx in transactions
-            has_asset = no
             # tally all blocks even if they are not in the query
             for entry in tx.ledger_entries
-                continue unless include_asset entry
-                has_asset = yes
                 from_account = entry.from_account_name
                 to_account = entry.to_account_name
                 amt = entry.amount
@@ -71,13 +55,7 @@ class TransactionLedger
                     running_balances[ fee_asset_id ] -= trx.fee;
                 ###
             
-            continue unless has_asset
-            continue if tx.block_num < start_block_num
-            if end_block_num isnt -1
-                continue if tx.block_num > end_block_num
-            
             for entry in tx.ledger_entries
-                continue unless include_asset entry
                 from_account = entry.from_account_name
                 to_account = entry.to_account_name
                 continue unless to_account or from_account
@@ -150,11 +128,16 @@ class TransactionLedger
             pe.running_balances = entry.running_balances
         
         pretty_tx.fee = tx.fee
-        pretty_tx.timestamp =
+        pretty_tx.timestamp = tx.block_timestamp
+        ###
+        pretty_tx.timestamp = 
             if tx.created_time < tx.received_time
                 tx.created_time 
-            else 
+            else if tx.received_time
                 tx.received_time
+            else
+                tx.block_timestamp
+        ###
         pretty_tx.expiration_timestamp = tx.trx.expiration
         #console.log JSON.stringify pretty_tx, null, 4
         pretty_tx

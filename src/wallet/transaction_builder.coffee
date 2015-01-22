@@ -564,7 +564,7 @@ class TransactionBuilder
             rec = @outstanding_balances[address]
             continue if rec.amount is 0
             balance = {amount:rec.amount, asset_id: rec.asset_id}
-            account = @wallet.lookup_account_by_address address         #address->ownerkey lookup
+            account = @wallet.get_account_for_address address         #address->ownerkey lookup
             
             if rec.amount > 0
                 depositAddress = @order_key_for_account address, account.name

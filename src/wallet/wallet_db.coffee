@@ -100,11 +100,11 @@ class WalletDb
     
     index_key_record:(data)->
         @key_record[data.public_key] = data
-        @account_address[data.account_address] = data
+        @key_record[data.account_address] = data
         public_key = PublicKey.fromBtsPublic data.public_key
         
         #https://github.com/BitShares/bitshares/blob/2602504998dcd63788e106260895769697f62b07/libraries/wallet/wallet_db.cpp#L103-L108
-        index=(addr)=>@account_address[addr.toString()] = data
+        index=(addr)=>@key_record[addr.toString()] = data
         index Address.fromPublic public_key, false, 0
         index Address.fromPublic public_key, true, 0
         index Address.fromPublic public_key, false, 56
@@ -276,8 +276,13 @@ class WalletDb
             account.registration_date = "1970-01-01T00:00:00"
         account
     
-    lookup_key:(account_address)-> #lookup_account
-        @account_address[account_address]
+    get_account_for_address:(address)->
+        key = @lookup_key address
+        @activeKey_account[key.public_key] or
+        @ownerKey[key.public_key]
+        
+    lookup_key:(account_address)->
+        @key_record[account_address]
         
     lookup_active_key:(account_name)->
         @account_activeKey[account_name]
@@ -285,10 +290,6 @@ class WalletDb
     lookup_owner_key:(account_name)->
         @lookup_account(account_name).owner_key
         
-    get_account_for_address:(public_key_string)-> #lookup_account
-        @activeKey_account[public_key_string] or
-        @ownerKey[public_key_string]
-    
     is_my_account:(owner_key)->
         rec = @get_key_record owner_key
         return yes if rec?.encrypted_private_key
@@ -418,7 +419,7 @@ class WalletDb
        if key_record.encrypted_private_key
            account_record = @get_account_for_address key.public_key
            unless account_record
-               account_record = @lookup_key key.account_address
+               account_record = @lookup_account key.account_address
            if account_record
                account_record_address = PublicKey.fromHex(account_record.owner_key).toBtsAddy()
                if key_record.account_address isnt account_record_address
@@ -443,7 +444,7 @@ class WalletDb
                 child_private = ExtendedAddress.private_key private_key, seq
                 child_public = child_private.toPublicKey()
                 child_address = child_public.toBtsAddy()
-                break unless @account_address[child_address]
+                break unless @key_record[child_address]
             catch error
                 console.log "Error creating child key index #{seq} for account #{account_name}", error  # very rare
             
@@ -487,21 +488,36 @@ class WalletDb
             continue unless entry.type is "transaction_record_type"
             entry.data
     
+    _active_key_history:(hist)->
+        hist = hist.sort (a,b)-> 
+            if a[0] < b[0] then -1 
+            else if a[0] > b[0] then 1 
+            else 0
+        hist[hist.length - 1][1]
+    
     get_my_key_records:(account_name)->
+        active_only = false
         account = @lookup_account account_name
         return null unless account
         addresses = {}
         lookup=(public_key)=>
             publicKey = PublicKey.fromBtsPublic public_key
             address = publicKey.toBtsAddy()
-            key = @account_address[address]
+            key = @key_record[address]
             return unless key?.encrypted_private_key
             addresses[address] = on
         
         lookup account.owner_key
-        lookup key[1] for key in account.active_key_history
+        if active_only
+            lookup @_active_key_history account.active_key_history
+        else
+            lookup key[1] for key in account.active_key_history
+               
         if account.delegate_info?.signing_key_history
-            lookup key[1] for key in account.delegate_info.signing_key_history
+            if active_only 
+                lookup @_active_key_history account.delegate_info.signing_key_history
+            else
+                lookup key[1] for key in account.delegate_info.signing_key_history
         
         for entry in @wallet_object
             continue unless entry.type is "key_record_type"

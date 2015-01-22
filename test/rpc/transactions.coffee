@@ -121,22 +121,29 @@ describe "Account", ->
         .finally ()=>@rpc.debug = on
         .done()
     ##
-    wallet_transfer_to_address=(data)->
-        it "wallet_transfer_to_address (public)", (done) ->
-            wallet_api = new_wallet_api @rpc
-            address = "XTS2Kpf4whNd3TkSi6BZ6it4RXRuacUY1qsj" # delegate1
-            wallet_api.transfer_to_address(
-                amount = 10000
-                asset = "XTS"
-                from = PAY_FROM
-                to_address = address
-                memo_message = "test"
-                vote_method = ""#vote_recommended"
-            ).then (trx) ->
-                EC.throw 'expecting transaction' unless trx
-                #console.log trx
-                done()
-            .done()
+    
+    it "account_transaction_history", (done) ->
+        wallet_api = new_wallet_api @rpc
+        wallet_api.account_transaction_history().then (history)->
+            
+            throw new Error 'no history' unless history?.length > 0
+        .done()
+    
+    #it "wallet_transfer_to_address (public)", (done) ->
+    #    wallet_api = new_wallet_api @rpc
+    #    address = "XTS2Kpf4whNd3TkSi6BZ6it4RXRuacUY1qsj" # delegate1
+    #    wallet_api.transfer_to_address(
+    #        amount = 10000
+    #        asset = "XTS"
+    #        from = PAY_FROM
+    #        to_address = address
+    #        memo_message = "test"
+    #        vote_method = ""#vote_recommended"
+    #    ).then (trx) ->
+    #        EC.throw 'expecting transaction' unless trx
+    #        #console.log trx
+    #        done()
+    #    .done()
     
     wallet_transfer=(wallet_api, data)->
         console.log "\twallet_transfer "+(JSON.stringify data)

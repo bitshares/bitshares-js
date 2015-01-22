@@ -35,6 +35,7 @@ class WalletAPI
         
         @transaction_ledger = new TransactionLedger()
         @wallet = new Wallet wallet_db, @rpc
+        @chain_database = new ChainDatabase wallet_db, @rpc
         return
     
     create: (wallet_name = "default", new_password, brain_key)->
@@ -132,7 +133,7 @@ class WalletAPI
                     memo_message, selection_method, sender.owner_key
                 )
                 @_sign_and_send(builder).then (record)->
-                    defer.resolve record.trx
+                    defer.resolve record
             .done()
         catch error
             defer.reject error
@@ -190,7 +191,7 @@ class WalletAPI
                 account_type
             )
             @_sign_and_send(builder).then (record)->
-                defer.resolve record.trx
+                defer.resolve record
             .done()
         , (error)->
             defer.reject error
@@ -371,12 +372,13 @@ class WalletAPI
     
     account_transaction_history:(
         account_name=""
-        asset_id=0
+        asset_symbol=null
         limit=0
         start_block_num=0
         end_block_num=-1
     )->
         LE.throw "wallet.must_be_opened" unless @wallet
+        
         @wallet.account_transaction_history(
             account_name
             asset_id

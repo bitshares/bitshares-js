@@ -1,10 +1,10 @@
-bitshares-js
+atic
+node_modules
 bitshares-debug.js
 bitshares-mocha.js
-node_modules
 scratchpad/node_modules
 scratchpad/wallet.json
 testnet/htdocs
 testnet/tmp
+testnet/core
 bts.js
-atic
