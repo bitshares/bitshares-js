@@ -42,7 +42,7 @@ wallet_account_register init0 delegate0 {"mail_server_endpoint":"127.0.0.1:45000
 describe "Account", ->
     
     beforeEach ->
-        @rpc=new Rpc(debug=on, 45000, "localhost", "test", "test")
+        @rpc=new Rpc(debug=off, 45000, "localhost", "test", "test")
     
     afterEach ->
         @rpc.close()
@@ -78,7 +78,6 @@ describe "Account", ->
             PublicKey.fromBtsPublic key
             account = wallet_api.get_account "newaccount-"+suffix
             throw new Error "could not fetch new account" unless account
-            
             wallet_api.account_create("newaccount-"+suffix).then (key)->
                 throw new Error "allowed to create an account that already exists"
             ,(error)->
@@ -97,14 +96,14 @@ describe "Account", ->
     it "account_balance (single)", (done) ->
         wallet_api = new_wallet_api @rpc
         wallet_api.account_balance("delegate0").then (balances)->
-            console.log '... balances',JSON.stringify balances
+            #console.log '... balances',JSON.stringify balances,null,1
             unless balances?[0]?[0] is "delegate0"
                 throw new Error('invalid')
             done()
         .done()
     
-    ## core dump?
     it "account_balance (multiple)", (done) ->
+        debug = @rpc.debug
         @rpc.debug = off
         wallet_api = new_wallet_api @rpc
         @timeout 10*1000
@@ -114,14 +113,14 @@ describe "Account", ->
                 throw new Error('invalid')
             
             done()
-        .finally ()=>@rpc.debug = on
+        .finally ()=>@rpc.debug = debug
         .done()
-    ##
     
     it "account_transaction_history", (done) ->
         wallet_api = new_wallet_api @rpc
         wallet_api.chain_database.sync_transactions().then ()->
             history = wallet_api.account_transaction_history()
+            #console.log '... history',JSON.stringify history,null,1
             throw new Error 'no history' unless history?.length > 0
             done()
         .done()

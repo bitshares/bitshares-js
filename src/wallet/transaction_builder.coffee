@@ -598,7 +598,7 @@ class TransactionBuilder
         for public_key in Object.keys @required_signatures
             try
                 private_key = @wallet.getPrivateKey public_key
-                console.log '...sign by', private_key.toPublicKey().toBtsPublic()
+                #console.log '...sign by', private_key.toPublicKey().toBtsPublic()
                 @signatures.push(
                     Signature.signBuffer trx_sign, private_key
                 )

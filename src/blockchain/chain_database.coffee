@@ -71,11 +71,12 @@ class ChainDatabase
                         #is_market: false
                         trx: transaction.trx
                     }
+                
                 if transactions.length > 0
                     localStorage.setItem "transactions-"+address, JSON.stringify transactions,null,0
                     #address_last_block_map[address] = last_block
                     
-                    # balance ids lead us to the sender
+                    # balance ids will tell us who the sender was
                     for transaction in transactions
                         for op in transaction.trx.operations
                             continue unless op.type is "withdraw_op_type"
@@ -108,8 +109,14 @@ class ChainDatabase
         balance_id_map = @_storage_balanceid_readonly()
         batch_args = for balances_id in balance_ids
             #already saved, these values below are all read-only
+
             continue if balance_id_map[balances_id]
             [  balances_id ]
+        
+        if batch_args.length is 0
+            defer = q.defer()
+            defer.resolve()
+            return defer.promise
         
         @rpc.request("batch", ["blockchain_get_balance", batch_args]).then (batch_result)=>
             for i in [0...batch_result.result.length] by 1
@@ -120,7 +127,6 @@ class ChainDatabase
                     # only read-only
                     owner: balance.condition.data.owner
                     asset_id: balance.condition.asset_id
-            
             @_storage_balanceid_readonly balance_id_map
             return
     
@@ -137,7 +143,7 @@ class ChainDatabase
                     op.type is "deposit_op_type" and 
                     op.data.condition.type is "withdraw_signature_type"
                 )
-                    to = op.data.condition.data.owner
+                    recipient = op.data.condition.data.owner
                     amount = op.data.amount
                     asset_id = op.data.condition.asset_id
                     balance = balances[asset_id] or 0
@@ -164,8 +170,9 @@ class ChainDatabase
                     amount:
                         amount: balances[asset_id]
                         asset_id: asset_id
-                    #memo: "To: XTSCZMSz..."
-                    #memo_from_account: null
+                    memo: ""
+                    memo_from_account: null
+        return
     
     _add_fee_entries:(transactions)->
         balanceid_readonly = @_storage_balanceid_readonly()
@@ -173,27 +180,30 @@ class ChainDatabase
             transaction.fee = (->
                 balances = {}
                 for op in transaction.trx.operations
+                    if op.type is "withdraw_op_type"
+                        amount = op.data.amount
+                        balance_id = op.data.balance_id
+                        asset_id = balanceid_readonly[balance_id]?.asset_id
+                        if asset_id is undefined
+                            throw new Error "chain_database::_add_ledger_entries did not find balance record #{balance_id}"
+                            return
+                        balance = balances[asset_id] or 0
+                        balances[asset_id] = balance + amount
+                    
                     if op.type is "deposit_op_type" and op.data.condition.type is "withdraw_signature_type"
                         amount = op.data.amount
                         asset_id = op.data.condition.asset_id
                         balance = balances[asset_id] or 0
                         balances[asset_id] = balance - amount
-                        
-                    if op.type is "withdraw_op_type"
-                        balance_id = op.data.balance_id
-                        asset_id = balanceid_readonly[balance_id]?.asset_id
-                        unless asset_id
-                            console.log "ERROR chain_database::_add_ledger_entries did not find balance record #{balance_id}"
-                            return
-                        balance = balances[asset_id] or 0
-                        balances[asset_id] = balance + amount
-                balances = Object.keys balances
-                if balances.length isnt 1
-                    console.log "ERROR chain_database::_add_ledger_entries can't cal fee, transaction has more than one asset type in its remaning balance",transaction.trx
+                
+                if (Object.keys balances).length isnt 1
+                    throw new Error "chain_database::_add_ledger_entries can't cal fee, transaction has more than one asset type in its remaning balance",transaction.trx
                     return
-                balances[0]
+                
+                asset_id: asset_id = (Object.keys balances)[0]
+                amount: balances[asset_id]
             )()
-            
+        return
     
     account_transaction_history:(
         account_name
@@ -218,7 +228,6 @@ class ChainDatabase
         
         history = []
         for account_address in @_account_addresses account_name
-            console.log '... account_address',JSON.stringify account_address
             transactions_string = localStorage.getItem "transactions-"+account_address
             continue unless transactions_string
             transactions = JSON.parse transactions_string
@@ -226,10 +235,10 @@ class ChainDatabase
             @_add_ledger_entries transactions
             #?? @_decrypt_memos transactions
             @_add_fee_entries transactions
-            
             # tally from day 0 (this does not cache running balances)
             @transaction_ledger.format_transaction_history transactions
             # now we can filter
+            
             for transaction in transactions
                 continue if transaction.block_num < start_block_num
                 if end_block_num isnt -1

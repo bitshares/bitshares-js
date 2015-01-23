@@ -471,7 +471,7 @@ class WalletDb
         return
     
     _debug_last:(ref)->
-        console.log "#{ref}",JSON.stringify @wallet_object[@wallet_object.length - 1].data,null,4
+        #console.log "#{ref}",JSON.stringify @wallet_object[@wallet_object.length - 1].data,null,4
         return
     
     get_child_key_index:->
