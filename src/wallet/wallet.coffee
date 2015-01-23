@@ -262,7 +262,7 @@ class Wallet
     
     account_transaction_history:(
         account_name=""
-        asset_id=0
+        asset_id=-1
         limit=0
         start_block_num=0
         end_block_num=-1

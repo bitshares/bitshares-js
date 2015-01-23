@@ -15,18 +15,14 @@ new_wallet_api= (rpc, backup_file = '../fixtures/wallet.json') ->
         wallet_json_string = JSON.stringify require backup_file
         # JSON.parse is used to clone (so internals can't change)
         wallet_object = JSON.parse wallet_json_string
-        new WalletAPI(
-            new Wallet (new WalletDb wallet_object), rpc
-            rpc
-        )
+        new WalletAPI(rpc)._open_from_wallet_db new WalletDb wallet_object
     else
         throw new Error 'not used...'
         # create an empty wallet
         entropy = secureRandom.randomUint8Array 1000
         Wallet.add_entropy new Buffer entropy
         wallet_db = Wallet.create 'TestWallet', PASSWORD, brain_key=false, save=false
-        wallet = new Wallet wallet_db, rpc
-        new WalletAPI wallet, rpc
+        new WalletAPI(rpc)._open_from_wallet_db wallet_db
     (# avoid a blockchain deterministic key conflit
         rnd = 0
         rnd += i for i in secureRandom.randomUint8Array 10
@@ -124,9 +120,10 @@ describe "Account", ->
     
     it "account_transaction_history", (done) ->
         wallet_api = new_wallet_api @rpc
-        wallet_api.account_transaction_history().then (history)->
-            
+        wallet_api.chain_database.sync_transactions().then ()->
+            history = wallet_api.account_transaction_history()
             throw new Error 'no history' unless history?.length > 0
+            done()
         .done()
     
     #it "wallet_transfer_to_address (public)", (done) ->
@@ -145,19 +142,19 @@ describe "Account", ->
     #        done()
     #    .done()
     
-    wallet_transfer=(wallet_api, data)->
-        console.log "\twallet_transfer "+(JSON.stringify data)
-        wallet_api.transfer(
-            data.amount
-            data.asset
-            data.from
-            data.to
-            data.memo
-            data.vote
-        ).then (trx) ->
-            EC.throw 'expecting transaction' unless trx
-            #console.log trx
-        .done()
+    #wallet_transfer=(wallet_api, data)->
+    #    console.log "\twallet_transfer "+(JSON.stringify data)
+    #    wallet_api.transfer(
+    #        data.amount
+    #        data.asset
+    #        data.from
+    #        data.to
+    #        data.memo
+    #        data.vote
+    #    ).then (trx) ->
+    #        EC.throw 'expecting transaction' unless trx
+    #        #console.log trx
+    #    .done()
    
     it "account_register", (done) ->
         wallet_api = new_wallet_api @rpc, '../fixtures/del.json'

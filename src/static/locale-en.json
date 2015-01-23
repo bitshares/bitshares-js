@@ -25,7 +25,7 @@
         "create_account_before_register": "Create account before registering",
         "account_already_exists": "Account {{v1}} is already registered with the blockchain",
         "account_retracted":"Account {{v1}} is retracted",
-        "unknown_asset":"Asset '{{v1}}' was not found",
+        "unknown_asset":"Asset symbol '{{v1}}' was not found",
         "unknown_account": "Account {{v1}} was not found on the blockchain"
     }
     "general":{

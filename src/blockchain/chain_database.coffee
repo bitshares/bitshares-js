@@ -1,9 +1,12 @@
+{TransactionLedger} = require '../wallet/transaction_ledger'
 localStorage = require '../common/local_storage'
 bts_address_prefix = (require '../config').bts_address_prefix
+q = require 'q'
 
 class ChainDatabase
 
     constructor: (@wallet_db, @rpc) ->
+        @transaction_ledger = new TransactionLedger()
     
     _account_keys:(account_name)->
         account_names = []
@@ -19,16 +22,21 @@ class ChainDatabase
                 keys.push key
         keys
     
-    sync_assets:()->
+    _account_addresses:(account_name)->
+        keys = @_account_keys account_name
+        addresses = {}
+        for key in keys
+            addresses[key.account_address]=yes
+        Object.keys addresses
+    
+    #sync_assets:()->
         
     sync_transactions:(account_name)->
-        addresses = ((keys)->
-            addresses = {}
-            for key in keys
-                addresses[key.account_address]=yes
-            Object.keys addresses
-        )(@_account_keys account_name)
-        return if addresses.length is 0
+        defer = q.defer()
+        addresses = @_account_addresses account_name
+        if addresses.length is 0
+            defer.resolve()
+            return
         
         ## last block tracking involves merging with old transactions (not implemented)
         #address_last_block_map = (->
@@ -40,23 +48,19 @@ class ChainDatabase
         #)()
         
         batch_args = for address in addresses
-            [
-                "blockchain_list_address_transactions"
-                address
-                block=0 #address_last_block_map[address] or 0
-            ]
-        defer = q.defer()
-        @rpc.request("batch", batch_args).then (batch_result)=>
+            [address, block=0] #address_last_block_map[address] or 0
+        
+        @rpc.request("batch", ["blockchain_list_address_transactions", batch_args]).then (batch_result)=>
             balance_ids = {}
             for i in [0...batch_result.result.length] by 1
                 result = batch_result.result[i]
-                address = batch_args[i][1]
+                address = batch_args[i][0]
                 transactions = for record in result
                     trx_id = record[0]
                     block_timestamp = record[1][0]
-                    trx = record[1][1]
+                    transaction = record[1][1]
                     #last_block = 0
-                    block_num = trx.chain_location.block_num
+                    block_num = transaction.chain_location.block_num
                     #last_block = Math.max last_block, block_num
                     {
                         trx_id: trx_id
@@ -65,20 +69,20 @@ class ChainDatabase
                         is_confirmed: block_num >= 0
                         is_virtual: false
                         #is_market: false
-                        trx: trx
+                        trx: transaction.trx
                     }
                 if transactions.length > 0
                     localStorage.setItem "transactions-"+address, JSON.stringify transactions,null,0
                     #address_last_block_map[address] = last_block
                     
                     # balance ids lead us to the sender
-                    for tx in transactions
-                        for op in tx.trx.operations
+                    for transaction in transactions
+                        for op in transaction.trx.operations
                             continue unless op.type is "withdraw_op_type"
                             balance_id = op.data.balance_id
-                            balances_ids[balance_id]=on
+                            balance_ids[balance_id]=on
             
-            @_index_balanceids(Object.keys balances_ids).then ->
+            @_index_balanceid_readonly(Object.keys balance_ids).then ->
                 defer.resolve()
             .done()
             
@@ -89,46 +93,45 @@ class ChainDatabase
         .done()
         defer.promise
     
-    _storage_balanceids:(balance_id_map)->
+    _storage_balanceid_readonly:(balance_id_map)->
         if balance_id_map
             localStorage.setItem(
                 "#{bts_address_prefix}_balanceid_readonly_map"
-                JSON.stringify transactions,null,0
+                JSON.stringify balance_id_map,null,0
             )
             return
         else
             str = localStorage.getItem "#{bts_address_prefix}_balanceid_readonly_map"
             if str then JSON.parse str else {}
     
-    _index_balanceids:(balances_ids)->
-        balance_id_map = @_storage_balanceids()
-        batch_args = for balances_id in balances_ids
+    _index_balanceid_readonly:(balance_ids)->
+        balance_id_map = @_storage_balanceid_readonly()
+        batch_args = for balances_id in balance_ids
             #already saved, these values below are all read-only
             continue if balance_id_map[balances_id]
-            [
-                "blockchain_get_balance"
-                balances_id
-            ]
-        @rpc.request("batch", batch_args).then (batch_result)=>
+            [  balances_id ]
+        
+        @rpc.request("batch", ["blockchain_get_balance", batch_args]).then (batch_result)=>
             for i in [0...batch_result.result.length] by 1
                 balance = batch_result.result[i]
                 continue unless balance.condition.type is "withdraw_signature_type"
-                balance_id = batch_args[i][1]
+                balance_id = batch_args[i][0]
                 balance_id_map[balance_id]=
                     # only read-only
                     owner: balance.condition.data.owner
                     asset_id: balance.condition.asset_id
             
-            @_storage_balanceids balance_id_map
+            @_storage_balanceid_readonly balance_id_map
             return
     
     _add_ledger_entries:(transactions)->
         sender = null
         recipient = null
         balance_id = null
-        balanceid_readonly = @_storage_balanceids()
-        for tx in transactions
-            tx.ledger_entries = entries = []
+        balanceid_readonly = @_storage_balanceid_readonly()
+        for transaction in transactions
+            balances = {}
+            transaction.ledger_entries = entries = []
             for op in transaction.trx.operations
                 if (
                     op.type is "deposit_op_type" and 
@@ -165,8 +168,9 @@ class ChainDatabase
                     #memo_from_account: null
     
     _add_fee_entries:(transactions)->
-        for tx in transactions
-            tx.fee = (->
+        balanceid_readonly = @_storage_balanceid_readonly()
+        for transaction in transactions
+            transaction.fee = (->
                 balances = {}
                 for op in transaction.trx.operations
                     if op.type is "deposit_op_type" and op.data.condition.type is "withdraw_signature_type"
@@ -193,14 +197,14 @@ class ChainDatabase
     
     account_transaction_history:(
         account_name
-        asset_id=0
+        asset_id=-1
         limit=0
         start_block_num=0
         end_block_num=-1
     )->
         account_name = null if account_name is ""
-        if asset_id is "" then asset_id = 0
-        unless /^\d+$/.test asset_id
+        if asset_id is "" then asset_id = -1
+        unless /^-?\d+$/.test asset_id
             throw "asset_id should be a number, instead got: #{asset_id}"
         
         if end_block_num isnt -1
@@ -208,13 +212,14 @@ class ChainDatabase
                 throw new Error "start_block_num #{start_block_num} <= end_block_num #{end_block_num}"
         
         include_asset=(entry)->
-            return true unless asset_id
+            return true if asset_id is -1
             amount = entry.amount
             amount.asset_id is asset_id #and amount.amount > 0
         
         history = []
-        for key in @_account_keys account_name
-            transactions_string = localStorage.getItem "transactions-"+key.account_address
+        for account_address in @_account_addresses account_name
+            console.log '... account_address',JSON.stringify account_address
+            transactions_string = localStorage.getItem "transactions-"+account_address
             continue unless transactions_string
             transactions = JSON.parse transactions_string
             
@@ -225,16 +230,16 @@ class ChainDatabase
             # tally from day 0 (this does not cache running balances)
             @transaction_ledger.format_transaction_history transactions
             # now we can filter
-            for tx in transactions
-                continue if tx.block_num < start_block_num
+            for transaction in transactions
+                continue if transaction.block_num < start_block_num
                 if end_block_num isnt -1
-                    continue if tx.block_num > end_block_num
+                    continue if transaction.block_num > end_block_num
                 
                 has_asset = no
-                for entry in tx.ledger_entries
+                for entry in transaction.ledger_entries
                     continue unless include_asset entry
                     has_asset = yes
-                history.push tx if has_asset
+                history.push transaction if has_asset
         
         history.sort (a,b)->
             if (
@@ -246,7 +251,7 @@ class ChainDatabase
                 
             if a.timestamp isnt b.timestamp
                 return a.timestamp < b.timestamp
-                
+            
             a.trx_id < b.trx_id
         
         return history if limit is 0 or Math.abs(limit) >= history.length

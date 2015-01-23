@@ -5,6 +5,7 @@
 {Aes} = require '../ecc/aes'
 {ExtendedAddress} = require '../ecc/extended_address'
 {ChainInterface} = require '../blockchain/chain_interface'
+{ChainDatabase} = require '../blockchain/chain_database'
 {BlockchainAPI} = require '../blockchain/blockchain_api'
 
 config = require '../wallet/config'
@@ -21,7 +22,7 @@ libraries_api_wallet = require '../wallet/wallet_api.json'
 ###
 class WalletAPI
     
-    constructor:(@wallet, @rpc)->
+    constructor:(@rpc)->
         @blockchain_api = new BlockchainAPI @rpc
         @chain_interface = new ChainInterface @blockchain_api
     
@@ -33,10 +34,14 @@ class WalletAPI
         unless wallet_db
             throw new LE 'wallet.not_found', [wallet_name]
         
-        @transaction_ledger = new TransactionLedger()
-        @wallet = new Wallet wallet_db, @rpc
-        @chain_database = new ChainDatabase wallet_db, @rpc
+        @_open_from_wallet_db wallet_db
         return
+        
+    _open_from_wallet_db:(wallet_db)->
+        @wallet = new Wallet wallet_db, @rpc
+        @transaction_ledger = new TransactionLedger()
+        @chain_database = new ChainDatabase wallet_db, @rpc
+        return @
     
     create: (wallet_name = "default", new_password, brain_key)->
         Wallet.create wallet_name, new_password, brain_key
@@ -372,12 +377,21 @@ class WalletAPI
     
     account_transaction_history:(
         account_name=""
-        asset_symbol=null
+        asset=""
         limit=0
         start_block_num=0
         end_block_num=-1
     )->
         LE.throw "wallet.must_be_opened" unless @wallet
+        asset_id = if asset.match /^[0-9]$/
+            parseInt asset
+        else
+            if asset is ""
+                -1
+            else
+                asset = @chain_database.get_asset_by_symbol asset_symbol
+                LE.throw "blockchain.unknown_asset",[asset_symbol] unless asset
+                asset.id
         
         @wallet.account_transaction_history(
             account_name

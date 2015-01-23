@@ -117,6 +117,7 @@ describe "Wallet API (non-RPC)", ->
         accounts = @wallet_api.list_my_accounts()
         EC.throw "No accounts" unless accounts or accounts.length > 0
     
+
     ###
     it "create brain-key wallet", ->
         # exception in wallet.coffee: throw 'Brain keys have not been tested with the native client'
