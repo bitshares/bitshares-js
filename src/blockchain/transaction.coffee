@@ -82,6 +82,7 @@ class Transaction
         b.copy 0, b.offset
     
     toBuffer: () ->
+        #@toByteBuffer().printDebug()
         new Buffer(@toByteBuffer().toBinary(), 'binary')
     
     Transaction.fromHex= (hex) ->

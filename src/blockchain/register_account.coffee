@@ -43,7 +43,7 @@ class RegisterAccount
     ) ->
         @type_name = "register_account_op_type"
         @type_id = type_id types.operation, @type_name        
-        
+    
     RegisterAccount.fromByteBuffer= (b) ->
         name = fp.variable_buffer b
         public_data = {} #JSON.parse fp.variable_buffer b
@@ -56,7 +56,7 @@ class RegisterAccount
         meta_data = null
         if fc.optional b
             meta_data=
-                type: b.readUint32()
+                type: b.readVarint32()
                 data: fp.variable_buffer b
                 
         new RegisterAccount(
@@ -75,7 +75,7 @@ class RegisterAccount
             b.writeUint8 @delegate_pay_rate
         
         if fp.optional b, @meta_data
-            b.writeUint32 @meta_data.type
+            b.writeVarint32 @meta_data.type
             fp.variable_buffer b, @meta_data.data
 
     toBuffer: ->

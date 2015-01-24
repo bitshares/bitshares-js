@@ -280,7 +280,6 @@ class TransactionBuilder
     )->
         LE.throw "wallet.must_be_opened" unless @wallet
         as_delegate = no
-        console.log '... delegate_pay_rate',JSON.stringify delegate_pay_rate
         if delegate_pay_rate isnt -1
             throw new Error "delegate account registration is not implemented"
             as_delegate = yes
@@ -302,6 +301,7 @@ class TransactionBuilder
             meta_data=
                 type: type_id
                 data: new Buffer("")
+        
         if delegate_pay_rate > 100
             LE.throw 'wallet.delegate_pay_rate_invalid', [delegate_pay_rate]
         

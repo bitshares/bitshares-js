@@ -25,7 +25,8 @@ new_wallet_api= (rpc, backup_file = '../fixtures/wallet.json') ->
         new WalletAPI(rpc)._open_from_wallet_db wallet_db
     (# avoid a blockchain deterministic key conflit
         rnd = 0
-        rnd += i for i in secureRandom.randomUint8Array 10
+        rnd += i for i in secureRandom.randomUint8Array 1000
+        console.log '... rnd',JSON.stringify rnd
         wallet_api.wallet.wallet_db.set_child_key_index rnd, save = false
     )
     wallet_api.unlock 10, PASSWORD
@@ -166,7 +167,7 @@ describe "Account", ->
                     pay_from_account = PAY_FROM
                     public_data = null#{data:'value'}
                     delegate_pay_rate = -1
-                    account_type = "titan_account"
+                    account_type = "public_account"
                 ).then (trx)=>
                     EC.throw 'expecting transaction' unless trx
                     #console.log trx
