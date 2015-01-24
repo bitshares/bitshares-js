@@ -162,7 +162,9 @@ class ChainDatabase
                 return
             
             sender = (@wallet_db.get_account_for_address sender)?.name or sender
-            recipient = (@wallet_db.get_account_for_address recipient)?.name or recipient
+            if recipient
+                recipient = (@wallet_db.get_account_for_address recipient)?.name or recipient
+            
             for asset_id in Object.keys balances
                 entries.push
                     from_account: sender

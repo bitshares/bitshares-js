@@ -42,7 +42,7 @@ wallet_account_register init0 delegate0 {"mail_server_endpoint":"127.0.0.1:45000
 describe "Account", ->
     
     beforeEach ->
-        @rpc=new Rpc(debug=off, 45000, "localhost", "test", "test")
+        @rpc=new Rpc(debug=on, 45000, "localhost", "test", "test")
     
     afterEach ->
         @rpc.close()
@@ -158,6 +158,7 @@ describe "Account", ->
     it "account_register", (done) ->
         wallet_api = new_wallet_api @rpc, '../fixtures/del.json'
         suffix = secureRandom.randomBuffer(2).toString 'hex'
+        @timeout 10*1000
         try
             wallet_api.account_create("bob-" + suffix).then (key)->
                 wallet_api.account_register(

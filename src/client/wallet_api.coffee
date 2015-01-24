@@ -119,31 +119,26 @@ class WalletAPI
         memo_message = "", selection_method = ""
     )->
         LE.throw "wallet.must_be_opened" unless @wallet
-        defer = q.defer()
         asset = @chain_interface.get_asset(asset_symbol)
         payer = @wallet.get_chain_account paying_account_name
         sender = if paying_account_name is from_account_name then payer else @wallet.get_chain_account from_account_name
         recipient = @wallet.get_chain_account to_account_name
-        try
-            q.all([asset, payer, sender, recipient]).spread (asset, payer, sender, recipient)=>
-                unless asset
-                    error = new LE 'blockchain.unknown_asset', [asset]
-                    defer.reject error
-                    return
+        q.all([asset, payer, sender, recipient]).spread (asset, payer, sender, recipient)=>
+            unless asset
+                error = new LE 'blockchain.unknown_asset', [asset]
+                defer.reject error
+                return
             
-                amount = ChainInterface.to_ugly_asset amount_to_transfer, asset
-                builder = @_transaction_builder()
-                builder.deposit_asset(
-                    payer, recipient, amount
-                    memo_message, selection_method, sender.owner_key
-                )
-                @_sign_and_send(builder).then (record)->
-                    defer.resolve record
-            .done()
-        catch error
-            defer.reject error
-        defer.promise
-        
+            amount = ChainInterface.to_ugly_asset amount_to_transfer, asset
+            builder = @_transaction_builder()
+            builder.deposit_asset(
+                payer, recipient, amount
+                memo_message, selection_method, sender.owner_key
+                use_stealth_address = !recipient.meta_data?.type is "public_account"
+            )
+            @_sign_and_send(builder).then (record)->
+                record
+    
     ###* Transfer to a public address (non TITAN) ##
     transfer_to_address:(
         amount
@@ -182,10 +177,9 @@ class WalletAPI
         pay_with_account
         public_data = null
         delegate_pay_rate = -1
-        account_type = 'titan_account'
+        account_type = 'public_account'
     )->
         LE.throw "wallet.must_be_opened" unless @wallet
-        defer = q.defer()
         @chain_interface.valid_unique_account(account_name).then ()=>
             builder = @_transaction_builder()
             builder.account_register(
@@ -196,12 +190,7 @@ class WalletAPI
                 account_type
             )
             @_sign_and_send(builder).then (record)->
-                defer.resolve record
-            .done()
-        , (error)->
-            defer.reject error
-        .done()
-        defer.promise
+                record
     
     #account_retract:(account_to_update, pay_from_account)->
     #   record = @wallet.retract_account( account_to_update, pay_from_account, true );

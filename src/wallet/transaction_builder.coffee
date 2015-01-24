@@ -22,7 +22,6 @@ types = require '../blockchain/types'
 type_id = types.type_id
 
 BTS_BLOCKCHAIN_MAX_MEMO_SIZE = 19
-TITAN_DEPOSIT = off
 
 class TransactionBuilder
     
@@ -75,6 +74,7 @@ class TransactionBuilder
         payer, recipient, amount
         memo, vote_method
         memo_sender #BTS Public Key String
+        use_stealth_address
     )->
         throw new Error 'missing payer' unless payer?.name
         throw new Error 'missing recipient' unless recipient?.name
@@ -113,6 +113,7 @@ class TransactionBuilder
                 0 # @wallet.select_slate_id trx, amount.asset_id, vote_method
                 memoSenderPublic
                 one_time_key, 0 # memo_flags_enum from_memo
+                use_stealth_address
             )
         
         fee = @wallet.get_transaction_fee()
@@ -185,6 +186,7 @@ class TransactionBuilder
         receiver_Public, amount
         from_Private, memo_message, slate_id
         memo_Public, one_time_Private, memo_type
+        use_stealth_address = true
     )->
         #TITAN used for memos even if it is not used for the transfer...
         memo = @encrypt_memo_data(
@@ -192,7 +194,7 @@ class TransactionBuilder
             memo_message, memo_Public, memo_type
         )
         owner =
-            if TITAN_DEPOSIT
+            if use_stealth_address
                 memo.owner
             else
                 receiver_Public.toBlockchainAddress()
@@ -274,12 +276,13 @@ class TransactionBuilder
         pay_from_account
         public_data=""
         delegate_pay_rate = -1
-        account_type = "titan_account"
+        account_type
     )->
         LE.throw "wallet.must_be_opened" unless @wallet
         as_delegate = no
+        console.log '... delegate_pay_rate',JSON.stringify delegate_pay_rate
         if delegate_pay_rate isnt -1
-            throw new Error 'Not implemented'
+            throw new Error "delegate account registration is not implemented"
             as_delegate = yes
         
         owner_key = @wallet.getOwnerKey account_to_register
@@ -289,7 +292,7 @@ class TransactionBuilder
         
         pay_from_OwnerKey = @wallet.getOwnerKey pay_from_account
         unless pay_from_OwnerKey
-            throw new Error "Unknown pay_from account #{pay_from_account}"
+            LE.throw "blockchain.unknown_account", pay_from_account
         
         meta_data = null
         if account_type is "public_account"
@@ -598,7 +601,7 @@ class TransactionBuilder
         for public_key in Object.keys @required_signatures
             try
                 private_key = @wallet.getPrivateKey public_key
-                #console.log '...sign by', private_key.toPublicKey().toBtsPublic()
+                console.log '...sign by', private_key.toPublicKey().toBtsPublic()
                 @signatures.push(
                     Signature.signBuffer trx_sign, private_key
                 )
