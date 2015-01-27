@@ -33,6 +33,7 @@ class TransactionLedger
                 
         history = []
         for tx in transactions
+            tx = @_to_pretty_tx tx
             # tally all blocks even if they are not in the query
             for entry in tx.ledger_entries
                 from_account = entry.from_account_name
@@ -58,26 +59,27 @@ class TransactionLedger
             for entry in tx.ledger_entries
                 from_account = entry.from_account_name
                 to_account = entry.to_account_name
-                continue unless to_account or from_account
                 running_balances = entry.running_balances = []
+                continue unless to_account or from_account
                 if from_account
                     running_balances.push [from_account, balance_struct from_account]
                 if to_account
                     running_balances.push [to_account, balance_struct to_account ]
             
-            history.push @to_pretty_tx tx
+            history.push tx
         history
         
     #get_pending_transaction_errors:->
     
-    to_pretty_tx:(tx)->
+    _to_pretty_tx:(tx)->
         pretty_tx = {}
         pretty_tx.is_virtual = tx.is_virtual
         pretty_tx.is_confirmed = tx.is_confirmed
         pretty_tx.is_market = tx.is_market
         #pretty_tx.is_market_cancel = not tx.is_virtual and tx.is_market and Transaction.is_cancel(tx.operations)
         #(Transaction.fromJson tx).id()
-        pretty_tx.trx_id = tx.record_id #tx.is_virtual ? tx.record_id : tx.id()
+        pretty_tx.trx_id = tx.record_id or tx.trx_id #tx.is_virtual ? tx.record_id : tx.id()
+        pretty_tx.trx = tx.trx
         pretty_tx.block_num = tx.block_num
             
         pretty_tx.ledger_entries = []
@@ -128,7 +130,7 @@ class TransactionLedger
             pe.running_balances = entry.running_balances
         
         pretty_tx.fee = tx.fee
-        pretty_tx.timestamp = tx.block_timestamp
+        pretty_tx.timestamp = tx.timestamp
         ###
         pretty_tx.timestamp = 
             if tx.created_time < tx.received_time
@@ -136,7 +138,7 @@ class TransactionLedger
             else if tx.received_time
                 tx.received_time
             else
-                tx.block_timestamp
+                tx.timestamp
         ###
         pretty_tx.expiration_timestamp = tx.trx.expiration
         #console.log JSON.stringify pretty_tx, null, 4

@@ -118,10 +118,11 @@ describe "Account", ->
         .done()
     
     it "account_transaction_history", (done) ->
+        @timeout 10*1000
         wallet_api = new_wallet_api @rpc
         wallet_api.chain_database.sync_transactions().then ()->
             history = wallet_api.account_transaction_history()
-            #console.log '... history',JSON.stringify history,null,1
+            console.log '... history',JSON.stringify history,null,1
             throw new Error 'no history' unless history?.length > 0
             done()
         .done()

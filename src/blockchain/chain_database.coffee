@@ -7,6 +7,7 @@ class ChainDatabase
 
     constructor: (@wallet_db, @rpc) ->
         @transaction_ledger = new TransactionLedger()
+        @sync_transactions()
     
     _account_keys:(account_name)->
         account_names = []
@@ -32,10 +33,16 @@ class ChainDatabase
     #sync_assets:()->
         
     sync_transactions:(account_name)->
-        defer = q.defer()
+        setTimeout ()=>
+            @sync_transactions()
+        ,
+            10*1000
+        
         addresses = @_account_addresses account_name
         if addresses.length is 0
-            defer.resolve()
+            #defer = q.defer()
+            #defer.resolve()
+            #return defer.promise
             return
         
         ## last block tracking involves merging with old transactions (not implemented)
@@ -65,7 +72,7 @@ class ChainDatabase
                     {
                         trx_id: trx_id
                         block_num: block_num
-                        block_timestamp: block_timestamp
+                        timestamp: block_timestamp
                         is_confirmed: block_num >= 0
                         is_virtual: false
                         #is_market: false
@@ -83,16 +90,12 @@ class ChainDatabase
                             balance_id = op.data.balance_id
                             balance_ids[balance_id]=on
             
-            @_index_balanceid_readonly(Object.keys balance_ids).then ->
-                defer.resolve()
-            .done()
+            @_index_balanceid_readonly(Object.keys balance_ids)
             
             #localStorage.setItem(
             #    "#{bts_address_prefix}_address_last_block_map"
             #    JSON.stringify address_last_block_map,null,0
             #)
-        .done()
-        defer.promise
     
     _storage_balanceid_readonly:(balance_id_map)->
         if balance_id_map
@@ -238,7 +241,7 @@ class ChainDatabase
             #?? @_decrypt_memos transactions
             @_add_fee_entries transactions
             # tally from day 0 (this does not cache running balances)
-            @transaction_ledger.format_transaction_history transactions
+            transactions = @transaction_ledger.format_transaction_history transactions
             # now we can filter
             
             for transaction in transactions

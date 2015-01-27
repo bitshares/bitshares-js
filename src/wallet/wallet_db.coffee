@@ -278,6 +278,7 @@ class WalletDb
     
     get_account_for_address:(address)->
         key = @lookup_key address
+        return unless key
         @activeKey_account[key.public_key] or
         @ownerKey[key.public_key]
         
