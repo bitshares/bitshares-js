@@ -68,7 +68,7 @@ class Wallet
         #@blockchain.is_valid_account_name wallet_name
         
         data = if brain_key
-            throw 'Brain keys have not been tested with the native client'
+            console.log 'WARN: Brain keys have not been tested with the native client'
             base = hash.sha512 brain_key
             for i in [0..100*1000]
                 # strengthen the key a bit
