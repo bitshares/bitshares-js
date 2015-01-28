@@ -36,8 +36,10 @@ class WithdrawSignatureType
     
     appendByteBuffer: (b) ->
         fp.ripemd160 b, @owner
-        if @one_time_key # be sure to include otk
-            fp.optional b, true
+        # be sure to include one_time_key (even without encrypted_memo)
+        has_one_time_key = if @one_time_key then yes else no 
+        fp.optional b, has_one_time_key
+        if has_one_time_key
             fp.public_key b, @one_time_key
             fp.variable_buffer b, @encrypted_memo
     
