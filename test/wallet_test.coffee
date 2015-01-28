@@ -16,9 +16,9 @@ describe "Wallet API (non-RPC)", ->
     beforeEach ->
         # create / reset in ram
         wallet_object = JSON.parse wallet_object_string
-        wallet_db = new WalletDb wallet_object, "default"
-        wallet = new Wallet wallet_db
-        @wallet_api = new WalletAPI wallet
+        @wallet_db = new WalletDb wallet_object, "default"
+        @wallet_api = new WalletAPI null
+        @wallet_api._open_from_wallet_db @wallet_db
         
     afterEach ->
         # delete from persistent storage if exists
@@ -50,7 +50,7 @@ describe "Wallet API (non-RPC)", ->
             WalletDb.delete "default"
     
     it "wallet create and open", (done) ->
-        @wallet_api.wallet.wallet_db.save()
+        @wallet_db.save()
         try
             @wallet_api.open("WalletNotFound")
             EC.throw 'opened wallet that does not exists'
@@ -59,7 +59,7 @@ describe "Wallet API (non-RPC)", ->
                 EC.throw 'Expecting wallet.not_found', error
             try
                 @wallet_api.open("default")
-                unless @wallet_api.wallet.wallet_db.wallet_name is "default"
+                unless @wallet_db.wallet_name is "default"
                     EC.throw "Expecting wallet named default"
                 
                 WalletDb.delete "default"

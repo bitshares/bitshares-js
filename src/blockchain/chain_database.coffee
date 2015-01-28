@@ -7,7 +7,10 @@ class ChainDatabase
 
     constructor: (@wallet_db, @rpc) ->
         @transaction_ledger = new TransactionLedger()
-        @sync_transactions()
+        if @rpc and not @rpc.request
+            throw new Error 'expecting rpc object'
+        
+        @sync_transactions() if @rpc # basic unit tests
     
     _account_keys:(account_name)->
         account_names = []

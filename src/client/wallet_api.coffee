@@ -23,6 +23,9 @@ libraries_api_wallet = require '../wallet/wallet_api.json'
 class WalletAPI
     
     constructor:(@rpc)->
+        if @rpc and not @rpc.request
+            throw new Error 'expecting rpc object'
+        
         @blockchain_api = new BlockchainAPI @rpc
         @chain_interface = new ChainInterface @blockchain_api
     
