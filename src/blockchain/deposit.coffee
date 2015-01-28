@@ -34,11 +34,14 @@ class Deposit
         
     ### <helper_functions> ###
     
-    toBuffer: ->
+    toByteBuffer: () ->
         b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
         @appendByteBuffer(b)
-        b_copy = b.copy(0, b.offset)
-        return new Buffer(b_copy.toBinary(), 'binary')
+        return b.copy 0, b.offset
+
+    toBuffer: () ->
+        b = @toByteBuffer()
+        new Buffer(b.toBinary(), 'binary')
     
     #Deposit.fromHex= (hex) ->
     #    b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN

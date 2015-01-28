@@ -49,10 +49,14 @@ class WithdrawSignatureType
             memo.encrypted_memo_data = @encrypted_memo.toString('hex')
     
     ### <helper_functions> ###        
-    
-    toBuffer: ->
+
+    toByteBuffer: () ->
         b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
         @appendByteBuffer(b)
+        return b.copy 0, b.offset
+
+    toBuffer: ->
+        b = @toByteBuffer()
         return new Buffer(b.copy(0, b.offset).toBinary(), 'binary')
     
     WithdrawSignatureType.fromHex= (hex) ->
