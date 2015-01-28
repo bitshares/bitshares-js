@@ -56,6 +56,11 @@ class Operation
         b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
         return SignedTransaction.fromByteBuffer b
 
+    toByteBuffer: () ->
+        b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
+        @appendByteBuffer(b)
+        return b.copy 0, b.offset
+
     toHex: () ->
         b=@toByteBuffer()
         b.toHex()

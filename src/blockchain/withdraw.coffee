@@ -34,12 +34,15 @@ class Withdraw
         o.claim_input_data = @claim_input_data.toString()
     
     ### <helper_functions> ###   
-    
-    toBuffer: ->
+
+    toByteBuffer: () ->
         b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
         @appendByteBuffer(b)
-        return new Buffer(b.copy(0, b.offset).toBinary(), 'binary')
+        return b.copy 0, b.offset
 
+    toBuffer: ->
+        b = @toByteBuffer()
+        return new Buffer(b.copy(0, b.offset).toBinary(), 'binary')
     
     Withdraw.fromHex= (hex) ->
         b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
