@@ -26,7 +26,6 @@ new_wallet_api= (rpc, backup_file = '../fixtures/wallet.json') ->
     (# avoid a blockchain deterministic key conflit
         rnd = 0
         rnd += i for i in secureRandom.randomUint8Array 1000
-        console.log '... rnd',JSON.stringify rnd
         wallet_api.wallet.wallet_db.set_child_key_index rnd, save = false
     )
     wallet_api.unlock 10, PASSWORD
@@ -43,7 +42,9 @@ wallet_account_register init0 delegate0 {"mail_server_endpoint":"127.0.0.1:45000
 describe "Account", ->
     
     beforeEach ->
-        @rpc=new Rpc(debug=on, 45000, "localhost", "test", "test")
+        RPC_DEBUG=process.env.RPC_DEBUG
+        RPC_DEBUG=off if RPC_DEBUG is undefined
+        @rpc=new Rpc(RPC_DEBUG, 45000, "localhost", "test", "test")
     
     afterEach ->
         @rpc.close()
@@ -104,8 +105,6 @@ describe "Account", ->
         .done()
     
     it "account_balance (multiple)", (done) ->
-        debug = @rpc.debug
-        @rpc.debug = off
         wallet_api = new_wallet_api @rpc
         @timeout 10*1000
         wallet_api.account_balance().then (balances)->
@@ -114,7 +113,6 @@ describe "Account", ->
                 throw new Error('invalid')
             
             done()
-        .finally ()=>@rpc.debug = debug
         .done()
     
     it "account_transaction_history", (done) ->

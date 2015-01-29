@@ -70,7 +70,7 @@ class Wallet
         data = if brain_key
             console.log 'WARN: Brain keys have not been tested with the native client'
             base = hash.sha512 brain_key
-            for i in [0..100*1000]
+            for i in [0..100*1000] by 1
                 # strengthen the key a bit
                 base = hash.sha512 base
             base

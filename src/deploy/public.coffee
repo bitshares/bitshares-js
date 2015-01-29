@@ -4,3 +4,4 @@ module.exports =
   common: require "../common"
   wallet: require "../wallet"
   client: require "../client"
+  secureRandom: require 'secure-random'
