@@ -80,12 +80,16 @@ class Wallet
         
         epk = ExtendedAddress.fromSha512 data
         wallet_db = WalletDb.create wallet_name, epk, password, save
+        if brain_key
+            aes_root = Aes.fromSecret password
+            wallet_db.save_brainkey aes_root, brain_key, save
+        
         ###
         set_version( BTS_WALLET_VERSION );
         set_transaction_fee( asset( BTS_WALLET_DEFAULT_TRANSACTION_FEE ) );
         set_transaction_expiration( BTS_WALLET_DEFAULT_TRANSACTION_EXPIRATION_SEC );
-        wallet_db.save() if save
         ###
+        wallet_db.save() if save
         wallet_db
     
     lock: ->

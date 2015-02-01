@@ -198,6 +198,22 @@ class WalletDb
         localStorage.removeItem "wallet-" + CHAIN_SYMBOL + '-' + wallet_name
         return
     
+    save_brainkey:(aes_root, brainkey, save)->
+        (-># hide a really weak brainkey
+            pad = 256 - brainkey.length
+            if pad > 0
+                spaces = ""
+                spaces += " " for i in [0..pad] by 1
+                brainkey += spaces
+        )()
+        cipherhex = aes_root.encryptHex new Buffer(brainkey).toString 'hex'
+        @set_setting 'encrypted_brainkey', cipherhex, save
+        return
+    
+    get_brainkey:(aes_root)->
+        plainhex = aes_root.decryptHex @get_setting 'encrypted_brainkey'
+        new Buffer(plainhex,'hex').toString().trim()
+    
     master_private_key:(aes_root)->
         plainhex = aes_root.decryptHex @master_key.encrypted_key
         plainhex = plainhex.substring 0, 64
@@ -271,16 +287,15 @@ class WalletDb
     lookup_account:(account_name)->
         account = @account[account_name]
         return null unless account
-        unless account.registration_date
-            # web_wallet littered with this date
-            account.registration_date = "1970-01-01T00:00:00"
-        account
+        @_pretty_account account
     
     get_account_for_address:(address)->
         key = @lookup_key address
         return unless key
-        @activeKey_account[key.public_key] or
-        @ownerKey[key.public_key]
+        @_pretty_account(
+            @activeKey_account[key.public_key] or
+            @ownerKey[key.public_key]
+        )
         
     lookup_key:(account_address)->
         @key_record[account_address]
@@ -295,6 +310,14 @@ class WalletDb
         rec = @get_key_record owner_key
         return yes if rec?.encrypted_private_key
         return no
+    
+    _pretty_account:(account)->
+        unless account.registration_date
+            # web_wallet littered with this date
+            account.registration_date = "1970-01-01T00:00:00"
+        account.is_my_account = @is_my_account account.owner_key
+        account.active_key = @_get_active_key account.active_key_history
+        account
     
     #get_wallet_child_key:(aes_root, key_index)->
     #    master_key = @master_private_key aes_root
@@ -311,13 +334,13 @@ class WalletDb
             owner_private_key = ExtendedAddress.private_key master_key, key_index
             owner_public_key = owner_private_key.toPublicKey()
             owner_address = owner_public_key.toBtsAddy()
-            continue if @lookup_account owner_address
+            continue if @get_account_for_address owner_address
             continue if (@lookup_key owner_address)?.key?.encrypted_private_key
             
             active_private_key = ExtendedAddress.private_key owner_private_key, 0
             active_public_key = active_private_key.toPublicKey()
             active_address = active_public_key.toBtsAddy()
-            continue if @lookup_account active_address
+            continue if @get_account_for_address active_address
             continue if (@lookup_key active_address)?.key?.encrypted_private_key
             
             break
@@ -362,14 +385,6 @@ class WalletDb
         @save() if save
         owner_public_key.toBtsPublic()
     
-    add_account_record:(rec, save = true)->
-        if @lookup_account rec.name
-            EC.throw "Account already exists"
-        @index_account rec
-        @_append('account_record_type',rec)
-        @save() if save
-        return
-        
     add_transaction_record:(rec, save = true)->
         @index_transaction rec
         @_append('transaction_record_type',rec)
@@ -380,13 +395,21 @@ class WalletDb
         for i in [0...@wallet_object.length] by 1
             return i if matches @wallet_object[i]
     
+    add_account_record:(account, save = true)->
+        if @lookup_account account.name
+            EC.throw "Account already exists"
+        @store_account_or_update account, save
+        return
+    
     store_account_or_update:(account, save = true)-> #store_account
         EC.throw "missing account name" unless account.name
         EC.throw "missing owner key" unless account.owner_key
         account.last_update = (new Date().toISOString()).split('.')[0]
+        delete account.is_my_account #calc in real time instead
+        delete account.active_key #calculate from history instead
         existing = @lookup_account account.name
         if existing
-            # New accounts in the backups all use an id of 0
+            # New accounts in bitshares_client backups use an id of 0
             account.id = 0 #last_account_index + 1
             i = @_wallet_index (o)->
                 o.type is "account_record_type" and o.data.name is account.name
@@ -397,6 +420,7 @@ class WalletDb
         
         @index_account account, true
         @save() if save
+    
     ###
     ##* @return {PrivateKey} ##
     generate_new_one_time_key:(aes_root)->
@@ -413,24 +437,26 @@ class WalletDb
             encrypted_private_key: aes_root.encryptHex one_time_private_key.toHex()
         one_time_private_key
     ###
+    ###
     store_key:(key, save)->
        key_record = @lookup_key key.public_key.getBtsAddy()
        key_record = {} unless key_record
-       @add_key_record key_record, save = off
+       @add_key_record key_record, off
        if key_record.encrypted_private_key
            account_record = @get_account_for_address key.public_key
            unless account_record
-               account_record = @lookup_account key.account_address
+               account_record = @get_account_for_address key.account_address
            if account_record
                account_record_address = PublicKey.fromHex(account_record.owner_key).toBtsAddy()
                if key_record.account_address isnt account_record_address
                    throw 'address miss match'
                #    key_record.account_address = account_record_address
-               #    @add_key_record key_record, save = off
+               #    @add_key_record key_record, off
                unless account_record.is_my_account
                    account_record.is_my_account = yes
-                   @store_account_or_update account_record, save = off
-       @save()
+                   @store_account_or_update account_record, off
+       @save() if save
+    ###
     
     ###* @return {PrivateKey} ###
     generate_new_account_child_key:(aes_root, account_name, save = true)->
@@ -479,17 +505,16 @@ class WalletDb
         index = @get_setting 'next_child_key_index'
         index = 0 unless index
         index
-        
     
     set_child_key_index:(value, save = true)->
         @set_setting 'next_child_key_index', value, save
     
-    get_transactions:->
-        for entry in @wallet_object
-            continue unless entry.type is "transaction_record_type"
-            entry.data
+    #get_transactions:->
+    #    for entry in @wallet_object
+    #        continue unless entry.type is "transaction_record_type"
+    #        entry.data
     
-    _active_key_history:(hist)->
+    _get_active_key:(hist)->
         hist = hist.sort (a,b)-> 
             if a[0] < b[0] then -1 
             else if a[0] > b[0] then 1 
@@ -510,13 +535,13 @@ class WalletDb
         
         lookup account.owner_key
         if active_only
-            lookup @_active_key_history account.active_key_history
+            lookup @_get_active_key account.active_key_history
         else
             lookup key[1] for key in account.active_key_history
                
         if account.delegate_info?.signing_key_history
             if active_only 
-                lookup @_active_key_history account.delegate_info.signing_key_history
+                lookup @_get_active_key account.delegate_info.signing_key_history
             else
                 lookup key[1] for key in account.delegate_info.signing_key_history
         
