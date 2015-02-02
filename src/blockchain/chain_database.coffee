@@ -70,12 +70,12 @@ class ChainDatabase
         Object.keys addresses
     
     sync_accounts:(aes_root)->
-        account_publics = @wallet_db.guess_next_account_keys(
+        next_accounts = @wallet_db.guess_next_account_keys(
             aes_root
             REGISTERED_ACCOUNT_LOOKAHEAD
         )
         batch_params = []
-        batch_params.push [key] for key in account_publics
+        batch_params.push [next_account.public] for next_account in next_accounts
         @rpc.request("batch", [
             "blockchain_get_account"
             batch_params
@@ -84,6 +84,7 @@ class ChainDatabase
             for i in [0...batch_result.length] by 1
                 account = batch_result[i]
                 continue unless account
+                next_account = next_accounts[i]
                 # update the account index, create private key entries etc...
                 #try
                 @wallet_db.generate_new_account(
@@ -91,8 +92,7 @@ class ChainDatabase
                     account.name
                     account.private_data
                     _save = false
-                    public: batch_params[i][0]
-                    index: i
+                    next_account
                 )
                 # sync direct account fields with the blockchain
                 @wallet_db.store_account_or_update account
@@ -124,14 +124,15 @@ class ChainDatabase
             "blockchain_list_address_transactions"
             batch_args
         ]).then (batch_result)=>
+            batch_result = batch_result.result
             balance_ids = {}
-            for i in [0...batch_result.result.length] by 1
-                result = batch_result.result[i]
+            for i in [0...batch_result.length] by 1
+                result = batch_result[i]
                 address = batch_args[i][0]
-                transactions = for record in result
-                    trx_id = record[0]
-                    block_timestamp = record[1][0]
-                    transaction = record[1][1]
+                transactions = for trx_id in Object.keys result
+                    value = result[trx_id]
+                    block_timestamp = value.timestamp
+                    transaction = value.trx
                     #last_block = 0
                     block_num = transaction.chain_location.block_num
                     #last_block = Math.max last_block, block_num
@@ -200,12 +201,12 @@ class ChainDatabase
             return
     
     _add_ledger_entries:(transactions)->
-        sender = null
-        recipient = null
-        balance_id = null
         balanceid_readonly = @_storage_balanceid_readonly()
-        for transaction in transactions
+        _add=(transaction)=>
             balances = {}
+            sender = null
+            recipient = null
+            balance_id = null
             transaction.ledger_entries = entries = []
             for op in transaction.trx.operations
                 if (
@@ -222,13 +223,11 @@ class ChainDatabase
                     balance_id = op.data.balance_id
                     sender = balanceid_readonly[balance_id]?.owner
                     unless sender
-                        console.log "ERROR chain_database::_add_ledger_entries did not find balance record #{balance_id}"
-                        return
+                        console.log "WARN chain_database::_add_ledger_entries did not find balance record #{balance_id}"
             
             sender = balanceid_readonly[balance_id]?.owner
-            unless recipient and sender
+            unless recipient or sender
                 console.log "ERROR chain_database::_add_ledger_entries is unable to determine sender '#{sender}' and recipient '#{recipient}' in transaction:",transaction
-                return
             
             sender = (@wallet_db.get_account_for_address sender)?.name or sender
             if recipient
@@ -243,6 +242,12 @@ class ChainDatabase
                         asset_id: asset_id
                     memo: ""
                     memo_from_account: null
+        
+        for transaction in transactions
+            try
+                _add transaction
+            catch error
+                console.log error
         return
     
     _add_fee_entries:(transactions)->

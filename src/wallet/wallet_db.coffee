@@ -318,7 +318,8 @@ class WalletDb
         for i in [0...count] by 1
             ++key_index
             private_key = ExtendedAddress.private_key master_key, key_index
-            private_key.toPublicKey().toBtsPublic()
+            public: private_key.toPublicKey().toBtsPublic()
+            index: key_index
     
     #get_wallet_child_key:(aes_root, key_index)->
     #    master_key = @master_private_key aes_root
@@ -326,21 +327,23 @@ class WalletDb
         
     generate_new_account:(
         aes_root, account_name, private_data
-        save = true, owner_rec = null
+        save = true, next_account = null
     )->
         LE.throw 'wallet.account_already_exists' if @account[account_name]
-        key_index = start_key_index = @get_child_key_index()
-        key_index += owner_rec.index if owner_rec
+        key_index = if next_account
+           next_account.index 
+        else
+            @get_child_key_index()
         master_key = @master_private_key aes_root
         owner_private_key = owner_public_key = owner_address = null
         while true
-            ++key_index
+            ++key_index unless next_account
             throw new Error "overflow" if key_index > Math.pow(2,32)
             owner_private_key = ExtendedAddress.private_key master_key, key_index
             owner_public_key = owner_private_key.toPublicKey()
-            if owner_rec
+            if next_account
                 # account backup recovery
-                unless owner_rec.public is owner_public_key.toBtsPublic()
+                unless next_account.public is owner_public_key.toBtsPublic()
                     throw new Error "unable to generate account matching requested owner key"
             
             owner_address = owner_public_key.toBtsAddy()

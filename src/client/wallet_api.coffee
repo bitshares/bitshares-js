@@ -297,7 +297,6 @@ class WalletAPI
             builder.get_account_balance_records(account_name, extended).then (key_records)->
                 if key_records
                     balance_records = key_records.balance_records
-                    #console.log '... balance_records',JSON.stringify balance_records
                     for record in balance_records
                         continue if record.length is 0
                         rec = record[1]

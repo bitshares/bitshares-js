@@ -72,6 +72,9 @@ class TransactionLedger
     #get_pending_transaction_errors:->
     
     _to_pretty_tx:(tx)->
+        unless tx.ledger_entries
+            throw new Error "internal transaction missing ledger entries"
+        
         pretty_tx = {}
         pretty_tx.is_virtual = tx.is_virtual
         pretty_tx.is_confirmed = tx.is_confirmed
@@ -80,8 +83,8 @@ class TransactionLedger
         #(Transaction.fromJson tx).id()
         pretty_tx.trx_id = tx.record_id or tx.trx_id #tx.is_virtual ? tx.record_id : tx.id()
         pretty_tx.trx = tx.trx
+        #pretty_tx.trx.net_delegate_votes = [] #TODO
         pretty_tx.block_num = tx.block_num
-            
         pretty_tx.ledger_entries = []
         for entry in tx.ledger_entries
             pretty_tx.ledger_entries.push pe = {}
