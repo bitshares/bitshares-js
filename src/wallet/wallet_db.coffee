@@ -230,7 +230,7 @@ class WalletDb
         JSON.parse JSON.stringify obj
     
     get_key_record:(public_key)->
-        @key_record[public_key]
+        @_clone @key_record[public_key]
         
     get_setting: (key) ->
         @property[key]?.value or config.DEFAULT_SETTING[key]
@@ -267,22 +267,14 @@ class WalletDb
         exp = new Date(exp.toISOString().split('.')[0])
     
     get_transaction_fee:->
-        @_clone @get_setting "transaction_fee"
+        @get_setting "transaction_fee"
     
     list_accounts:(just_mine=false)->
         for entry in @wallet_object
             continue unless entry.type is "account_record_type"
-            if just_mine
-                continue unless entry.data.is_my_account
-            data = entry.data
-            unless data["active_key"]
-                hist = data.active_key_history
-                hist = hist.sort (a,b)-> 
-                    if a[0] < b[0] then -1 
-                    else if a[0] > b[0] then 1 
-                    else 0
-                data["active_key"] = hist[hist.length - 1][1]
-            data
+            account = @_pretty_account entry.data
+            continue unless account.is_my_account if just_mine
+            account
     
     lookup_account:(account_name)->
         account = @account[account_name]
@@ -312,6 +304,7 @@ class WalletDb
         return no
     
     _pretty_account:(account)->
+        return null unless account
         unless account.registration_date
             # web_wallet littered with this date
             account.registration_date = "1970-01-01T00:00:00"
@@ -319,13 +312,25 @@ class WalletDb
         account.active_key = @_get_active_key account.active_key_history
         account
     
+    guess_next_account_keys:(aes_root, count)->
+        key_index = @get_child_key_index()
+        master_key = @master_private_key aes_root
+        for i in [0...count] by 1
+            ++key_index
+            private_key = ExtendedAddress.private_key master_key, key_index
+            private_key.toPublicKey().toBtsPublic()
+    
     #get_wallet_child_key:(aes_root, key_index)->
     #    master_key = @master_private_key aes_root
     #    ExtendedAddress.private_key master_key key_index
         
-    generate_new_account:(aes_root, account_name, private_data, save = true)->
+    generate_new_account:(
+        aes_root, account_name, private_data
+        save = true, owner_rec = null
+    )->
         LE.throw 'wallet.account_already_exists' if @account[account_name]
-        key_index = @get_child_key_index()
+        key_index = start_key_index = @get_child_key_index()
+        key_index += owner_rec.index if owner_rec
         master_key = @master_private_key aes_root
         owner_private_key = owner_public_key = owner_address = null
         while true
@@ -333,6 +338,11 @@ class WalletDb
             throw new Error "overflow" if key_index > Math.pow(2,32)
             owner_private_key = ExtendedAddress.private_key master_key, key_index
             owner_public_key = owner_private_key.toPublicKey()
+            if owner_rec
+                # account backup recovery
+                unless owner_rec.public is owner_public_key.toBtsPublic()
+                    throw new Error "unable to generate account matching requested owner key"
+            
             owner_address = owner_public_key.toBtsAddy()
             continue if @get_account_for_address owner_address
             continue if (@lookup_key owner_address)?.key?.encrypted_private_key
@@ -342,7 +352,6 @@ class WalletDb
             active_address = active_public_key.toBtsAddy()
             continue if @get_account_for_address active_address
             continue if (@lookup_key active_address)?.key?.encrypted_private_key
-            
             break
         
         active_key =
@@ -406,7 +415,7 @@ class WalletDb
         EC.throw "missing owner key" unless account.owner_key
         account.last_update = (new Date().toISOString()).split('.')[0]
         delete account.is_my_account #calc in real time instead
-        delete account.active_key #calculate from history instead
+        delete account.active_key #populated from active key history array
         existing = @lookup_account account.name
         if existing
             # New accounts in bitshares_client backups use an id of 0
@@ -414,6 +423,9 @@ class WalletDb
             i = @_wallet_index (o)->
                 o.type is "account_record_type" and o.data.name is account.name
             #console.log 'store_account_or_update', account.name,i
+            if @wallet_object[i].owner isnt account.owner
+                throw new Error "owner key unique violation on account '#{account.name}'"
+            
             @wallet_object[i].data = account
         else
             @_append('account_record_type',account)

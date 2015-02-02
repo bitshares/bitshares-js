@@ -5,12 +5,48 @@ q = require 'q'
 
 class ChainDatabase
 
+    REGISTERED_ACCOUNT_LOOKAHEAD = 11
+    sync_transactions_timeout_id = null
+    sync_accounts_timeout_id = null
+    
     constructor: (@wallet_db, @rpc) ->
         @transaction_ledger = new TransactionLedger()
+        # basic unit tests will not provide an rpc object
         if @rpc and not @rpc.request
             throw new Error 'expecting rpc object'
-        
-        @sync_transactions() if @rpc # basic unit tests
+    
+    ###
+        Watch for deterministic account keys beyond what was used to 
+        see if any are registered from another computer wallet
+        with the same key.  Also, this may be a restore.
+    ###
+    poll_accounts:(aes_root, shutdown=false)->
+        if shutdown
+            clearTimeout sync_accounts_timeout_id
+            sync_accounts_timeout_id = null
+        else
+            sync_accounts_timeout_id = setTimeout ()=>
+                    @poll_accounts aes_root
+                ,
+                    10*1000
+            @sync_accounts aes_root
+    
+    ###
+        Watch for public transactions sent to any
+        account in this database.
+    ###
+    poll_transactions:(shutdown=false)->
+        throw new Error 'construct with rpc object' unless @rpc
+        if shutdown
+            clearTimeout sync_transactions_timeout_id
+            sync_transactions_timeout_id = null
+        else
+            sync_transactions_timeout_id = setTimeout ()=>
+                    @poll_transactions()
+                ,
+                    10*1000
+            @sync_transactions()
+    
     
     _account_keys:(account_name)->
         account_names = []
@@ -33,14 +69,38 @@ class ChainDatabase
             addresses[key.account_address]=yes
         Object.keys addresses
     
-    #sync_assets:()->
-        
+    sync_accounts:(aes_root)->
+        account_publics = @wallet_db.guess_next_account_keys(
+            aes_root
+            REGISTERED_ACCOUNT_LOOKAHEAD
+        )
+        batch_params = []
+        batch_params.push [key] for key in account_publics
+        @rpc.request("batch", [
+            "blockchain_get_account"
+            batch_params
+        ]).then (batch_result)=>
+            batch_result = batch_result.result
+            for i in [0...batch_result.length] by 1
+                account = batch_result[i]
+                continue unless account
+                # update the account index, create private key entries etc...
+                #try
+                @wallet_db.generate_new_account(
+                    aes_root
+                    account.name
+                    account.private_data
+                    _save = false
+                    public: batch_params[i][0]
+                    index: i
+                )
+                # sync direct account fields with the blockchain
+                @wallet_db.store_account_or_update account
+                #catch e
+                #    console.log "ERROR",e
+                null
+    
     sync_transactions:(account_name)->
-        setTimeout ()=>
-            @sync_transactions()
-        ,
-            10*1000
-        
         addresses = @_account_addresses account_name
         if addresses.length is 0
             #defer = q.defer()
@@ -60,7 +120,10 @@ class ChainDatabase
         batch_args = for address in addresses
             [address, block=0] #address_last_block_map[address] or 0
         
-        @rpc.request("batch", ["blockchain_list_address_transactions", batch_args]).then (batch_result)=>
+        @rpc.request("batch", [
+            "blockchain_list_address_transactions"
+            batch_args
+        ]).then (batch_result)=>
             balance_ids = {}
             for i in [0...batch_result.result.length] by 1
                 result = batch_result.result[i]
@@ -275,5 +338,6 @@ class ChainDatabase
         return history.slice 0, limit if limit > 0
         history.slice history.length - -1 * limit, history.length
         history
-
+        
+    
 exports.ChainDatabase = ChainDatabase

@@ -29,7 +29,6 @@ class Wallet
         @chain_interface = new ChainInterface @blockchain_api
         @chain_database = new ChainDatabase @wallet_db, @rpc
     
-    
     Wallet.entropy = null
     Wallet.add_entropy = (data) ->
         unless data and data.length >= 1000
@@ -94,9 +93,13 @@ class Wallet
     
     lock: ->
         EC.throw "Wallet is already locked" unless @aes_root
-        @aes_root.clear()
-        @aes_root = undefined
-        
+        try
+            @chain_database.poll_transactions shutdown=true if @rpc
+            @chain_database.poll_accounts null, shutdown=true if @rpc
+        finally #let nothing stop the lock
+            @aes_root.clear()
+            @aes_root = undefined
+    
     locked: ->
         @aes_root is undefined
             
@@ -110,6 +113,9 @@ class Wallet
             @lock()
         ,
             timeout_seconds * 1000
+        
+        @chain_database.poll_transactions shutdown=false if @rpc
+        @chain_database.poll_accounts @aes_root, shutdown=false if @rpc
         unlock_timeout_id
     
     validate_password: (password)->
