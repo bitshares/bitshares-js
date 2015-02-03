@@ -12,6 +12,6 @@ module.exports =
         interface_theme: "flowers"
         interface_locale: navigator?.language.split('-')[0]
         transaction_expiration_sec: 60*60
-        transaction_fee:
+        default_transaction_priority_fee:
             amount: 50000 # .05
             asset_id: 0

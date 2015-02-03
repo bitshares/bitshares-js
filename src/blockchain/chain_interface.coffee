@@ -59,26 +59,24 @@ class ChainInterface
     
     ###* Use cache or query ###
     get_asset:(symbol_name, refresh_cache = false)->
-        defer = q.defer()
         cache_key = 'chain-asset-'+symbol_name
         unless refresh_cache
             asset_string = localStorage.getItem cache_key
             if asset_string
-                return JSON.parse asset_string
+                defer = q.defer()
+                defer.resolve JSON.parse asset_string
+                return defer.promise
         
         @blockchain_api.get_asset(symbol_name).then (asset)=>
             unless asset
-                defer.resolve null
-                return
+                return null
             unless asset.precision
                 #ref: wallet::transfer_asset_to_address
                 asset.precision = 1
                 console.log 'INFO using default precision 1',asset
             asset_string = JSON.stringify asset,null,0
             localStorage.setItem cache_key, asset_string
-            defer.resolve asset
-        , (error)->defer.reject error
-        defer.promise
+            asset
     
     # refresh_assets:-> blockchain_list_assets probably once a day or if the user requests a refresh ...
         

@@ -126,7 +126,8 @@ class WalletAPI
         payer = @wallet.get_chain_account paying_account_name
         sender = if paying_account_name is from_account_name then payer else @wallet.get_chain_account from_account_name
         recipient = @wallet.get_chain_account to_account_name
-        q.all([asset, payer, sender, recipient]).spread (asset, payer, sender, recipient)=>
+        fee = @wallet.get_transaction_fee()
+        q.all([asset, payer, sender, recipient, fee]).spread (asset, payer, sender, recipient, fee)=>
             unless asset
                 error = new LE 'blockchain.unknown_asset', [asset]
                 defer.reject error
@@ -138,6 +139,7 @@ class WalletAPI
                 payer, recipient, amount
                 memo_message, selection_method, sender.owner_key
                 use_stealth_address = !recipient.meta_data?.type is "public_account"
+                fee
             )
             @_sign_and_send(builder).then (record)->
                 record
@@ -183,7 +185,9 @@ class WalletAPI
         account_type = 'public_account'
     )->
         LE.throw "wallet.must_be_opened" unless @wallet
-        @chain_interface.valid_unique_account(account_name).then ()=>
+        fee = @wallet.get_transaction_fee()
+        account_check = @chain_interface.valid_unique_account account_name
+        q.all([account_check, fee]).spread (account_check, fee)=>
             builder = @_transaction_builder()
             builder.account_register(
                 account_name
@@ -191,6 +195,7 @@ class WalletAPI
                 public_data
                 delegate_pay_rate
                 account_type
+                fee
             )
             @_sign_and_send(builder).then (record)->
                 record
@@ -235,6 +240,9 @@ class WalletAPI
         unlocked: not @wallet?.locked() #if @wallet then not @wallet.locked() else null
         name: @wallet.wallet_db?.wallet_name
         transaction_fee:@wallet.get_transaction_fee()
+    
+    get_transaction_fee:(symbol)->
+        @wallet.get_transaction_fee(0)
         
     get_setting:(key)->
         LE.throw "wallet.must_be_opened" unless @wallet

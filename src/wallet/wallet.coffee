@@ -131,29 +131,29 @@ class Wallet
     set_setting: (key, value) ->
         @wallet_db.set_setting key, value
         
-    get_transaction_fee:()->#desired_asset_id = 0
-        #defer = q.defer()
+    get_transaction_fee:(desired_asset_id = 0)->
+        defer = q.defer()
         default_fee = @wallet_db.get_transaction_fee()
-        return default_fee #if desired_asset_id is 0
-        #@blockchain_api.get_asset(desired_asset_id).then(
-        #    (asset)=>
-        #        if asset.is_market_issued
-        #            #get_active_feed_price is not implemented (alt is to use blockchain_list_assets then blockchain_market_status {current_feed_price}
-        #            @blockchain_api.get_active_feed_price(desired_asset_id).then(
-        #                (median_price)->
-        #                    fee = default_fee.amount
-        #                    fee += fee + fee
-        #                    # fee paid in something other than XTS is discounted 50%
-        #                    alt_fee = fee * median_price
-        #                    defer.resolve alt_fee
-        #                    return
-        #            ).done()
-        #        else
-        #            defer.resolve null
-        #    (error)->
-        #            defer.reject error
-        #)
-        #defer.promise
+        if desired_asset_id is 0
+            defer.resolve default_fee
+            return defer.promise
+        
+        desired_asset = @chain_database.get_asset desired_asset_id
+        base_asset = @chain_database.get_asset 0
+        @q.all([desired_asset, base_asset]).spread (desired_asset, base_asset)=>
+            @blockchain_api.market_status([desired_asset.symbol, base_asset.symbol]).then (market)->
+                feed_price = market.current_feed_price
+                if market.current_feed_price is 0
+                    defer.resolve default_fee
+                    return
+                
+                defer.resolve(
+                    asset_id: desired_asset.id
+                    amount: default_fee.amount * feed_price
+                )
+            , (error)->
+                defer.resolve default_fee
+        defer.promise
     
     get_trx_expiration:->
         @wallet_db.get_trx_expiration()

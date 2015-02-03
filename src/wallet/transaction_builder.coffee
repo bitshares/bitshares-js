@@ -75,6 +75,7 @@ class TransactionBuilder
         memo, vote_method
         memo_sender #BTS Public Key String
         use_stealth_address
+        fee
     )->
         throw new Error 'missing payer' unless payer?.name
         throw new Error 'missing recipient' unless recipient?.name
@@ -116,9 +117,8 @@ class TransactionBuilder
                 use_stealth_address
             )
         
-        fee = @wallet.get_transaction_fee()
         @transaction_record.fee = fee
-        @_deduct_balance payer.owner_key, fee, payer # simple fee
+        @_deduct_balance payer.owner_key, fee, payer
         @_deduct_balance payer.owner_key, amount, payer
         
         @transaction_record.ledger_entries.push ledger_entry =
@@ -220,7 +220,7 @@ class TransactionBuilder
             one_time_Private, to_Public
         )
         memo_content=->
-            check_secret = from_Private.sharedSecret secret_Public
+            check_secret = from_Private.sharedSecret secret_Public.toUncompressed()
             new MemoData(
                 memo_Public
                 check_secret
@@ -277,6 +277,7 @@ class TransactionBuilder
         public_data=""
         delegate_pay_rate = -1
         account_type
+        fee
     )->
         LE.throw "wallet.must_be_opened" unless @wallet
         as_delegate = no
@@ -330,7 +331,6 @@ class TransactionBuilder
                 @required_signatures[@wallet.lookup_active_key parent] = on
             ###
         
-        fee = @wallet.get_transaction_fee()
         @_deduct_balance pay_from_OwnerKey.toBtsPublic(), fee 
         
         if delegate_pay_rate isnt -1

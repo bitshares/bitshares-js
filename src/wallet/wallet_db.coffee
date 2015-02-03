@@ -267,7 +267,7 @@ class WalletDb
         exp = new Date(exp.toISOString().split('.')[0])
     
     get_transaction_fee:->
-        @get_setting "transaction_fee"
+        @get_setting "default_transaction_priority_fee"
     
     list_accounts:(just_mine=false)->
         for entry in @wallet_object
@@ -482,6 +482,7 @@ class WalletDb
         seq = 0 unless seq
         child_private = child_public = child_address = null
         while true
+            ++seq
             try
                 child_private = ExtendedAddress.private_key private_key, seq
                 child_public = child_private.toPublicKey()
@@ -491,6 +492,7 @@ class WalletDb
                 console.log "Error creating child key index #{seq} for account #{account_name}", error  # very rare
             
         account.last_used_gen_sequence = seq
+        @store_account_or_update account, save
         @add_key_record
             account_address: child_address
             public_key: child_public.toBtsPublic()
