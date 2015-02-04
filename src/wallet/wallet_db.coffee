@@ -241,11 +241,12 @@ class WalletDb
             data.value = value
         else
             index = @wallet_object[@wallet_object.length - 1].data.index
-            throw "invalid index #{index}" unless /[0-9]+/.test index
+            index++ if index is -1 #bitshares client does not allow a zero
+            index++
             @property[key] = property_record =
                 type: "property_record_type"
                 data:
-                    index: ++index
+                    index: index
                     key: key
                     value: value
             @index_property property_record.data
@@ -434,6 +435,7 @@ class WalletDb
             @_append('account_record_type',account)
         
         @index_account account, true
+        console.log '... save',JSON.stringify save
         @save() if save
     
     ###
