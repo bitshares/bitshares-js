@@ -39,6 +39,10 @@ function init {
     rpc wallet_backup_restore '"'$BTS_JS'/testnet/config/wallet.json", "default", "Password00"'
   fi
   rpc wallet_delegate_set_block_production '"ALL", "true"'
+  for i in $(seq 0 100)
+  do 
+    rpc wallet_publish_price_feed '"delegate'$i'","0.01", "USD"'
+  done
 }
 init&
 

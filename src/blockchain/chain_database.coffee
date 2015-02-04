@@ -272,12 +272,19 @@ class ChainDatabase
                         balance = balances[asset_id] or 0
                         balances[asset_id] = balance - amount
                 
-                if (Object.keys balances).length isnt 1
-                    throw new Error "chain_database::_add_ledger_entries can't cal fee, transaction has more than one asset type in its remaning balance",transaction.trx
+                fee_balance = for asset_id in Object.keys balances
+                    balance = balances[asset_id]
+                    continue if balance is 0
+                    asset_id: asset_id
+                    amount: balance
+                    
+                if fee_balance.length isnt 1
+                    err = "chain_database::_add_ledger_entries can't calc fee, transaction has more than one asset type in its remaning balance"
+                    console.log err, transaction, balances
+                    throw new Error err
                     return
                 
-                asset_id: asset_id = (Object.keys balances)[0]
-                amount: balances[asset_id]
+                fee_balance[0]
             )()
         return
     

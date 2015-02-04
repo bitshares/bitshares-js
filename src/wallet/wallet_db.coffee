@@ -541,7 +541,7 @@ class WalletDb
     get_my_key_records:(account_name)->
         active_only = false
         account = @lookup_account account_name
-        return null unless account
+        return [] unless account
         addresses = {}
         lookup=(public_key)=>
             publicKey = PublicKey.fromBtsPublic public_key

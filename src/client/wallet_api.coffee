@@ -104,7 +104,6 @@ class WalletAPI
             @wallet, @rpc, @wallet.aes_root
         )
     
-    ###* TITAN ###
     transfer:( 
         amount, asset_symbol, 
         from_name, to_name
@@ -242,8 +241,11 @@ class WalletAPI
         transaction_fee:@wallet.get_transaction_fee()
     
     get_transaction_fee:(symbol)->
-        @wallet.get_transaction_fee(0)
-        
+        throw new Error 'symbol is required' unless symbol
+        @wallet.get_transaction_fee 0
+        #@chain_interface.get_asset(symbol).then (asset)=>
+        #    @wallet.get_transaction_fee(asset.asset_id)
+    
     get_setting:(key)->
         LE.throw "wallet.must_be_opened" unless @wallet
         value = @wallet.get_setting key
@@ -303,13 +305,14 @@ class WalletAPI
             defer = q.defer()
             builder = @_transaction_builder()
             builder.get_account_balance_records(account_name, extended).then (key_records)->
-                if key_records
-                    balance_records = key_records.balance_records
-                    for record in balance_records
+                if (Object.keys key_records).length is 0
+                    defer.resolve()
+                    return
+                for public_key in Object.keys key_records
+                    for record in key_records[public_key]
                         continue if record.length is 0
                         rec = record[1]
                         asset_id = rec.condition.asset_id
-                        # total keeps the results returned by the if statement
                         total account_name, asset_id, if extended
                             builder.get_extended_balance rec
                         else
@@ -351,29 +354,6 @@ class WalletAPI
     
     #batch wallet_check_vote_proportion
     
-    ### Query by asset symbol .. 
-    account_transaction_history:(
-        account_name=""
-        asset=""
-        limit=0
-        start_block_num=0
-        end_block_num=-1
-    )->
-        account_name = null if account_name is ""
-        asset = null if asset is ""
-        asset = 0 unless asset
-        @rpc.request("blockchain_get_asset_id", [asset]).then(result)=>
-            @account_transaction_history2(
-                account_name
-                result.id
-                limit
-                start_block_num
-                end_block_num
-            ).then(
-                ...
-            )
-    ###
-    
     account_transaction_history:(
         account_name=""
         asset=""
@@ -400,7 +380,12 @@ class WalletAPI
             end_block_num
         )
     
+    market_order_list:->
+        console.log 'WARN Not Implemented'
+        []
+    
     ###
+    
     
     account_yield
     account_balance
@@ -417,14 +402,14 @@ class WalletAPI
     ###
     
     _sign_and_send:(builder)->
-        defer = q.defer()
         builder.finalize().then ()=>
             builder.sign_transaction()
             record = builder.get_transaction_record()
-            p = []
-            @wallet.save_transaction record
-            p.push @blockchain_api.broadcast_transaction(record.trx)
-            ###
+            #@wallet.save_transaction record
+            #p = [] p.push 
+            console.log '... record',JSON.stringify record
+            @blockchain_api.broadcast_transaction(record.trx)
+            ### For TITAN support:
             for notice in builder.encrypted_notifications()
                 p.push @mail_client.send_encrypted_message(
                     notice,from_account_name
@@ -445,9 +430,6 @@ class WalletAPI
                     sender.owner_key
                 )
             ###
-            q.all(p).then ()->
-                defer.resolve record
-        .done()
-        defer.promise
+            #q.all(p)
     
 exports.WalletAPI = WalletAPI

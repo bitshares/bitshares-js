@@ -37,7 +37,6 @@ class TransactionBuilder
         @signatures = []
         @required_signatures = {}
         @outstanding_balances = {}
-        #@account_balance_records = {}
         #@notices = []
         @operations = []
         @order_keys = {}
@@ -371,47 +370,48 @@ class TransactionBuilder
         ###
         @get_account_balance_records(from_account_name).then(
             (key_balances)=>
-                balance_records = key_balances.balance_records
-                key_records = key_balances.key_records
-                withdraws = []
+                if (Object.keys key_balances).length is 0
+                    defer.resolve()
+                    return
                 
-                #console.log 'balance records',JSON.stringify balance_records,null,4
-                for i in [0...balance_records.length] by 1
-                    balance_record = balance_records[i]
-                    continue if balance_record.length is 0
-                    #balance_amount = @get_extended_balance(balance_record[1])
-                    balance_amount = balance_record[1].balance
-                    #continue unless balance_amount
-                    balance_id = balance_record[0]
-                    balance_asset_id = balance_record[1].condition.asset_id
-                    balance_owner = balance_record[1].condition.data.owner
-                    #unless @wallet.hasPrivate balance_owner
-                    #    console.log "ERROR: balance record without matching private key",balance_record
-                    continue if balance_amount <= 0
-                    continue if balance_asset_id isnt withdraw_asset_id
-                    if amount_remaining > balance_amount
-                        withdraw = new Withdraw(
-                            Address.fromString(balance_id).toBuffer()
-                            balance_amount
-                        )
-                        @operations.push new Operation withdraw.type_id, withdraw
-                        @required_signatures[key_records[i].public_key] = on
-                        amount_remaining -= balance_amount
-                    else
-                        withdraw = new Withdraw(
-                            Address.fromString(balance_id).toBuffer()
-                            amount_remaining
-                        )
-                        @operations.push new Operation withdraw.type_id, withdraw
-                        amount_remaining = 0
-                        @required_signatures[key_records[i].public_key] = on
-                        break
-                    
+                for public_key in Object.keys key_balances
+                    for balance_record in key_balances[public_key]
+                        balance_amount = balance_record[1].balance
+                        #continue unless balance_amount
+                        balance_id = balance_record[0]
+                        balance_asset_id = balance_record[1].condition.asset_id
+                        balance_owner = balance_record[1].condition.data.owner
+                        unless @wallet.hasPrivate balance_owner
+                            console.log "ERROR: balance record without matching private key",balance_record
+                            continue
+                        
+                        continue if balance_amount <= 0
+                        continue if balance_asset_id isnt withdraw_asset_id
+                        if amount_remaining > balance_amount
+                            withdraw = new Withdraw(
+                                Address.fromString(balance_id).toBuffer()
+                                balance_amount
+                            )
+                            @operations.push new Operation withdraw.type_id, withdraw
+                            @required_signatures[public_key] = on
+                            amount_remaining -= balance_amount
+                        else
+                            withdraw = new Withdraw(
+                                Address.fromString(balance_id).toBuffer()
+                                amount_remaining
+                            )
+                            @operations.push new Operation withdraw.type_id, withdraw
+                            @required_signatures[public_key] = on
+                            amount_remaining = 0
+                            break
+                    break if amount_remaining is 0
+                
                 if amount_remaining isnt 0
                     available = amount_to_withdraw.amount - amount_remaining
                     error = new LE 'wallet.insufficient_funds', amount_to_withdraw.amount, available
                     defer.reject error
                     return
+                
                 defer.resolve()
             (error)->
                 defer.reject error
@@ -460,33 +460,26 @@ class TransactionBuilder
         throw new Error 'account_name is required' unless account_name
         my_keys = @wallet.get_my_key_records account_name
         defer = q.defer()
-        unless my_keys
-            defer.resolve()
+        if my_keys.length is 0
+            defer.resolve {}
             return defer.promise
 
         owner_keys_params = []
         owner_keys_params.push [key.public_key] for key in my_keys
         try
             @rpc.request("batch", ["blockchain_list_key_balances", owner_keys_params]).then(
-                (batch_result)=>
-                    #@account_balance_records[account_name]=
-                    balance_records = []
-                    for balances in batch_result.result
-                        if balances.length is 0
-                            balance_records.push []
-                            continue
-                        
+                (batch_result)->
+                    batch_result = batch_result.result
+                    balance_records = {}
+                    for i in [0...batch_result.length] by 1
+                        balances = batch_result[i]
+                        continue if balances.length is 0
+                        public_key = owner_keys_params[i]
+                        balances_for_key = balance_records[public_key] = []
                         for balance in balances
                             if balance[1].condition.type is "withdraw_signature_type"
-                                balance_records.push balance
-                            else
-                                balance_records.push []
-                        
-                    #if true
-                    defer.resolve 
-                        key_records:my_keys
-                        balance_records:balance_records
-                    
+                                balances_for_key.push balance
+                    defer.resolve balance_records
                     return
                 (error)->
                     defer.reject error
@@ -562,9 +555,10 @@ class TransactionBuilder
         #    slate_id = 0
         
         p = []
-        for address in Object.keys @outstanding_balances
+        for key in Object.keys @outstanding_balances
+            address = key.split('\t')[0]
             #account_rec = asset_id: amount.asset_id, amount: amount
-            rec = @outstanding_balances[address]
+            rec = @outstanding_balances[key]
             continue if rec.amount is 0
             balance = {amount:rec.amount, asset_id: rec.asset_id}
             account = @wallet.get_account_for_address address         #address->ownerkey lookup
@@ -629,13 +623,14 @@ class TransactionBuilder
         
         if required_fee.asset_id isnt -1
             @transaction_record.fee = required_fee
-            for address in @outstanding_balances
+            for key in @outstanding_balances
+                address = key.split('\t')
                 #account_rec = asset_id: amount.asset_id, amount: amount
-                rec = @outstanding_balances[address]
+                rec = @outstanding_balances[key]
                 continue if rec.asset_id isnt required_fee.asset_id
                 if required_fee.amount > rec.amount
                     required_fee.amount -= rec.amount
-                    delete @outstanding_balances[address]
+                    delete @outstanding_balances[key]
                     # not enough, look for more
                     continue
                 
@@ -651,9 +646,10 @@ class TransactionBuilder
     # nonempty if there’s a margin position closed and the collateral is returned
     _all_positive_balances:->
         balances = {}
-        for address in Object.keys @outstanding_balances
+        for key in Object.keys @outstanding_balances
+            address = key.split('\t')[0]
             #account_rec = asset_id: amount.asset_id, amount: amount
-            rec = @outstanding_balances[address]
+            rec = @outstanding_balances[key]
             continue unless rec.amount > 0
             balance = balances[rec.asset_id]
             balances[rec.asset_id] = 0 unless balance
@@ -664,9 +660,10 @@ class TransactionBuilder
     _withdraw_fee_other_asset:->
         throw new Error 'not implemented @wallet.get_account_balances'
         account_balances = @wallet.get_account_balances "", false
-        for address in Object.keys @outstanding_balances
+        for key in Object.keys @outstanding_balances
+            address = key.split('\t')[0]
             #account_rec = asset_id: amount.asset_id, amount: amount
-            rec = @outstanding_balances[address]
+            rec = @outstanding_balances[key]
             account = @wallet_db.lookup_key rec.address
             balances = account_balances[account.name]
             continue unless balances
@@ -683,24 +680,26 @@ class TransactionBuilder
     _deduct_balance:(address, amount)->
         unless amount.amount >= 0
             throw new Error "amount must be positive"
-        record = @outstanding_balances[address]
+        record = @outstanding_balances[address + "\t" + amount.asset_id]
         unless record
-            @outstanding_balances[address] = record =
+            @outstanding_balances[address + "\t" + amount.asset_id] = record =
                 address:address
                 asset_id: amount.asset_id
                 amount: 0
         record.amount -= amount.amount
+        return
         
     # manually tweak an account's balance in this transaction
     _credit_balance:(address, amount)->
         unless amount.amount >= 0
             throw new Error "amount must be positive"
-        record = @outstanding_balances[address]
+        record = @outstanding_balances[address + "\t" + amount.asset_id]
         unless record
-            @outstanding_balances[address] = record =
+            @outstanding_balances[address + "\t" + amount.asset_id] = record =
                 address:address
                 asset_id: amount.asset_id
                 amount: 0
         record.amount += amount.amount
+        return
 
 exports.TransactionBuilder = TransactionBuilder
