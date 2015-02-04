@@ -50,11 +50,13 @@ describe "Account", ->
         @rpc.close()
     
     it "wallet_transfer", (done) ->
-        wallet_api = new_wallet_api @rpc
-        wallet_api.transfer(100.500019, 'XTS', 'delegate0', 'delegate1').then(
+        wallet_api = new_wallet_api @rpc#, '/tmp/po'
+        wallet_api.transfer(.1, 'XTS', 'delegate0', 'delegate1').then(
             (trx)->
                throw new Error 'missing trx' unless trx.trx
                done()
+            (error)->
+               console.log error    
        ).done()
     
     it "list_accounts", (done) ->

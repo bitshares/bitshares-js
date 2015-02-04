@@ -337,10 +337,6 @@ class Wallet
     getPrivateKey:(bts_public_key)->
         @keyrec_to_private @wallet_db.get_key_record bts_public_key
     
-    hasPrivate:(address)->
-        key_record = @wallet_db.lookup_key address
-        if key_record?.encrypted_private_key then yes else no
-        
     lookupPrivateKey:(address)->
         @keyrec_to_private @wallet_db.lookup_key address
     

@@ -125,23 +125,24 @@ class WalletAPI
         payer = @wallet.get_chain_account paying_account_name
         sender = if paying_account_name is from_account_name then payer else @wallet.get_chain_account from_account_name
         recipient = @wallet.get_chain_account to_account_name
-        fee = @wallet.get_transaction_fee()
-        q.all([asset, payer, sender, recipient, fee]).spread (asset, payer, sender, recipient, fee)=>
+        q.all([asset, payer, sender, recipient]).spread (asset, payer, sender, recipient)=>
             unless asset
                 error = new LE 'blockchain.unknown_asset', [asset]
                 defer.reject error
                 return
             
-            amount = ChainInterface.to_ugly_asset amount_to_transfer, asset
-            builder = @_transaction_builder()
-            builder.deposit_asset(
-                payer, recipient, amount
-                memo_message, selection_method, sender.owner_key
-                use_stealth_address = !recipient.meta_data?.type is "public_account"
-                fee
-            )
-            @_sign_and_send(builder).then (record)->
-                record
+            @wallet.get_transaction_fee(asset.asset_id).then (fee)=>
+                console.log '... fee',fee
+                amount = ChainInterface.to_ugly_asset amount_to_transfer, asset
+                builder = @_transaction_builder()
+                builder.deposit_asset(
+                    payer, recipient, amount
+                    memo_message, selection_method, sender.owner_key
+                    use_stealth_address = !recipient.meta_data?.type is "public_account"
+                    fee
+                )
+                @_sign_and_send(builder).then (record)->
+                    record
     
     ###* Transfer to a public address (non TITAN) ##
     transfer_to_address:(
@@ -407,8 +408,9 @@ class WalletAPI
             record = builder.get_transaction_record()
             #@wallet.save_transaction record
             #p = [] p.push 
-            console.log '... record',JSON.stringify record
-            @blockchain_api.broadcast_transaction(record.trx)
+            console.log '... record.trx',JSON.stringify record.trx,null,3
+            @blockchain_api.broadcast_transaction(record.trx).then ->
+                record
             ### For TITAN support:
             for notice in builder.encrypted_notifications()
                 p.push @mail_client.send_encrypted_message(
