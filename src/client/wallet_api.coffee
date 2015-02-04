@@ -131,8 +131,8 @@ class WalletAPI
                 defer.reject error
                 return
             
-            @wallet.get_transaction_fee(asset.asset_id).then (fee)=>
-                console.log '... fee',fee
+            # todo, catch insufficient funds error and try again with a fee asset_id of 0
+            @wallet.get_transaction_fee(asset.id).then (fee)=>
                 amount = ChainInterface.to_ugly_asset amount_to_transfer, asset
                 builder = @_transaction_builder()
                 builder.deposit_asset(
@@ -368,18 +368,26 @@ class WalletAPI
         else
             if asset is ""
                 -1
-            else
-                asset = @chain_database.get_asset_by_symbol asset_symbol
-                LE.throw "blockchain.unknown_asset",[asset_symbol] unless asset
-                asset.id
         
-        @wallet.account_transaction_history(
-            account_name
-            asset_id
-            limit
-            start_block_num
-            end_block_num
-        )
+        if asset_id
+            return @wallet.account_transaction_history(
+                account_name
+                asset_id
+                limit
+                start_block_num
+                end_block_num
+            )
+        
+        @chain_interface.get_asset(asset_symbol).then (asset_lookup)=>
+            LE.throw "blockchain.unknown_asset",[asset] unless asset_lookup
+            asset_id = asset_lookup.id
+            @wallet.account_transaction_history(
+                account_name
+                asset_id
+                limit
+                start_block_num
+                end_block_num
+            )
     
     market_order_list:->
         console.log 'WARN Not Implemented'
