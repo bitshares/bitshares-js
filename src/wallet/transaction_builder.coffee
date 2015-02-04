@@ -97,24 +97,25 @@ class TransactionBuilder
             memo_sender = @wallet.lookup_active_key payer.name
         
         titan_one_time_key = null
-        if recipient.meta_data?.type? is "public_account"
-            @deposit(
-                recipientActivePublic, amount, 
-                0 #@wallet.select_slate trx, amount.asset_id, vote_method
-            )
-        else
-            one_time_key = @wallet.getNewPrivateKey payer.name
-            titan_one_time_key = one_time_key.toPublicKey()
-            memoSenderPrivate = @wallet.getPrivateKey memo_sender
-            memoSenderPublic = memoSenderPrivate.toPublicKey()
-            @deposit_to_account(
-                recipientActivePublic, amount
-                memoSenderPrivate, memo
-                0 # @wallet.select_slate_id trx, amount.asset_id, vote_method
-                memoSenderPublic
-                one_time_key, 0 # memo_flags_enum from_memo
-                use_stealth_address
-            )
+        #if recipient.meta_data?.type? is "public_account"
+        #    @deposit(
+        #        recipientActivePublic, amount, 
+        #        0 #@wallet.select_slate trx, amount.asset_id, vote_method
+        #    )
+        #else
+        # sha256(<active private key>, <transaction expiration secs since epoch>) 
+        one_time_key = @wallet.getNewPrivateKey payer.name
+        titan_one_time_key = one_time_key.toPublicKey()
+        memoSenderPrivate = @wallet.getPrivateKey memo_sender
+        memoSenderPublic = memoSenderPrivate.toPublicKey()
+        @deposit_to_account(
+            recipientActivePublic, amount
+            memoSenderPrivate, memo
+            0 # @wallet.select_slate_id trx, amount.asset_id, vote_method
+            memoSenderPublic
+            one_time_key, 0 # memo_flags_enum from_memo
+            use_stealth_address
+        )
         
         @transaction_record.fee = fee
         @_deduct_balance payer.owner_key, fee, payer
@@ -173,13 +174,13 @@ class TransactionBuilder
             order_keys[account_address] = order_key
         order_key
     
-    deposit:(recipientPublic, amount, slate_id)->
-        deposit = new Deposit amount.amount, new WithdrawCondition(
-            amount.asset_id, slate_id
-            type_id(types.withdraw, "withdraw_signature_type"), 
-            new WithdrawSignatureType new Buffer recipientPublic.toBtsAddy()
-        )
-        @operations.push new Operation deposit.type_id, deposit
+    #deposit:(recipientPublic, amount, slate_id)->
+    #    deposit = new Deposit amount.amount, new WithdrawCondition(
+    #        amount.asset_id, slate_id
+    #        type_id(types.withdraw, "withdraw_signature_type"), 
+    #        new WithdrawSignatureType new Buffer recipientPublic.toBtsAddy()
+    #    )
+    #    @operations.push new Operation deposit.type_id, deposit
     
     deposit_to_account:(
         receiver_Public, amount
@@ -381,8 +382,9 @@ class TransactionBuilder
                         balance_id = balance_record[0]
                         balance_asset_id = balance_record[1].condition.asset_id
                         balance_owner = balance_record[1].condition.data.owner
-                        unless @wallet.hasPrivate balance_owner
-                            console.log "ERROR: balance record without matching private key",balance_record
+                        
+                        unless @wallet.getPrivateKey public_key
+                            console.log "ERROR: balance owner #{balance_owner} without matching private key",balance_record
                             continue
                         
                         continue if balance_amount <= 0
@@ -595,7 +597,7 @@ class TransactionBuilder
         for public_key in Object.keys @required_signatures
             try
                 private_key = @wallet.getPrivateKey public_key
-                #console.log '...sign by', private_key.toPublicKey().toBtsPublic()
+                console.log '...sign by', private_key.toPublicKey().toBtsPublic()
                 @signatures.push(
                     Signature.signBuffer trx_sign, private_key
                 )
