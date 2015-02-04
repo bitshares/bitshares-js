@@ -86,19 +86,19 @@ class ChainDatabase
                 continue unless account
                 next_account = next_accounts[i]
                 # update the account index, create private key entries etc...
-                #try
-                @wallet_db.generate_new_account(
-                    aes_root
-                    account.name
-                    account.private_data
-                    _save = false
-                    next_account
-                )
-                # sync direct account fields with the blockchain
-                @wallet_db.store_account_or_update account
-                #catch e
-                #    console.log "ERROR",e
-                null
+                try
+                    @wallet_db.generate_new_account(
+                        aes_root
+                        account.name
+                        account.private_data
+                        _save = false
+                        next_account
+                    )
+                    # sync direct account fields with the blockchain
+                    @wallet_db.store_account_or_update account
+                catch e
+                    console.log "ERROR",e
+            return
     
     sync_transactions:(account_name)->
         addresses = @_account_addresses account_name

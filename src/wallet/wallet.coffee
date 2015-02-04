@@ -138,10 +138,11 @@ class Wallet
             defer.resolve default_fee
             return defer.promise
         
-        desired_asset = @chain_database.get_asset desired_asset_id
-        base_asset = @chain_database.get_asset 0
-        @q.all([desired_asset, base_asset]).spread (desired_asset, base_asset)=>
-            @blockchain_api.market_status([desired_asset.symbol, base_asset.symbol]).then (market)->
+        desired_asset = @chain_interface.get_asset desired_asset_id
+        base_asset = @chain_interface.get_asset 0
+        q.all([desired_asset, base_asset]).spread (desired_asset, base_asset)=>
+            @blockchain_api.market_status(desired_asset.symbol, base_asset.symbol).then (market)->
+                console.log '... market',JSON.stringify market
                 feed_price = market.current_feed_price
                 if market.current_feed_price is 0
                     defer.resolve default_fee

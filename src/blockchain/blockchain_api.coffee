@@ -39,4 +39,13 @@ class BlockchainAPI
     @rpc.request('blockchain_broadcast_transaction', [trx]).then (response) ->
       response.result
 
+  # Returns the status of a particular market, including any trading errors.
+  # parameters: 
+  #   asset_symbol `quote_symbol` - quote symbol
+  #   asset_symbol `base_symbol` - base symbol
+  # return_type: `market_status`
+  market_status: (quote_symbol, base_symbol, error_handler = null) ->
+    @rpc.request('blockchain_market_status', [quote_symbol, base_symbol]).then (response) ->
+      response.result
+  
 exports.BlockchainAPI = BlockchainAPI

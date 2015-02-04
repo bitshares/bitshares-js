@@ -3,6 +3,11 @@ LE = require('../common/exceptions').LocalizedException
 q = require 'q'
 localStorage = require '../common/local_storage'
 
+###* 
+    Chain interface is generally the interface that is useful for both chain 
+    database and pending chain state PLUS general helper functions that don't 
+    depend on the current chain state.
+###
 class ChainInterface
     
     constructor:(@blockchain_api)->
@@ -58,8 +63,8 @@ class ChainInterface
         defer.promise
     
     ###* Use cache or query ###
-    get_asset:(symbol_name, refresh_cache = false)->
-        cache_key = 'chain-asset-'+symbol_name
+    get_asset:(name_or_id, refresh_cache = false)->
+        cache_key = 'chain-asset-'+name_or_id
         unless refresh_cache
             asset_string = localStorage.getItem cache_key
             if asset_string
@@ -67,7 +72,7 @@ class ChainInterface
                 defer.resolve JSON.parse asset_string
                 return defer.promise
         
-        @blockchain_api.get_asset(symbol_name).then (asset)=>
+        @blockchain_api.get_asset(name_or_id).then (asset)=>
             unless asset
                 return null
             unless asset.precision
