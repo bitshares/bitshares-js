@@ -7,6 +7,13 @@ class BlockchainAPI
 
   constructor: (@rpc) ->
   
+  # Returns current blockchain information and parameters
+  # parameters: 
+  # return_type: `json_object`
+  get_info: (error_handler = null) ->
+    @rpc.request('blockchain_get_info').then (response) ->
+      response.result
+  
   # Retrieves the record for the given asset ticker symbol or ID
   # parameters: 
   #   string `asset` - asset ticker symbol or ID to retrieve

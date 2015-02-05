@@ -47,7 +47,6 @@ class ChainDatabase
                     10*1000
             @sync_transactions()
     
-    
     _account_keys:(account_name)->
         account_names = []
         if account_name

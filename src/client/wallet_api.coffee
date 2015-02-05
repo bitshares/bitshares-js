@@ -22,7 +22,7 @@ libraries_api_wallet = require '../wallet/wallet_api.json'
 ###
 class WalletAPI
     
-    constructor:(@rpc)->
+    constructor:(@rpc, @rpc_pass_through)->
         if @rpc and not @rpc.request
             throw new Error 'expecting rpc object'
         
@@ -240,6 +240,24 @@ class WalletAPI
         unlocked: not @wallet?.locked() #if @wallet then not @wallet.locked() else null
         name: @wallet.wallet_db?.wallet_name
         transaction_fee:@wallet.get_transaction_fee()
+    
+    # blockchain_get_info has wallet attributes in it
+    blockchain_get_info:->
+        @rpc_pass_through('get_info').then (info)=>
+            console.log '... info',JSON.stringify info
+            info = info.result
+            for key in Object.keys info
+                if key.match /^wallet_/
+                    console.log '... delete',JSON.stringify 'del'
+                    delete info[key]
+            info['wallet_open'] = if @wallet then true else false
+            info['wallet_unlocked'] = not @wallet?.locked()
+            info
+            #info['wallet_unlocked_until']="xx hours in the future"
+            #info['wallet_unlocked_until_timestamp']=(
+            #    if not @wallet?.locked()
+            #        @wallet.unlocked_until().toISOString().split('.')[0]
+            #)
     
     get_transaction_fee:(symbol)->
         throw new Error 'symbol is required' unless symbol
