@@ -10,7 +10,7 @@ secureRandom = require 'secure-random'
 PASSWORD = "Password00"
 PAY_FROM = "delegate0" #(if p=process.env.PAY_FROM then p else "delegate0")
 
-new_wallet_api= (rpc, backup_file = '../fixtures/wallet.json') ->
+new_wallet_api= (rpc, backup_file = '../../testnet/config/wallet.json') ->
     wallet_api = if backup_file
         wallet_json_string = JSON.stringify require backup_file
         # JSON.parse is used to clone (so internals can't change)
@@ -50,8 +50,8 @@ describe "Account", ->
         @rpc.close()
     
     it "wallet_transfer", (done) ->
-        wallet_api = new_wallet_api @rpc#, '/tmp/po'
-        wallet_api.transfer(.1, 'XTS', 'delegate0', 'delegate1').then(
+        wallet_api = new_wallet_api @rpc#, '/tmp/w'
+        wallet_api.transfer(.1, 'XTS', 'delegate0', 'delegate0').then(
             (trx)->
                throw new Error 'missing trx' unless trx.trx
                done()

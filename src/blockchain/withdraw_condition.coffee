@@ -10,7 +10,7 @@ Address = ecc.Address
 
 ###
 bts::blockchain::withdraw_condition, (asset_id)(slate_id)(type)(data)
-    varint32 fc::signed_int asset_id_type asset_id
+    int32_t fc::signed_int asset_id_type asset_id
     uint64_t slate_id_type slate_id
     fc::enum_type<uint8_t, withdraw_condition_types> type
     std::vector<char> data
@@ -24,6 +24,8 @@ class WithdrawCondition
 
     WithdrawCondition.fromByteBuffer= (b) ->
         asset_id = b.readVarint32()
+        unless asset_id is 0
+            throw new Error 'unsupported variable length signed int decoding, see https://github.com/dcodeIO/ByteBuffer.js/issues/44'
         slate_id = b.readInt64()
         type_id = b.readUint8()
         data = fp.variable_bytebuffer b
@@ -36,7 +38,12 @@ class WithdrawCondition
         new WithdrawCondition(asset_id, slate_id, type_id, condition)
         
     appendByteBuffer: (b) ->
-        b.writeVarint32(@asset_id)
+        n=@asset_id
+        # signed variable length integer
+        # https://github.com/dcodeIO/ByteBuffer.js/issues/44
+        n=(n << 1) ^ (n >> 31)
+        b.writeVarint32(n)
+        # b.printDebug()
         b.writeInt64(@slate_id)
         b.writeUint8(@type_id)
         fp.variable_buffer b, @condition.toBuffer()

@@ -422,20 +422,21 @@ class WalletDb
         delete account.active_key #populated from active key history array
         existing = @lookup_account account.name
         if existing
-            # New accounts in bitshares_client backups use an id of 0
-            account.id = 0 #last_account_index + 1
             i = @_wallet_index (o)->
                 o.type is "account_record_type" and o.data.name is account.name
             #console.log 'store_account_or_update', account.name,i
             if @wallet_object[i].owner isnt account.owner
                 throw new Error "owner key unique violation on account '#{account.name}'"
-            
+            account.index = existing.index
+            if existing.private_data
+                account.private_data = existing.private_data
             @wallet_object[i].data = account
         else
+            # New accounts in bitshares_client backups use an id of 0
+            account.id = 0 #last_account_index + 1
             @_append('account_record_type',account)
         
         @index_account account, true
-        console.log '... save',JSON.stringify save
         @save() if save
     
     ###

@@ -244,11 +244,9 @@ class WalletAPI
     # blockchain_get_info has wallet attributes in it
     blockchain_get_info:->
         @rpc_pass_through('get_info').then (info)=>
-            console.log '... info',JSON.stringify info
             info = info.result
             for key in Object.keys info
                 if key.match /^wallet_/
-                    console.log '... delete',JSON.stringify 'del'
                     delete info[key]
             info['wallet_open'] = if @wallet then true else false
             info['wallet_unlocked'] = not @wallet?.locked()

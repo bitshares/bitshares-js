@@ -531,7 +531,7 @@ class TransactionBuilder
                 defer.reject error
         ).done()
         ###
-        @blockchain_api.request("get_pending_transactions").then(
+        @rpc.request("get_pending_transactions").then(
             (result)->
                 # TODO need example output to complete...
                 console.log '... result',JSON.stringify result
@@ -591,6 +591,7 @@ class TransactionBuilder
             @slate_id
             @operations
         )
+        #@binary_transaction.toByteBuffer().printDebug()
         trx_buffer = @binary_transaction.toBuffer()
         trx_sign = Buffer.concat([trx_buffer, chain_id_buffer])
         #console.log 'digest',hash.sha256(trx_sign).toString('hex')

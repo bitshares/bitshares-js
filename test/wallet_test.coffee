@@ -3,7 +3,7 @@
 {WalletAPI} = require '../src/client/wallet_api'
 {TransactionLedger} = require '../src/wallet/transaction_ledger'
 {ChainInterface} = require '../src/blockchain/chain_interface'
-wallet_object = require './fixtures/wallet.json'
+wallet_object = require '../testnet/config/wallet.json'
 EC = require('../src/common/exceptions').ErrorWithCause
 secureRandom = require 'secure-random'
 
