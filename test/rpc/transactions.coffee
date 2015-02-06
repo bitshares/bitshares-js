@@ -39,7 +39,7 @@ wallet_account_create init0
 wallet_account_register init0 delegate0 {"mail_server_endpoint":"127.0.0.1:45000"}
 ###
 
-describe "Account", ->
+describe "Transactions", ->
     
     beforeEach ->
         RPC_DEBUG=process.env.RPC_DEBUG
