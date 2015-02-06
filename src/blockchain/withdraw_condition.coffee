@@ -23,9 +23,7 @@ class WithdrawCondition
         types.withdraw[@type_id]
 
     WithdrawCondition.fromByteBuffer= (b) ->
-        asset_id = b.readVarint32()
-        unless asset_id is 0
-            throw new Error 'unsupported variable length signed int decoding, see https://github.com/dcodeIO/ByteBuffer.js/issues/44'
+        asset_id = b.readVarint32ZigZag()
         slate_id = b.readInt64()
         type_id = b.readUint8()
         data = fp.variable_bytebuffer b
@@ -39,11 +37,7 @@ class WithdrawCondition
         
     appendByteBuffer: (b) ->
         n=@asset_id
-        # signed variable length integer
-        # https://github.com/dcodeIO/ByteBuffer.js/issues/44
-        n=(n << 1) ^ (n >> 31)
-        b.writeVarint32(n)
-        # b.printDebug()
+        b.writeVarint32ZigZag(n)
         b.writeInt64(@slate_id)
         b.writeUint8(@type_id)
         fp.variable_buffer b, @condition.toBuffer()
