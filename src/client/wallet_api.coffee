@@ -22,7 +22,7 @@ libraries_api_wallet = require '../wallet/wallet_api.json'
 ###
 class WalletAPI
     
-    constructor:(@rpc, @rpc_pass_through)->
+    constructor:(@rpc, @rpc_pass_through, @relay_node)->
         if @rpc and not @rpc.request
             throw new Error 'expecting rpc object'
         
@@ -101,7 +101,7 @@ class WalletAPI
         LE.throw "wallet.must_be_opened" unless @wallet
         LE.throw 'wallet.must_be_unlocked' unless @wallet.aes_root
         new TransactionBuilder(
-            @wallet, @rpc, @wallet.aes_root
+            @wallet, @rpc, @wallet.aes_root, @relay_node
         )
     
     transfer:( 
@@ -243,7 +243,7 @@ class WalletAPI
     
     # blockchain_get_info has wallet attributes in it
     blockchain_get_info:->
-        @rpc_pass_through('get_info').then (info)=>
+        @rpc_pass_through.request('get_info').then (info)=>
             info = info.result
             for key in Object.keys info
                 if key.match /^wallet_/

@@ -25,7 +25,7 @@ BTS_BLOCKCHAIN_MAX_MEMO_SIZE = 19
 
 class TransactionBuilder
     
-    constructor:(@wallet, @rpc, @aes_root)->
+    constructor:(@wallet, @rpc, @aes_root, @relay_node)->
         throw new Error 'wallet is a required parameter' unless @wallet
         @blockchain_api = new BlockchainAPI @rpc
         now = new Date().toISOString().split('.')[0]

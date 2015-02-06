@@ -14,8 +14,7 @@ describe "Network", ->
     
     it "fetch_welcome_package", (done) ->
         rn = new RelayNode @rpc
-        rn.initialize().then( ->
-            rn.initialized_or_throw()
+        rn.init().then( ->
             done()
         ).done()
     
