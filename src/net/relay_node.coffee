@@ -21,14 +21,12 @@ class RelayNode
                     if value is undefined
                         throw new Error "required: #{attribute}" 
                     @[attribute]=welcome[attribute]
+                @initialize_finished = yes
             (error)->EC.throw 'fetch_welcome_package', error
         )
     
     initialized_or_throw:->
-        unless @chain_id isnt undefined and
-        @relay_fee_collector isnt undefined and
-        @relay_fee_amount isnt undefined and
-        @network_fee_amount isnt undefined
+        unless @initialize_finished
             throw new Error "RelayNode did not initialize properly"
     
 exports.RelayNode = RelayNode
