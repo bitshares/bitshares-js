@@ -600,7 +600,7 @@ class WalletDb
         active_key = @lookup_active_key account_name
         return null unless active_key
         key_record = @get_key_record active_key
-        return null unless key_record
+        return null unless key_record?.encrypted_private_key
         PrivateKey.fromHex aes_root.decryptHex key_record.encrypted_private_key
     
 exports.WalletDb = WalletDb

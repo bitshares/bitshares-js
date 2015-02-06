@@ -50,14 +50,18 @@ describe "Account", ->
         @rpc.close()
     
     it "wallet_transfer", (done) ->
-        wallet_api = new_wallet_api @rpc#, '/tmp/w'
-        wallet_api.transfer(.1, 'XTS', 'delegate0', 'delegate0').then(
+        xfer=
+            wallet:null,symbol:'XTS',from:'delegate0'
+            #wallet:'/tmp/w',symbol:'USD',from:'frog'
+        
+        wallet_api = new_wallet_api @rpc#, xfer.wallet
+        wallet_api.transfer(.1, xfer.symbol,xfer.from, 'delegate0').then(
             (trx)->
-               throw new Error 'missing trx' unless trx.trx
-               done()
+                throw new Error 'missing trx' unless trx?.trx
+                done()
             (error)->
-               console.log error    
-       ).done()
+                console.log error,error.error?.data?.stack
+        ).done()
     
     it "list_accounts", (done) ->
         suffix = secureRandom.randomBuffer(2).toString 'hex'
@@ -158,7 +162,7 @@ describe "Account", ->
     #    .done()
    
     it "account_register", (done) ->
-        wallet_api = new_wallet_api @rpc, '../fixtures/del.json'
+        wallet_api = new_wallet_api @rpc#, '../fixtures/del.json'
         suffix = secureRandom.randomBuffer(2).toString 'hex'
         @timeout 10*1000
         try
