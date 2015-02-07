@@ -22,7 +22,7 @@ libraries_api_wallet = require '../wallet/wallet_api.json'
 ###
 class WalletAPI
     
-    constructor:(@rpc, @rpc_pass_through, @relay_node)->
+    constructor:(@rpc, @rpc_pass_through, @relay)->
         if @rpc and not @rpc.request
             throw new Error 'expecting rpc object'
         
@@ -101,48 +101,53 @@ class WalletAPI
         LE.throw "wallet.must_be_opened" unless @wallet
         LE.throw 'wallet.must_be_unlocked' unless @wallet.aes_root
         new TransactionBuilder(
-            @wallet, @rpc, @wallet.aes_root, @relay_node
+            @wallet, @rpc, @wallet.aes_root
         )
     
     transfer:( 
-        amount, asset_symbol, 
+        amount, asset_name_or_id, 
         from_name, to_name
         memo_message = "", selection_method = ""
     )->
         @transfer_from(
-            amount, asset_symbol, 
+            amount, asset_name_or_id, 
             from_name, from_name, to_name
             memo_message, selection_method
         )
     
     transfer_from:(
-        amount_to_transfer, asset_symbol, 
+        amount_to_transfer, asset_name_or_id, 
         paying_account_name, from_account_name, to_account_name
         memo_message = "", selection_method = ""
+        fee_asset_name_or_id
     )->
         LE.throw "wallet.must_be_opened" unless @wallet
-        asset = @chain_interface.get_asset(asset_symbol)
+        asset = @chain_interface.get_asset asset_name_or_id
         payer = @wallet.get_chain_account paying_account_name
         sender = if paying_account_name is from_account_name then payer else @wallet.get_chain_account from_account_name
         recipient = @wallet.get_chain_account to_account_name
-        q.all([asset, payer, sender, recipient]).spread (asset, payer, sender, recipient)=>
+        unless fee_asset_name_or_id
+            fee_asset_name_or_id = asset_name_or_id
+        
+        q.all([
+            asset, payer, sender, recipient
+        ]).spread (
+            asset, payer, sender, recipient
+        )=>
             unless asset
                 error = new LE 'blockchain.unknown_asset', [asset]
                 defer.reject error
                 return
             
-            # todo, catch insufficient funds error and try again with a fee asset_id of 0
-            @wallet.get_transaction_fee(asset.id).then (fee)=>
-                amount = ChainInterface.to_ugly_asset amount_to_transfer, asset
-                builder = @_transaction_builder()
-                builder.deposit_asset(
-                    payer, recipient, amount
-                    memo_message, selection_method, sender.owner_key
-                    use_stealth_address = !recipient.meta_data?.type is "public_account"
-                    fee
-                )
-                @_sign_and_send(builder).then (record)->
-                    record
+            amount = ChainInterface.to_ugly_asset amount_to_transfer, asset
+            builder = @_transaction_builder()
+            builder.deposit_asset(
+                payer, recipient, amount
+                memo_message, selection_method, sender.owner_key
+                use_stealth_address = !recipient.meta_data?.type is "public_account"
+            )
+            @_finalize_and_send(builder, payer, fee_asset_name_or_id).then (record)->
+                record
     
     ###* Transfer to a public address (non TITAN) ##
     transfer_to_address:(
@@ -183,11 +188,13 @@ class WalletAPI
         public_data = null
         delegate_pay_rate = -1
         account_type = 'public_account'
+        fee_asset_name_or_id = 0
     )->
         LE.throw "wallet.must_be_opened" unless @wallet
-        fee = @wallet.get_transaction_fee()
         account_check = @chain_interface.valid_unique_account account_name
-        q.all([account_check, fee]).spread (account_check, fee)=>
+        payer = @wallet.get_chain_account pay_with_account
+        q.all([account_check, payer]).spread (account_check, payer)=>
+            
             builder = @_transaction_builder()
             builder.account_register(
                 account_name
@@ -195,9 +202,8 @@ class WalletAPI
                 public_data
                 delegate_pay_rate
                 account_type
-                fee
             )
-            @_sign_and_send(builder).then (record)->
+            @_finalize_and_send(builder, payer, fee_asset_name_or_id).then (record)->
                 record
     
     #account_retract:(account_to_update, pay_from_account)->
@@ -216,10 +222,6 @@ class WalletAPI
                 defer.reject error
         ).done()
     
-    #<account_name> <pay_from_account> [public_data] [delegate_pay_rate] [account_type]
-    
-
-
     ###*
         Save a new wallet and return a WalletDb object.  Resolves as an error 
         if wallet exists or is unable to save in local storage.
@@ -243,7 +245,7 @@ class WalletAPI
     
     # blockchain_get_info has wallet attributes in it
     blockchain_get_info:->
-        @rpc_pass_through.request('get_info').then (info)=>
+        @rpc_pass_through.request('blockchain_get_info').then (info)=>
             info = info.result
             for key in Object.keys info
                 if key.match /^wallet_/
@@ -257,11 +259,15 @@ class WalletAPI
             #        @wallet.unlocked_until().toISOString().split('.')[0]
             #)
     
-    get_transaction_fee:(symbol)->
-        throw new Error 'symbol is required' unless symbol
-        @wallet.get_transaction_fee 0
-        #@chain_interface.get_asset(symbol).then (asset)=>
-        #    @wallet.get_transaction_fee(asset.asset_id)
+    get_transaction_fee:(asset_name_or_id)->
+        LE.throw "wallet.must_be_opened" unless @wallet
+        if asset_name_or_id is null or asset_name_or_id is undefined
+            throw new Error 'asset_name_or_id is required'
+        
+        @chain_interface.get_transaction_fee(
+            asset_name_or_id
+            @wallet.wallet_db.get_transaction_fee().amount
+        )
     
     get_setting:(key)->
         LE.throw "wallet.must_be_opened" unless @wallet
@@ -409,53 +415,62 @@ class WalletAPI
         console.log 'WARN Not Implemented'
         []
     
-    ###
-    
-    
-    account_yield
-    account_balance
-    batch wallet_check_vote_proportion [["acct",]]
-        ret [
-            negative_utilization:0
-            utilization:0
-        ]
-    account_create ["bbbb", {gui_data: website:undefined}]
-        ret result: "XTS6mF3osHjZANkoE65gBYdJff5qe75KLxnLV5wx5bD9QWSEhGrUW"
-        
-    get_account ["bbb"]
-        result:active_key:"",akhistory,approved:0,id,index,is_my_account...
-    ###
-    
-    _sign_and_send:(builder)->
-        builder.finalize().then ()=>
-            builder.sign_transaction()
-            record = builder.get_transaction_record()
-            #@wallet.save_transaction record
-            #p = [] p.push 
-            console.log '... record.trx',JSON.stringify record.trx,null,3
-            @blockchain_api.broadcast_transaction(record.trx).then ->
-                record
-            ### For TITAN support:
-            for notice in builder.encrypted_notifications()
-                p.push @mail_client.send_encrypted_message(
-                    notice,from_account_name
-                    to_account_name
-                    recipient.owner_key
+    _finalize_and_send:(builder, payer_account, fee_asset_name_or_id)->
+        network_fee = @get_transaction_fee fee_asset_name_or_id
+        q.all([network_fee, @relay.init()]).spread (network_fee, relay_init)=>
+            q.all([
+                # If the relay node should set the fee:
+                #@chain_interface.get_transaction_fee(
+                #    fee_asset.asset_id
+                #    @relay.welcome.network_fee_amount
+                #)
+                @chain_interface.get_transaction_fee(
+                    network_fee.asset_id
+                    @relay.welcome.relay_fee_amount
                 )
-            ###
-            ### cpp
-            notices = builder->encrypted_notifications()
-            for notice in notices
-                mail.send_encrypted_message(
-                    notice, sender, receiver, 
-                    sender.owner_key
+                @wallet.get_chain_account( # cache in wallet_db
+                    @relay.welcome.relay_fee_collector.name
                 )
-                # a second copy for one's self
-                mail.send_encrypted_message(
-                    notice, sender, sender, 
-                    sender.owner_key
-                )
-            ###
-            #q.all(p)
+            ]).spread (
+                #network_fee
+                light_fee
+                collector
+            )=>
+                
+                builder.pay_network_fee payer_account, network_fee
+                builder.pay_collector_fee payer_account, collector, light_fee
+                builder.finalize().then ()=>
+                    builder.sign_transaction()
+                    record = builder.get_transaction_record()
+                    #@wallet.save_transaction record
+                    #p = [] p.push 
+                    
+                    console.log '... record.trx',JSON.stringify record.trx,null,2
+                    @blockchain_api.broadcast_transaction(record.trx).then ->
+                        record
+                    ,(e)->console.log 'e',e.error.data.stack
+                    
+                    ### For TITAN support:
+                    for notice in builder.encrypted_notifications()
+                        p.push @mail_client.send_encrypted_message(
+                            notice,from_account_name
+                            to_account_name
+                            recipient.owner_key
+                        )
+                    ###
+                    ### cpp
+                    notices = builder->encrypted_notifications()
+                    for notice in notices
+                        mail.send_encrypted_message(
+                            notice, sender, receiver, 
+                            sender.owner_key
+                        )
+                        # a second copy for one's self
+                        mail.send_encrypted_message(
+                            notice, sender, sender, 
+                            sender.owner_key
+                        )
+                    ###
+                    #q.all(p)
     
 exports.WalletAPI = WalletAPI

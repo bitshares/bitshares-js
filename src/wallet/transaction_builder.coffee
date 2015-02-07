@@ -19,13 +19,13 @@ config = require '../config'
 hash = require '../ecc/hash'
 q = require 'q'
 types = require '../blockchain/types'
-type_id = types.type_id
+lookup_type_id = types.type_id
 
 BTS_BLOCKCHAIN_MAX_MEMO_SIZE = 19
 
 class TransactionBuilder
     
-    constructor:(@wallet, @rpc, @aes_root, @relay_node)->
+    constructor:(@wallet, @rpc, @aes_root)->
         throw new Error 'wallet is a required parameter' unless @wallet
         @blockchain_api = new BlockchainAPI @rpc
         now = new Date().toISOString().split('.')[0]
@@ -71,10 +71,9 @@ class TransactionBuilder
     
     deposit_asset:(
         payer, recipient, amount
-        memo, vote_method
+        memo="", vote_method
         memo_sender #BTS Public Key String
         use_stealth_address
-        fee
     )->
         throw new Error 'missing payer' unless payer?.name
         throw new Error 'missing recipient' unless recipient?.name
@@ -92,7 +91,6 @@ class TransactionBuilder
         
         recipientActivePublic = @wallet.getActiveKey recipient.name
         payerActivePublic = @wallet.getActiveKey payer.name
-        
         unless memo_sender
             memo_sender = @wallet.lookup_active_key payer.name
         
@@ -116,11 +114,7 @@ class TransactionBuilder
             one_time_key, 0 # memo_flags_enum from_memo
             use_stealth_address
         )
-        
-        @transaction_record.fee = fee
-        @_deduct_balance payer.owner_key, fee, payer
-        @_deduct_balance payer.owner_key, amount, payer
-        
+        @_deduct_balance payer.owner_key, amount
         @transaction_record.ledger_entries.push ledger_entry =
             from_account: payer.owner_key
             to_account: recipient.owner_key
@@ -142,6 +136,22 @@ class TransactionBuilder
             )
             recipient_active_key: recipientActivePublic
         ###
+    
+    pay_network_fee:(payer_account, fee_asset)->
+        unless payer_account.active_key
+            throw new Error "expecting payer to be an account object"
+        unless @transaction_record.fee
+            @transaction_record.fee=[]
+        
+        @transaction_record.fee.push fee_asset
+        @_deduct_balance payer_account.active_key, fee_asset
+    
+    pay_collector_fee:(payer_account, recepient_account, fee_asset)->
+        unless payer_account.active_key
+            throw new Error "expecting payer to be an account object"
+        
+        @deposit_asset payer_account, recepient_account, fee_asset
+    
     ###
     # mailbox notification for titan
     encrypted_notifications:->
@@ -174,19 +184,20 @@ class TransactionBuilder
             order_keys[account_address] = order_key
         order_key
     
-    #deposit:(recipientPublic, amount, slate_id)->
+    #deposit:(owner, amount, slate_id = null)->
     #    deposit = new Deposit amount.amount, new WithdrawCondition(
     #        amount.asset_id, slate_id
-    #        type_id(types.withdraw, "withdraw_signature_type"), 
-    #        new WithdrawSignatureType new Buffer recipientPublic.toBtsAddy()
+    #        lookup_type_id(types.withdraw, "withdraw_signature_type"), 
+    #        new WithdrawSignatureType owner
     #    )
     #    @operations.push new Operation deposit.type_id, deposit
+    #    return
     
     deposit_to_account:(
         receiver_Public, amount
         from_Private, memo_message, slate_id
         memo_Public, one_time_Private, memo_type
-        use_stealth_address = true
+        use_stealth_address = false
     )->
         #TITAN used for memos even if it is not used for the transfer...
         memo = @encrypt_memo_data(
@@ -202,15 +213,17 @@ class TransactionBuilder
         withdraw_condition = =>
             new WithdrawCondition(
                 amount.asset_id, slate_id
-                type_id(types.withdraw, "withdraw_signature_type"), 
+                lookup_type_id(types.withdraw, "withdraw_signature_type")
                 new WithdrawSignatureType(
                     owner, memo.one_time_key
                     memo.encrypted_memo_data
                 )
             )
+        
         deposit = new Deposit amount.amount, withdraw_condition()
         @operations.push new Operation deposit.type_id, deposit
         memo.receiver_address_Public
+        return
     
     encrypt_memo_data:(
         one_time_Private, to_Public, from_Private,
@@ -277,7 +290,6 @@ class TransactionBuilder
         public_data=""
         delegate_pay_rate = -1
         account_type
-        fee
     )->
         LE.throw "wallet.must_be_opened" unless @wallet
         as_delegate = no
@@ -331,8 +343,6 @@ class TransactionBuilder
                 @required_signatures[@wallet.lookup_active_key parent] = on
             ###
         
-        @_deduct_balance pay_from_OwnerKey.toBtsPublic(), fee 
-        
         if delegate_pay_rate isnt -1
             #calc and add delegate fee
             throw new Error 'not implemented'
@@ -344,8 +354,8 @@ class TransactionBuilder
             memo: "register " + account_to_register + (if as_delegate then " as a delegate" else "")
             memo_from_account:null
         
-        @transaction_record.fee = fee
-        
+        return
+    
     withdraw_to_transaction:(
         amount_to_withdraw
         from_account_name
@@ -563,7 +573,9 @@ class TransactionBuilder
             rec = @outstanding_balances[key]
             continue if rec.amount is 0
             balance = {amount:rec.amount, asset_id: rec.asset_id}
-            account = @wallet.get_account_for_address address         #address->ownerkey lookup
+            account = @wallet.get_account_for_address address
+            unless account
+                throw new Error "Missing account for address #{address}"
             
             if rec.amount > 0
                 depositAddress = @order_key_for_account address, account.name
@@ -680,26 +692,30 @@ class TransactionBuilder
     ###
     
     # manually tweak an account's balance in this transaction
-    _deduct_balance:(address, amount)->
+    _deduct_balance:(public_key, amount)->
+        unless public_key
+            throw new Error "missing public key"
         unless amount.amount >= 0
-            throw new Error "amount must be positive"
-        record = @outstanding_balances[address + "\t" + amount.asset_id]
+            throw new Error "amount #{amount.amount} must be positive"
+        record = @outstanding_balances[public_key + "\t" + amount.asset_id]
         unless record
-            @outstanding_balances[address + "\t" + amount.asset_id] = record =
-                address:address
+            @outstanding_balances[public_key + "\t" + amount.asset_id] = record =
+                address:public_key
                 asset_id: amount.asset_id
                 amount: 0
         record.amount -= amount.amount
         return
         
     # manually tweak an account's balance in this transaction
-    _credit_balance:(address, amount)->
+    _credit_balance:(public_key, amount)->
+        unless public_key
+            throw new Error "missing public key"
         unless amount.amount >= 0
-            throw new Error "amount must be positive"
-        record = @outstanding_balances[address + "\t" + amount.asset_id]
+            throw new Error "amount #{amount.amount} must be positive"
+        record = @outstanding_balances[public_key + "\t" + amount.asset_id]
         unless record
-            @outstanding_balances[address + "\t" + amount.asset_id] = record =
-                address:address
+            @outstanding_balances[public_key + "\t" + amount.asset_id] = record =
+                address:public_key
                 asset_id: amount.asset_id
                 amount: 0
         record.amount += amount.amount

@@ -35,7 +35,7 @@ class ChainInterface
         return false unless /[a-z0-9-\.]$/i.test subname
         return true if supername is ""
         is_valid_acccount_name supername
-        
+    
     ###* @return asset ###
     ChainInterface.to_ugly_asset=(amount_to_transfer, asset)->
         amount = amount_to_transfer
@@ -84,7 +84,31 @@ class ChainInterface
             asset
     
     # refresh_assets:-> blockchain_list_assets probably once a day or if the user requests a refresh ...
+    ###* Default fee is in the base asset ID ###
+    get_transaction_fee:(asset_name_or_id = 0, default_fee_amount)->
+        throw new Error "default_fee_amount is required" unless default_fee_amount
+        throw new Error "default_fee_amount should be an integer" if default_fee_amount.amount 
+        defer = q.defer()
+        if asset_name_or_id is 0
+            defer.resolve
+                asset_id: 0
+                amount: default_fee_amount
+            return defer.promise
         
-    
-    
+        target_asset = @get_asset asset_name_or_id
+        base_asset = @get_asset 0
+        q.all([target_asset, base_asset]).spread (target_asset, base_asset)=>
+            if target_asset.id is 0
+                asset_id: 0
+                amount: default_fee_amount
+            else
+                @blockchain_api.market_status(target_asset.symbol, base_asset.symbol).then (market)->
+                    feed_price = market.current_feed_price
+                    if market.current_feed_price is 0
+                        asset_id: 0
+                        amount: default_fee_amount
+                    else
+                        asset_id: target_asset.id
+                        amount: default_fee_amount * feed_price
+
 exports.ChainInterface = ChainInterface

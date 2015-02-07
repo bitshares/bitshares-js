@@ -10,8 +10,7 @@ class JsClient
         relay_node = new RelayNode @rpc_pass_through
         relay_node.init() #get it started..
         @rpc.request = (method, params, error_handler) =>
-            relay_node.init().then =>
-                @request method, params, error_handler
+            @request method, params, error_handler
         
         @wallet_api = new WalletAPI @rpc, @rpc_pass_through, relay_node
         @log_hide=

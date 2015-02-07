@@ -17,6 +17,7 @@ bts::blockchain::operation, (type)(data)
 class Transaction
     
     constructor: (@expiration, @slate_id = null, @operations = []) ->
+        throw new Error 'Not Implemented' if @slate_id isnt null
         
     id:->
         h = hash.sha512 @toBuffer()

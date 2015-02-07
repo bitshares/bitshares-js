@@ -1,7 +1,8 @@
 # sync with blockchain operations.hpp
 types = module.exports
+# lookup_type_id is a better name for type_id
 types.type_id = (array, name) ->
-    for i in [0..array.length]
+    for i in [0...array.length] by 1
         if array[i] is name
             return i
 

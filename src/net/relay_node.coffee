@@ -13,6 +13,7 @@ class RelayNode
     
     constructor:(@rpc)->
         throw new Error 'missing required parameter' unless @rpc
+        @welcome = {}
     
     init:->
         return init_promise if init_promise
@@ -24,9 +25,9 @@ class RelayNode
                     'relay_fee_amount','network_fee_amount'
                 ]
                     value = welcome[attribute]
-                    if value is undefined
+                    unless value
                         throw new Error "required: #{attribute}" 
-                    @[attribute]=welcome[attribute]
+                    @welcome[attribute]=welcome[attribute]
                 
                 @rpc.request('blockchain_get_asset', [0]).then(
                     (base_asset)=>
@@ -34,11 +35,15 @@ class RelayNode
                         @base_asset_symbol = base_asset.symbol
                         unless @base_asset_symbol
                             throw new Error "required: base asset symbol"
-                        @_validate_chain_id @chain_id, @base_asset_symbol
-                        @initialize_finished = yes
+                        @_validate_chain_id @welcome.chain_id, @base_asset_symbol
+                        @initialized = yes
                 )
             (error)->EC.throw 'fetch_welcome_package', error
         )
+    
+    base_symbol:->
+        throw new Error "call init()" unless @initialized
+        @base_asset_symbol
     
     _validate_chain_id:(chain_id, base_asset_symbol)->
         id = CHAIN_ID[base_asset_symbol]

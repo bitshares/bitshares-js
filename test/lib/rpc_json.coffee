@@ -4,6 +4,7 @@ RPC port core dump
 A unit test that runs several RPC commands in the same connection (example: id:1, id:2, ..) quickly triggered a core dump of bitshares_client on ubuntu.  This is intermittent but did not take long.  
 ###
 quicky = on
+EC = require('../../src/common/exceptions').ErrorWithCause
 
 class RpcJson
 
@@ -53,10 +54,21 @@ class RpcJson
 
     request:(method, parameters)->
         defer = q.defer()
-        @run(method, parameters).then(
-            (result)->defer.resolve result:result
-            (error)->defer.reject error:error
-        ).done()
+        try
+            @run(method, parameters).then(
+                (result)->
+                    #console.log '... result',JSON.stringify result
+                    defer.resolve result:result
+                (error)->
+                    # EC creates another stack trace so we can find
+                    # the caller of this request method.  The error object
+                    # is the remote code's stack trace.
+                    #error = new EC 'JSON Rpc Error', error
+                    console.log '... error',JSON.stringify error
+                    defer.reject error
+            ).done()
+        catch e
+            console.log 'dead ex handler?',e
         defer.promise
     
     run: (method, parameters) ->

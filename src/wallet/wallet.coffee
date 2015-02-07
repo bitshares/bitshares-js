@@ -132,29 +132,7 @@ class Wallet
         @wallet_db.set_setting key, value
         
     get_transaction_fee:(desired_asset_id = 0)->
-        defer = q.defer()
-        default_fee = @wallet_db.get_transaction_fee()
-        if desired_asset_id is 0
-            defer.resolve default_fee
-            return defer.promise
-        
-        desired_asset = @chain_interface.get_asset desired_asset_id
-        base_asset = @chain_interface.get_asset 0
-        q.all([desired_asset, base_asset]).spread (desired_asset, base_asset)=>
-            @blockchain_api.market_status(desired_asset.symbol, base_asset.symbol).then (market)->
-                console.log '... market',JSON.stringify market
-                feed_price = market.current_feed_price
-                if market.current_feed_price is 0
-                    defer.resolve default_fee
-                    return
-                
-                defer.resolve(
-                    asset_id: desired_asset.id
-                    amount: default_fee.amount * feed_price
-                )
-            , (error)->
-                defer.resolve default_fee
-        defer.promise
+        @chain_interface.get_transaction_fee desired_asset_id, @wallet_db.get_transaction_fee()
     
     get_trx_expiration:->
         @wallet_db.get_trx_expiration()
@@ -177,29 +155,28 @@ class Wallet
         Get an account, try to sync with blockchain account 
         cache in wallet_db.
     ###
-    get_chain_account:(name)-> # was lookup_account
-        defer = q.defer()
+    get_chain_account:(name, refresh = false)-> # was lookup_account
+        unless refresh
+            local_account = @wallet_db.lookup_account name
+            if local_account
+                defer = q.defer()
+                defer.resolve local_account
+                return defer.promise
+        
         @blockchain_api.get_account(name).then (chain_account)=>
             local_account = @wallet_db.lookup_account name
             unless local_account or chain_account
-                error = new LE "general.unknown_account", [name]
-                defer.reject error
-                return
+                LE.throw "general.unknown_account", [name]
             
             if local_account and chain_account
                 if local_account.owner_key isnt chain_account.owner_key
-                    error = new LE "wallet.conflicting_accounts", [name]
-                    defer.reject error
-                    return
+                    LE.throw "wallet.conflicting_accounts", [name]
             
             if chain_account
                 @wallet_db.store_account_or_update chain_account
                 local_account = @wallet_db.lookup_account name
             
-            defer.resolve local_account
-            return
-        , (error)->defer.reject error
-        defer.promise
+            local_account
     
     ###* @return promise: {string} public key ###
     account_create:(account_name, private_data)->

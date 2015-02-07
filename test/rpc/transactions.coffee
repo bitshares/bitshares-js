@@ -4,6 +4,7 @@
 {WalletDb} = require '../../src/wallet/wallet_db'
 {WalletAPI} = require '../../src/client/wallet_api'
 {PublicKey} = require '../../src/ecc/key_public'
+{RelayNode} = require '../../src/net/relay_node'
 
 secureRandom = require 'secure-random'
 
@@ -11,18 +12,20 @@ PASSWORD = "Password00"
 PAY_FROM = "delegate0" #(if p=process.env.PAY_FROM then p else "delegate0")
 
 new_wallet_api= (rpc, backup_file = '../../testnet/config/wallet.json') ->
-    wallet_api = if backup_file
+    relay_node = new RelayNode rpc
+    wallet_api = new WalletAPI rpc, rpc, relay_node
+    if backup_file
         wallet_json_string = JSON.stringify require backup_file
         # JSON.parse is used to clone (so internals can't change)
         wallet_object = JSON.parse wallet_json_string
-        new WalletAPI(rpc)._open_from_wallet_db new WalletDb wallet_object
+        wallet_api._open_from_wallet_db new WalletDb wallet_object
     else
         throw new Error 'not used...'
         # create an empty wallet
         entropy = secureRandom.randomUint8Array 1000
         Wallet.add_entropy new Buffer entropy
         wallet_db = Wallet.create 'TestWallet', PASSWORD, brain_key=false, save=false
-        new WalletAPI(rpc)._open_from_wallet_db wallet_db
+        wallet_api._open_from_wallet_db wallet_db
     (# avoid a blockchain deterministic key conflit
         rnd = 0
         rnd += i for i in secureRandom.randomUint8Array 1000
@@ -49,18 +52,29 @@ describe "Transactions", ->
     afterEach ->
         @rpc.close()
     
+    it "dump_private_key", ->
+        wallet_api = new_wallet_api @rpc
+        private_key_hex = wallet_api.dump_private_key 'delegate0'
+        EC.throw 'expecting private_key_hex' unless private_key_hex
+    
+    
+    it "wallet_create", ->
+        WalletDb.delete 'TestWallet'
+        entropy = secureRandom.randomUint8Array 1000
+        Wallet.add_entropy new Buffer entropy
+        Wallet.create 'TestWallet', PASSWORD, brain_key=null, save=true
+        WalletDb.delete 'TestWallet'
+    
     it "wallet_transfer", (done) ->
         xfer=
             wallet:null,symbol:'XTS',from:'delegate0'
             #wallet:'/tmp/w',symbol:'USD',from:'frog'
         
         wallet_api = new_wallet_api @rpc#, xfer.wallet
-        wallet_api.transfer(.1, xfer.symbol,xfer.from, 'delegate0').then(
+        wallet_api.transfer(10, xfer.symbol, xfer.from, 'delegate0').then(
             (trx)->
                 throw new Error 'missing trx' unless trx?.trx
                 done()
-            (error)->
-                console.log error,error.error?.data?.stack
         ).done()
     
     it "list_accounts", (done) ->
@@ -93,6 +107,35 @@ describe "Transactions", ->
             
         .done()
     
+    it "account_transaction_history", (done) ->
+        @timeout 10*1000
+        wallet_api = new_wallet_api @rpc
+        wallet_api.chain_database.sync_transactions().then ()->
+            history = wallet_api.account_transaction_history()
+            throw new Error 'no history' unless history?.length > 0
+            done()
+        .done()
+    
+    it "account_register", (done) ->
+        wallet_api = new_wallet_api @rpc#, '../fixtures/del.json'
+        suffix = secureRandom.randomBuffer(2).toString 'hex'
+        @timeout 10*1000
+        try
+            wallet_api.account_create("bob-" + suffix).then (key)->
+                wallet_api.account_register(
+                    account_name = "bob-" + suffix
+                    pay_from_account = PAY_FROM
+                    public_data = null#{data:'value'}
+                    delegate_pay_rate = -1
+                    account_type = "public_account"
+                ).then (trx)=>
+                    EC.throw 'expecting transaction' unless trx
+                    #console.log trx
+                    done()
+                .done()
+        catch ex
+            console.log 'ex',ex
+    
     it "account_balance (none)", (done) ->
         wallet_api = new_wallet_api @rpc
         wallet_api.account_balance("account_does_not_exist").then (balances)->
@@ -118,16 +161,6 @@ describe "Transactions", ->
             unless balances[0]?.length > 1
                 throw new Error('invalid')
             
-            done()
-        .done()
-    
-    it "account_transaction_history", (done) ->
-        @timeout 10*1000
-        wallet_api = new_wallet_api @rpc
-        wallet_api.chain_database.sync_transactions().then ()->
-            history = wallet_api.account_transaction_history()
-            console.log '... history',JSON.stringify history,null,1
-            throw new Error 'no history' unless history?.length > 0
             done()
         .done()
     
@@ -161,36 +194,6 @@ describe "Transactions", ->
     #        #console.log trx
     #    .done()
    
-    it "account_register", (done) ->
-        wallet_api = new_wallet_api @rpc#, '../fixtures/del.json'
-        suffix = secureRandom.randomBuffer(2).toString 'hex'
-        @timeout 10*1000
-        try
-            wallet_api.account_create("bob-" + suffix).then (key)->
-                wallet_api.account_register(
-                    account_name = "bob-" + suffix
-                    pay_from_account = PAY_FROM
-                    public_data = null#{data:'value'}
-                    delegate_pay_rate = -1
-                    account_type = "public_account"
-                ).then (trx)=>
-                    EC.throw 'expecting transaction' unless trx
-                    #console.log trx
-                    done()
-                .done()
-        catch ex
-            console.log 'ex',ex
-    
-    it "dump_private_key", ->
-        wallet_api = new_wallet_api @rpc
-        private_key_hex = wallet_api.dump_private_key 'delegate0'
-        EC.throw 'expecting private_key_hex' unless private_key_hex
     
     
-    it "wallet_create", ->
-        WalletDb.delete 'TestWallet'
-        entropy = secureRandom.randomUint8Array 1000
-        Wallet.add_entropy new Buffer entropy
-        Wallet.create 'TestWallet', PASSWORD, brain_key=null, save=true
-        WalletDb.delete 'TestWallet'
     

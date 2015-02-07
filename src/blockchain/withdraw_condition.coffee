@@ -17,7 +17,7 @@ bts::blockchain::withdraw_condition, (asset_id)(slate_id)(type)(data)
 ###
 class WithdrawCondition
 
-    constructor: (@asset_id, @slate_id, @type_id, @condition) ->
+    constructor: (@asset_id, @slate_id = 0, @type_id, @condition) ->
         
     type: () ->
         types.withdraw[@type_id]
