@@ -241,11 +241,11 @@ class WalletAPI
         open: if @wallet then true else false
         unlocked: not @wallet?.locked() #if @wallet then not @wallet.locked() else null
         name: @wallet.wallet_db?.wallet_name
-        transaction_fee:@wallet.get_transaction_fee()
+        transaction_fee:@get_transaction_fee()
     
-    # blockchain_get_info has wallet attributes in it
-    blockchain_get_info:->
-        @rpc_pass_through.request('blockchain_get_info').then (info)=>
+    # general get_info has wallet attributes in it
+    general_get_info:->
+        @rpc_pass_through.request('get_info').then (info)=>
             info = info.result
             for key in Object.keys info
                 if key.match /^wallet_/
@@ -259,14 +259,28 @@ class WalletAPI
             #        @wallet.unlocked_until().toISOString().split('.')[0]
             #)
     
-    get_transaction_fee:(asset_name_or_id)->
+    get_transaction_fee:(asset_name_or_id = 0)->
         LE.throw "wallet.must_be_opened" unless @wallet
-        if asset_name_or_id is null or asset_name_or_id is undefined
-            throw new Error 'asset_name_or_id is required'
-        
-        @chain_interface.get_transaction_fee(
-            asset_name_or_id
-            @wallet.wallet_db.get_transaction_fee().amount
+        @relay.init().then =>
+            relay_fee_amount = @relay.welcome.relay_fee_amount
+            q.all([
+                @chain_interface.get_transaction_fee(
+                    asset_name_or_id
+                    @wallet.wallet_db.get_transaction_fee().amount
+                )
+                @chain_interface.get_transaction_fee(
+                    asset_name_or_id
+                    relay_fee_amount
+                )
+            ]).spread (network_fee, relay_fee)=>
+                asset_id: network_fee.asset_id
+                amount: network_fee.amount + relay_fee.amount
+    
+    set_transaction_fee:(fee_asset)->
+        LE.throw "wallet.must_be_opened" unless @wallet
+        @wallet.wallet_db.set_transaction_fee(
+            asset_id:0
+            amount: fee_asset
         )
     
     get_setting:(key)->
@@ -436,7 +450,6 @@ class WalletAPI
                 light_fee
                 collector
             )=>
-                
                 builder.pay_network_fee payer_account, network_fee
                 builder.pay_collector_fee payer_account, collector, light_fee
                 builder.finalize().then ()=>
@@ -448,7 +461,7 @@ class WalletAPI
                     console.log '... record.trx',JSON.stringify record.trx,null,2
                     @blockchain_api.broadcast_transaction(record.trx).then ->
                         record
-                    ,(e)->console.log 'e',e.error.data.stack
+                    #,(e)->console.log 'e',e
                     
                     ### For TITAN support:
                     for notice in builder.encrypted_notifications()

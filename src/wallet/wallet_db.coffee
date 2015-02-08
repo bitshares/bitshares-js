@@ -270,6 +270,12 @@ class WalletDb
     get_transaction_fee:->
         @get_setting "default_transaction_priority_fee"
     
+    set_transaction_fee:(fee_asset, save = true)->
+        unless fee_asset and fee_asset.amount
+            throw new Error "fee asset is required"
+        
+        @set_setting "default_transaction_priority_fee", fee_asset, save
+    
     list_accounts:(just_mine=false)->
         for entry in @wallet_object
             continue unless entry.type is "account_record_type"

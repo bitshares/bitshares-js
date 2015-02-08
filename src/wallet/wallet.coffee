@@ -132,7 +132,7 @@ class Wallet
         @wallet_db.set_setting key, value
         
     get_transaction_fee:(desired_asset_id = 0)->
-        @chain_interface.get_transaction_fee desired_asset_id, @wallet_db.get_transaction_fee()
+        @chain_interface.get_transaction_fee desired_asset_id, @wallet_db.get_transaction_fee().amount
     
     get_trx_expiration:->
         @wallet_db.get_trx_expiration()
