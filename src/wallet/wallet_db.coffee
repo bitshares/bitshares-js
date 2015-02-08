@@ -342,11 +342,17 @@ class WalletDb
             continue if @get_account_for_address owner_address
             continue if (@lookup_key owner_address)?.key?.encrypted_private_key
             
-            active_private_key = ExtendedAddress.private_key owner_private_key, 0
-            active_public_key = active_private_key.toPublicKey()
-            active_address = active_public_key.toBtsAddy()
-            continue if @get_account_for_address active_address
-            continue if (@lookup_key active_address)?.key?.encrypted_private_key
+            active_private_key = owner_private_key
+            active_public_key = owner_public_key
+            active_address = owner_address
+            
+            ## Extended active key calc works, but the code-base as a whole
+            ## does not implement it fully.
+            # active_private_key = ExtendedAddress.private_key owner_private_key, 0
+            # active_public_key = active_private_key.toPublicKey()
+            # active_address = active_public_key.toBtsAddy()
+            # continue if @get_account_for_address active_address
+            # continue if (@lookup_key active_address)?.key?.encrypted_private_key
             break
         
         active_key =
