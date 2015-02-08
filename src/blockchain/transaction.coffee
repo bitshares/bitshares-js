@@ -88,7 +88,7 @@ class Transaction
     
     Transaction.fromHex= (hex) ->
         b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
-        return SignedTransaction.fromByteBuffer b
+        return Transaction.fromByteBuffer b
 
     toHex: () ->
         b=@toByteBuffer()
