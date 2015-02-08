@@ -31,10 +31,10 @@ class JsClient
             alias=(cmd, alias_array)->
                 aliases[a]=cmd for a in alias_array
             
-            alias 'blockchain_get_info', [
-                "get_info","getconfig", "get_config"
-                "config", "blockchain_get_config"
-            ]
+            #alias 'blockchain_get_info', [
+            #    "get_info","getconfig", "get_config"
+            #    "config", "blockchain_get_config"
+            #]
             aliases
         )(WalletAPI.libraries_api_wallet)
     
@@ -67,16 +67,14 @@ class JsClient
         # function for local implementation
         fun = (=>
             prefix_index = method.indexOf '_'
+            # general get_info has wallet attributes in it
+            return @wallet_api['general_get_info'] if method is 'get_info'
             return null if prefix_index is -1
             api_group = method.substring 0, prefix_index
             api_function = method.substring prefix_index + 1
             switch api_group
                 when 'wallet'
                     @wallet_api[api_function]
-                when 'blockchain'
-                    # blockchain_get_info has wallet attributes in it
-                    if api_function is 'get_info'
-                        @wallet_api['blockchain_get_info']
         )()
         
         handle_response=(intercept=true) =>
