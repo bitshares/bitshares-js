@@ -31,7 +31,8 @@ new_wallet_api= (rpc, backup_file = '../../testnet/config/wallet.json') ->
         rnd += i for i in secureRandom.randomUint8Array 1000
         wallet_api.wallet.wallet_db.set_child_key_index rnd, save = false
     )
-    wallet_api.unlock 10, PASSWORD
+    # unlock manually, avoids all the polling
+    wallet_api.wallet.aes_root = Aes.fromSecret PASSWORD
     wallet_api
 
 ### 
@@ -78,7 +79,7 @@ describe "Transactions", ->
             throw new Error "this test requires a wallet /tmp/wallet.json with an account 'frog' and some bit USD"
         
         wallet_api = new_wallet_api @rpc, '/tmp/wallet'
-        wallet_api.transfer(.1, 'USD', 'frog', 'delegate0').then(
+        wallet_api.transfer(1, 'USD', 'frog', 'frog').then(
             (trx)->
                 throw new Error 'missing trx' unless trx?.trx
                 done()

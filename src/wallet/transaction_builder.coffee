@@ -359,77 +359,55 @@ class TransactionBuilder
     withdraw_to_transaction:(
         amount_to_withdraw
         from_account_name
+        key_balances
     )->
         defer = q.defer()
         throw new Error 'missing from account' unless from_account_name
         amount_remaining = amount_to_withdraw.amount
         withdraw_asset_id = amount_to_withdraw.asset_id
-        ###
-        owner_private=(balance_record)=>
-            id = balance_record[0]
-            balance = balance_record[1]
-            if balance.snapshot_info?.original_address
-                activePrivate = @wallet.getActivePrivate from_account_name
-                unless activePrivate
-                    throw new Error "account '#{from_account_name}' is missing active private key"
-                return activePrivate
-            
-            throw new Error "... correct one_time_public path \t"+JSON.stringify balance_record
-            #one_time_public = balance_record[1].memo.one_time_public
-            #sender_private = @wallet.getActivePrivate @aes_root, from_account_name
-            #ExtendedAddress.private_key_child sender_private, one_time_public
-        ###
-        @get_account_balance_records(from_account_name).then(
-            (key_balances)=>
-                if (Object.keys key_balances).length is 0
-                    defer.resolve()
-                    return
-                
-                for public_key in Object.keys key_balances
-                    for balance_record in key_balances[public_key]
-                        balance_amount = balance_record[1].balance
-                        #continue unless balance_amount
-                        balance_id = balance_record[0]
-                        balance_asset_id = balance_record[1].condition.asset_id
-                        balance_owner = balance_record[1].condition.data.owner
-                        
-                        unless @wallet.getPrivateKey public_key
-                            console.log "ERROR: balance owner #{balance_owner} without matching private key",balance_record
-                            continue
-                        
-                        continue if balance_amount <= 0
-                        continue if balance_asset_id isnt withdraw_asset_id
-                        if amount_remaining > balance_amount
-                            withdraw = new Withdraw(
-                                Address.fromString(balance_id).toBuffer()
-                                balance_amount
-                            )
-                            @operations.push new Operation withdraw.type_id, withdraw
-                            @required_signatures[public_key] = on
-                            amount_remaining -= balance_amount
-                        else
-                            withdraw = new Withdraw(
-                                Address.fromString(balance_id).toBuffer()
-                                amount_remaining
-                            )
-                            @operations.push new Operation withdraw.type_id, withdraw
-                            @required_signatures[public_key] = on
-                            amount_remaining = 0
-                            break
-                    break if amount_remaining is 0
-                
-                if amount_remaining isnt 0
-                    available = amount_to_withdraw.amount - amount_remaining
-                    error = new LE 'wallet.insufficient_funds', amount_to_withdraw.amount, available
-                    defer.reject error
-                    return
-                
-                defer.resolve()
-            (error)->
-                defer.reject error
-        ).done()
-        defer.promise
+
+        if (Object.keys key_balances).length is 0
+            return
         
+        for public_key in Object.keys key_balances
+            for balance_record in key_balances[public_key]
+                balance_amount = balance_record[1].balance
+                #continue unless balance_amount
+                balance_id = balance_record[0]
+                balance_asset_id = balance_record[1].condition.asset_id
+                balance_owner = balance_record[1].condition.data.owner
+                
+                unless @wallet.getPrivateKey public_key
+                    console.log "ERROR: balance owner #{balance_owner} without matching private key",balance_record
+                    continue
+                
+                continue if balance_amount <= 0
+                continue if balance_asset_id isnt withdraw_asset_id
+                if amount_remaining > balance_amount
+                    withdraw = new Withdraw(
+                        Address.fromString(balance_id).toBuffer()
+                        balance_amount
+                    )
+                    @operations.push new Operation withdraw.type_id, withdraw
+                    @required_signatures[public_key] = on
+                    amount_remaining -= balance_amount
+                    balance_record[1].balance -= balance_amount
+                else
+                    withdraw = new Withdraw(
+                        Address.fromString(balance_id).toBuffer()
+                        amount_remaining
+                    )
+                    @operations.push new Operation withdraw.type_id, withdraw
+                    @required_signatures[public_key] = on
+                    amount_remaining = 0
+                    balance_record[1].balance = 0
+                    break
+            break if amount_remaining is 0
+        
+        if amount_remaining isnt 0
+            available = amount_to_withdraw.amount - amount_remaining
+            throw new LE 'wallet.insufficient_funds', amount_to_withdraw.amount, available
+    
     get_extended_balance:(balance_record)-> # renamed from get_spendable_balance
         switch balance_record.condition.type
             when "withdraw_signature_type" or "withdraw_escrow_type" or "withdraw_multisig_type"
@@ -466,8 +444,7 @@ class TransactionBuilder
                 console.log "WARN: get_extended_balance() called on unsupported withdraw type: " + balance_record.condition.type
         return
     
-    ###* @return key_records:[key_records],blance_records:[blance_records]
-    ###
+    ###* @return key_records:[key_records],blance_records:[blance_records] ###
     get_account_balance_records:(account_name, extended = false)->
         throw new Error 'account_name is required' unless account_name
         my_keys = @wallet.get_my_key_records account_name
@@ -551,11 +528,12 @@ class TransactionBuilder
         )
         ###
         defer.promise
-        
+    
+    ###* @return {promise} ###
     finalize:()->
-        defer = q.defer()
         throw new Error 'already finalized' if @finalized
         @finalized = true
+        
         throw new Error 'empty transaction' if @operations.length is 0
         if (Object.keys @outstanding_balances).length is 0
             throw new Error 'nothing to finalize'
@@ -566,29 +544,51 @@ class TransactionBuilder
         #else
         #    slate_id = 0
         
-        p = []
-        for key in Object.keys @outstanding_balances
-            address = key.split('\t')[0]
-            #account_rec = asset_id: amount.asset_id, amount: amount
-            rec = @outstanding_balances[key]
-            continue if rec.amount is 0
-            balance = {amount:rec.amount, asset_id: rec.asset_id}
-            account = @wallet.get_account_for_address address
-            unless account
-                throw new Error "Missing account for address #{address}"
+        # resolve balance records first or else the same 
+        # balance record could end up over-spent
+        key_balances= =>
+            who_owes= =>
+                account_names = {}
+                for key in Object.keys @outstanding_balances
+                    rec = @outstanding_balances[key]
+                    continue if rec.amount > 0
+                    address = key.split('\t')[0]
+                    account = @wallet.get_account_for_address address
+                    unless account
+                        throw new Error "Missing account for address #{address}"
+                    account_names[account.name]=on
+                Object.keys account_names
+            key_balances = {}
+            q.all(
+                for account_name in who_owes()
+                    @get_account_balance_records(account_name).then (balances)=>
+                        key_balances[account_name] = balances
+            ).then ->
+                key_balances
+        
+        key_balances().then (key_balances)=>
+            for key in Object.keys @outstanding_balances
+                address = key.split('\t')[0]
+                #account_rec = asset_id: amount.asset_id, amount: amount
+                rec = @outstanding_balances[key]
+                continue if rec.amount is 0
+                balance = {amount:rec.amount, asset_id: rec.asset_id}
+                account = @wallet.get_account_for_address address
+                unless account
+                    throw new Error "Missing account for address #{address}"
+                
+                if rec.amount > 0
+                    depositAddress = @order_key_for_account address, account.name
+                    @deposit depositAddress, balance
+                else
+                    balance.amount = -rec.amount
+                    @withdraw_to_transaction balance, account.name, key_balances[account.name]
             
-            if rec.amount > 0
-                depositAddress = @order_key_for_account address, account.name
-                @deposit depositAddress, balance
-            else
-                balance.amount = -rec.amount
-                p.push @withdraw_to_transaction balance, account.name
-        
-        for k in Object.keys @outstanding_balances
-            delete @outstanding_balances[k]
-        
-        @expiration = @wallet.get_trx_expiration()
-        q.all p
+            for k in Object.keys @outstanding_balances
+                delete @outstanding_balances[k]
+            
+            @expiration = @wallet.get_trx_expiration()
+            return
     
     sign_transaction:() ->
         unless @transaction_record.trx
