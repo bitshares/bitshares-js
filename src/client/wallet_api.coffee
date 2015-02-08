@@ -56,9 +56,6 @@ class WalletAPI
         @wallet = null
         return
         
-    #get_info: ->
-    #    unlocked: @wallet.unlocked()
-        
     validate_password: (password)->
         LE.throw "wallet.must_be_opened" unless @wallet
         @wallet.validate_password password
@@ -238,10 +235,11 @@ class WalletAPI
             LE.throw 'wallet.save_error', [wallet_name, error], error
             
     get_info:->
-        open: if @wallet then true else false
-        unlocked: not @wallet?.locked() #if @wallet then not @wallet.locked() else null
-        name: @wallet.wallet_db?.wallet_name
-        transaction_fee:@get_transaction_fee()
+        @get_transaction_fee().then (fee)=>
+            open: if @wallet then true else false
+            unlocked: not @wallet?.locked() #if @wallet then not @wallet.locked() else null
+            name: @wallet.wallet_db?.wallet_name
+            transaction_fee:fee
     
     # general get_info has wallet attributes in it
     general_get_info:->
@@ -264,11 +262,11 @@ class WalletAPI
         @relay.init().then =>
             relay_fee_amount = @relay.welcome.relay_fee_amount
             q.all([
-                @chain_interface.get_transaction_fee(
+                @chain_interface.convert_base_asset_amount(
                     asset_name_or_id
-                    @wallet.wallet_db.get_transaction_fee().amount
+                    @relay.welcome.network_fee_amount
                 )
-                @chain_interface.get_transaction_fee(
+                @chain_interface.convert_base_asset_amount(
                     asset_name_or_id
                     relay_fee_amount
                 )
@@ -276,12 +274,14 @@ class WalletAPI
                 asset_id: network_fee.asset_id
                 amount: network_fee.amount + relay_fee.amount
     
-    set_transaction_fee:(fee_asset)->
+    set_transaction_fee:(fee_amount)->
         LE.throw "wallet.must_be_opened" unless @wallet
-        @wallet.wallet_db.set_transaction_fee(
-            asset_id:0
-            amount: fee_asset
-        )
+        q.all([
+            @chain_interface.get_asset(0)
+            @get_transaction_fee(0)
+        ]).spread (base_asset, fee)->
+            if fee.amount isnt fee_amount * base_asset.precision
+                throw new Error "Rejected attempt to change fee, this is set by your light-weight API provider"
     
     get_setting:(key)->
         LE.throw "wallet.must_be_opened" unless @wallet
@@ -294,7 +294,7 @@ class WalletAPI
         
     get_account:(name)->
         LE.throw "wallet.must_be_opened" unless @wallet
-        @wallet.get_chain_account name
+        @wallet.get_chain_account name, refresh=true
     
     list_accounts:->
         LE.throw "wallet.must_be_opened" unless @wallet
@@ -430,23 +430,21 @@ class WalletAPI
         []
     
     _finalize_and_send:(builder, payer_account, fee_asset_name_or_id)->
-        network_fee = @get_transaction_fee fee_asset_name_or_id
-        q.all([network_fee, @relay.init()]).spread (network_fee, relay_init)=>
+        @relay.init().then =>
             q.all([
-                # If the relay node should set the fee:
-                #@chain_interface.get_transaction_fee(
-                #    fee_asset.asset_id
-                #    @relay.welcome.network_fee_amount
-                #)
-                @chain_interface.get_transaction_fee(
-                    network_fee.asset_id
+                @chain_interface.convert_base_asset_amount(
+                    fee_asset_name_or_id
+                    @relay.welcome.network_fee_amount
+                )
+                @chain_interface.convert_base_asset_amount(
+                    fee_asset_name_or_id
                     @relay.welcome.relay_fee_amount
                 )
                 @wallet.get_chain_account( # cache in wallet_db
                     @relay.welcome.relay_fee_collector.name
                 )
             ]).spread (
-                #network_fee
+                network_fee
                 light_fee
                 collector
             )=>
@@ -456,7 +454,6 @@ class WalletAPI
                     builder.sign_transaction()
                     record = builder.get_transaction_record()
                     #@wallet.save_transaction record
-                    #p = [] p.push 
                     
                     console.log '... record.trx',JSON.stringify record.trx,null,2
                     @blockchain_api.broadcast_transaction(record.trx).then ->

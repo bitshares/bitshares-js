@@ -131,9 +131,6 @@ class Wallet
     set_setting: (key, value) ->
         @wallet_db.set_setting key, value
         
-    get_transaction_fee:(desired_asset_id = 0)->
-        @chain_interface.get_transaction_fee desired_asset_id, @wallet_db.get_transaction_fee().amount
-    
     get_trx_expiration:->
         @wallet_db.get_trx_expiration()
     
@@ -266,10 +263,6 @@ class Wallet
     
     valid_unique_account:(account_name) ->
         @chain_interface.valid_unique_account account_name
-    
-    #asset_can_pay_fee:(asset_id)->
-    #    fee = @get_transaction_fee()
-    #    fee.asset_id is asset_id
     
     dump_private_key:(account_name)->
         LE.throw 'wallet.must_be_unlocked' unless @aes_root

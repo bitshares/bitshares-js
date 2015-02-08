@@ -259,22 +259,7 @@ class WalletDb
         exp = new Date()
         sec = @get_setting 'transaction_expiration_sec'
         exp.setSeconds exp.getSeconds() + sec
-        # removing seconds causes the epoch value 
-        # the time_point_sec conversion Math.ceil(epoch / 1000)
-        # to always come out as a odd number.  With the 
-        # seconds, the result will always be even and 
-        # the transaction will not be valid (signature 
-        # assertion exception)
         exp = new Date(exp.toISOString().split('.')[0])
-    
-    get_transaction_fee:->
-        @get_setting "default_transaction_priority_fee"
-    
-    set_transaction_fee:(fee_asset, save = true)->
-        unless fee_asset and fee_asset.amount
-            throw new Error "fee asset is required"
-        
-        @set_setting "default_transaction_priority_fee", fee_asset, save
     
     list_accounts:(just_mine=false)->
         for entry in @wallet_object

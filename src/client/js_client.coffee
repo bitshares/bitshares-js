@@ -14,11 +14,17 @@ class JsClient
         
         @wallet_api = new WalletAPI @rpc, @rpc_pass_through, relay_node
         @log_hide=
-            blockchain_get_info: on
+            get_info: on
             wallet_get_info: on
+            wallet_list_accounts: on
+            wallet_account_yield: on
+            wallet_account_balance: on
+            wallet_account_transaction_history: on
+            blockchain_get_info: on
             blockchain_get_security_state:on
-            wallet_account_transaction_history: off
-            blockchain_list_address_transactions: off
+            blockchain_list_address_transactions: on
+            blockchain_list_key_balances: on
+            blockchain_get_account: on
             get_config:on
         
         @aliases=((def)-># add aliases
@@ -31,10 +37,7 @@ class JsClient
             alias=(cmd, alias_array)->
                 aliases[a]=cmd for a in alias_array
             
-            #alias 'blockchain_get_info', [
-            #    "get_info","getconfig", "get_config"
-            #    "config", "blockchain_get_config"
-            #]
+
             aliases
         )(WalletAPI.libraries_api_wallet)
     
