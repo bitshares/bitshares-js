@@ -66,12 +66,19 @@ describe "Transactions", ->
         WalletDb.delete 'TestWallet'
     
     it "wallet_transfer", (done) ->
-        xfer=
-            wallet:null,symbol:'XTS',from:'delegate0'
-            #wallet:'/tmp/w',symbol:'USD',from:'frog'
+        wallet_api = new_wallet_api @rpc
+        wallet_api.transfer(10, 'XTS', 'delegate0', 'delegate0').then(
+            (trx)->
+                throw new Error 'missing trx' unless trx?.trx
+                done()
+        ).done()
+    
+    it "wallet_transfer_bit_asset", (done) ->
+        unless require '/tmp/wallet'
+            throw new Error "this test requires a wallet /tmp/wallet.json with an account 'frog' and some bit USD"
         
-        wallet_api = new_wallet_api @rpc#, xfer.wallet
-        wallet_api.transfer(10, xfer.symbol, xfer.from, 'delegate0').then(
+        wallet_api = new_wallet_api @rpc, '/tmp/wallet'
+        wallet_api.transfer(.1, 'USD', 'frog', 'delegate0').then(
             (trx)->
                 throw new Error 'missing trx' unless trx?.trx
                 done()
