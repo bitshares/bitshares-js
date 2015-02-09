@@ -5266,5 +5266,13 @@
     "memo": null,
     "gen_seq_number": 0
   }
+},
+{
+  "type": "property_record_type",
+  "data": {
+    "index": 204,
+    "key": "transaction_scanning",
+    "value": true
+  }
 }
 ]
