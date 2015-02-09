@@ -260,19 +260,15 @@ class WalletAPI
     get_transaction_fee:(asset_name_or_id = 0)->
         LE.throw "wallet.must_be_opened" unless @wallet
         @relay.init().then =>
-            relay_fee_amount = @relay.welcome.relay_fee_amount
             q.all([
                 @chain_interface.convert_base_asset_amount(
                     asset_name_or_id
-                    @relay.welcome.network_fee_amount
+                    @relay.welcome.network_fee_amount +
+                    @relay.welcome.relay_fee_amount
                 )
-                @chain_interface.convert_base_asset_amount(
-                    asset_name_or_id
-                    relay_fee_amount
-                )
-            ]).spread (network_fee, relay_fee)=>
-                asset_id: network_fee.asset_id
-                amount: network_fee.amount + relay_fee.amount
+            ]).spread (total_fee)=>
+                asset_id: total_fee.asset_id
+                amount: total_fee.amount
     
     set_transaction_fee:(fee_amount)->
         LE.throw "wallet.must_be_opened" unless @wallet
