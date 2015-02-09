@@ -85,17 +85,17 @@ class ChainInterface
     
     # refresh_assets:-> blockchain_list_assets probably once a day or if the user requests a refresh ...
     ###* Default fee is in the base asset ID ###
-    convert_base_asset_amount:(asset_name_or_id = 0, amount)->
+    convert_base_asset_amount:(desired_asset_name_or_id = 0, amount)->
         throw new Error "amount is required" unless amount
-        throw new Error "amount should be an integer" if amount.amount 
+        throw new Error "amount should be an integer" if amount.amount
         defer = q.defer()
-        if asset_name_or_id is 0
+        if desired_asset_name_or_id is 0
             defer.resolve
                 asset_id: 0
                 amount: amount
             return defer.promise
         
-        target_asset = @get_asset asset_name_or_id
+        target_asset = @get_asset desired_asset_name_or_id
         base_asset = @get_asset 0
         q.all([target_asset, base_asset]).spread (target_asset, base_asset)=>
             if target_asset.id is 0
@@ -104,11 +104,12 @@ class ChainInterface
             else
                 @blockchain_api.market_status(target_asset.symbol, base_asset.symbol).then (market)->
                     feed_price = market.current_feed_price
-                    if market.current_feed_price is 0
+                    unless market.current_feed_price
                         asset_id: 0
                         amount: amount
                     else
+                        fee = (amount / base_asset.precision) * feed_price
                         asset_id: target_asset.id
-                        amount: amount * feed_price
+                        amount: fee * target_asset.precision
 
 exports.ChainInterface = ChainInterface
