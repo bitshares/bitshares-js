@@ -140,7 +140,7 @@ class WalletAPI
             builder = @_transaction_builder()
             builder.deposit_asset(
                 payer, recipient, amount
-                memo_message, selection_method, sender.owner_key
+                memo_message, selection_method, sender.active_key
                 use_stealth_address = !recipient.meta_data?.type is "public_account"
             )
             @_finalize_and_send(builder, payer, fee_asset_name_or_id).then (record)->
@@ -461,7 +461,7 @@ class WalletAPI
                         p.push @mail_client.send_encrypted_message(
                             notice,from_account_name
                             to_account_name
-                            recipient.owner_key
+                            recipient.active_key
                         )
                     ###
                     ### cpp
@@ -469,12 +469,12 @@ class WalletAPI
                     for notice in notices
                         mail.send_encrypted_message(
                             notice, sender, receiver, 
-                            sender.owner_key
+                            sender.active_key
                         )
                         # a second copy for one's self
                         mail.send_encrypted_message(
                             notice, sender, sender, 
-                            sender.owner_key
+                            sender.active_key
                         )
                     ###
                     #q.all(p)

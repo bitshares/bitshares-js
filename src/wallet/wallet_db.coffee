@@ -290,8 +290,8 @@ class WalletDb
     lookup_owner_key:(account_name)->
         @lookup_account(account_name).owner_key
         
-    is_my_account:(owner_key)->
-        rec = @get_key_record owner_key
+    is_my_account:(public_key)->
+        rec = @get_key_record public_key
         return yes if rec?.encrypted_private_key
         return no
     
@@ -342,16 +342,10 @@ class WalletDb
             continue if @get_account_for_address owner_address
             continue if (@lookup_key owner_address)?.key?.encrypted_private_key
             
-            active_private_key = owner_private_key
-            active_public_key = owner_public_key
-            active_address = owner_address
-            
-            ## Extended active key calc works, but the code-base as a whole
-            ## does not implement it fully.
-            # active_private_key = ExtendedAddress.private_key owner_private_key, 0
-            # active_public_key = active_private_key.toPublicKey()
-            # active_address = active_public_key.toBtsAddy()
-            # continue if @get_account_for_address active_address
+            active_private_key = ExtendedAddress.private_key owner_private_key, 0
+            active_public_key = active_private_key.toPublicKey()
+            active_address = active_public_key.toBtsAddy()
+            continue if @get_account_for_address active_address
             # continue if (@lookup_key active_address)?.key?.encrypted_private_key
             break
         
@@ -573,6 +567,10 @@ class WalletDb
         wcs = []
         account = @lookup_account account_name
         to = @transaction_to[account.owner_key]
+        for key in account.active_key_history
+            to_array = @transaction_to[key[1]]
+            to.push t for t in to_array if to_array
+        # include signing keys?
         return [] unless to
         for record in to
             continue unless tx = record.trx

@@ -66,7 +66,7 @@ describe "Transactions", ->
         Wallet.create 'TestWallet', PASSWORD, brain_key=null, save=true
         WalletDb.delete 'TestWallet'
     
-    it "wallet_transfer", (done) ->
+    it "wallet_transfer base asset", (done) ->
         wallet_api = new_wallet_api @rpc
         wallet_api.transfer(10, 'XTS', 'delegate0', 'delegate0').then(
             (trx)->
@@ -74,7 +74,7 @@ describe "Transactions", ->
                 done()
         ).done()
     
-    it "wallet_transfer_bit_asset", (done) ->
+    it "wallet_transfer bit asset", (done) ->
         unless require '/tmp/wallet'
             throw new Error "this test requires a wallet /tmp/wallet.json with an account 'frog' and some bit USD"
         

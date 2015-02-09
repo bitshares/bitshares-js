@@ -114,10 +114,10 @@ class TransactionBuilder
             one_time_key, 0 # memo_flags_enum from_memo
             use_stealth_address
         )
-        @_deduct_balance payer.owner_key, amount
+        @_deduct_balance payer.active_key, amount
         @transaction_record.ledger_entries.push ledger_entry =
-            from_account: payer.owner_key
-            to_account: recipient.owner_key
+            from_account: payer.active_key
+            to_account: recipient.active_key
             amount: amount
             memo: memo
         if memo_sender isnt payerActivePublic.toBtsPublic()
@@ -302,8 +302,8 @@ class TransactionBuilder
         unless owner_key
             LE.throw "create_account_before_register"
         
-        pay_from_OwnerKey = @wallet.getOwnerKey pay_from_account
-        unless pay_from_OwnerKey
+        pay_from_ActiveKey = @wallet.getActiveKey pay_from_account
+        unless pay_from_ActiveKey
             LE.throw "blockchain.unknown_account", pay_from_account
         
         meta_data = null
@@ -338,7 +338,7 @@ class TransactionBuilder
                 unless account
                     LE.throw 'wallet.need_parent_for_registration', [parent]
                 
-                #continue if account.is_retracted #pay_from_OwnerKey == public_key
+                #continue if account.is_retracted #pay_from_ActiveKey == public_key
                 @wallet.has_private_key account
                 @required_signatures[@wallet.lookup_active_key parent] = on
             ###
@@ -348,8 +348,8 @@ class TransactionBuilder
             throw new Error 'not implemented'
         
         @transaction_record.ledger_entries.push ledger_entry =
-            from_account: pay_from_OwnerKey.toBtsPublic()
-            to_account: owner_key.toBtsPublic()
+            from_account: pay_from_ActiveKey.toBtsPublic()
+            to_account: active_key.toBtsPublic()
             amount: {amount:0, asset_id: 0}
             memo: "register " + account_to_register + (if as_delegate then " as a delegate" else "")
             memo_from_account:null
