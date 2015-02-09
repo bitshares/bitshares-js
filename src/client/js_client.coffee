@@ -15,6 +15,8 @@ class JsClient
         @wallet_api = new WalletAPI @rpc, @rpc_pass_through, relay_node
         @log_hide=
             get_info: on
+            get_config: on
+            wallet_create: on #don't log password and brainkey
             wallet_get_info: on
             wallet_list_accounts: on
             wallet_account_yield: on
@@ -25,7 +27,6 @@ class JsClient
             blockchain_list_address_transactions: on
             blockchain_list_key_balances: on
             blockchain_get_account: on
-            get_config:on
         
         @aliases=((def)-># add aliases
             aliases = {}
