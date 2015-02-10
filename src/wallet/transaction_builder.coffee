@@ -366,9 +366,6 @@ class TransactionBuilder
         amount_remaining = amount_to_withdraw.amount
         withdraw_asset_id = amount_to_withdraw.asset_id
 
-        if (Object.keys key_balances).length is 0
-            return
-        
         for public_key in Object.keys key_balances
             for balance_record in key_balances[public_key]
                 balance_amount = balance_record[1].balance
