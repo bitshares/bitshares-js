@@ -300,8 +300,11 @@ class WalletAPI
         LE.throw "wallet.must_be_opened" unless @wallet
         @wallet.list_accounts just_mine=true
     
+    account_yield_warned:off
     account_yield:->
-        console.log 'WARN: account_yield is not implemented'
+        unless @account_yield_warned
+            console.log 'WARN: account_yield is not implemented'
+            @account_yield_warned = on
         []
         
     dump_private_key:(account_name)->
