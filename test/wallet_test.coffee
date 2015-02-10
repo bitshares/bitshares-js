@@ -17,7 +17,14 @@ describe "Wallet API (non-RPC)", ->
         # create / reset in ram
         wallet_object = JSON.parse wallet_object_string
         @wallet_db = new WalletDb wallet_object, "default"
-        @wallet_api = new WalletAPI null
+        @relay=
+            relay_fee_collector: null
+            relay_fee_amount: 50000
+            network_fee_amount: 200000
+            base_asset_symbol: 'XTS'
+            chain_id:"74cef39d88afd6123d40c5822632b753e5b25da6ca196218c2364560bbf3171f"
+            
+        @wallet_api = new WalletAPI null, null, @relay
         @wallet_api._open_from_wallet_db @wallet_db
         
     afterEach ->

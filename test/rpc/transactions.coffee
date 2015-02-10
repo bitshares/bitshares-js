@@ -10,9 +10,9 @@ secureRandom = require 'secure-random'
 
 PASSWORD = "Password00"
 PAY_FROM = "delegate0" #(if p=process.env.PAY_FROM then p else "delegate0")
+relay_node = null
 
 new_wallet_api= (rpc, backup_file = '../../testnet/config/wallet.json') ->
-    relay_node = new RelayNode rpc
     wallet_api = new WalletAPI rpc, rpc, relay_node
     if backup_file
         wallet_json_string = JSON.stringify require backup_file
@@ -45,10 +45,13 @@ wallet_account_register init0 delegate0 {"mail_server_endpoint":"127.0.0.1:45000
 
 describe "Transactions", ->
     
-    beforeEach ->
+    beforeEach (done)->
         RPC_DEBUG=process.env.RPC_DEBUG
         RPC_DEBUG=off if RPC_DEBUG is undefined
         @rpc=new Rpc(RPC_DEBUG, 45000, "localhost", "test", "test")
+        relay_node = new RelayNode @rpc
+        relay_node.init().then ()->
+            done()
     
     afterEach ->
         @rpc.close()

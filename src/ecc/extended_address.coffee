@@ -12,17 +12,17 @@ class ExtendedAddress
     
     constructor: (@private_key, @chain_code = _private.PAD) ->
         
-    ExtendedAddress.fromSha512 =(data) ->
+    ExtendedAddress.fromSha512_zeroChainCode =(data) ->
         throw 'Expecting 64 bytes (512 bits)' unless data.length is 64
         d = PrivateKey.fromBuffer data.slice 0, 32 # left
-        chain_code = data.slice 32, 64 # right
-        new ExtendedAddress d, chain_code
+        #chain_code = data.slice 32, 64 # right
+        new ExtendedAddress d#, chain_code
     
     toBuffer: ->
         Buffer.concat [@private_key.toBuffer(), @chain_code]
         
-    ExtendedAddress.fromBuffer= (buffer) ->
-        ExtendedAddress.fromSha512 buffer
+   #ExtendedAddress.fromBuffer= (buffer) ->
+   #    ExtendedAddress.fromSha512 buffer
     
     # TODO, convert all methods below using chain_code to insance methods. Update unit tests and re-test scratchpad scripts (like titan)
     

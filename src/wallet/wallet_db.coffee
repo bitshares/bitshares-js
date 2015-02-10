@@ -3,7 +3,7 @@ LE = require('../common/exceptions').LocalizedException
 EC = require('../common/exceptions').ErrorWithCause
 config = require './config'
 main_config = require '../config'
-localStorage = require '../common/local_storage'
+{Storage} = require '../common/storage'
 {Aes} = require '../ecc/aes'
 {Address} = require '../ecc/address'
 {PublicKey} = require '../ecc/key_public'
@@ -13,13 +13,13 @@ localStorage = require '../common/local_storage'
 
 class WalletDb
     
-    CHAIN_SYMBOL = main_config.bts_address_prefix
-    
     constructor: (@wallet_object, @wallet_name = "default") ->
         EC.throw "required parameter" unless @wallet_object
         invalid_format = -> LE.throw "wallet.invalid_format", [@wallet_name]
         invalid_format() unless @wallet_object?.length > 0
-        throwLE "wallet.missing_local_storage" unless localStorage
+        @storage = new Storage(
+            @wallet_name + " " + main_config.bts_address_prefix
+        )
         @property = {}
         @account = {}
         @ownerKey = {}
@@ -166,10 +166,14 @@ class WalletDb
                             entry.memo_from_account_name = @get_account_for_address(entry.memo_from_account)?.name
     
     WalletDb.exists = (wallet_name) ->
-        str = localStorage.getItem("wallet-" + CHAIN_SYMBOL + '-' + wallet_name)
+        storage = new Storage(
+            wallet_name + " " + main_config.bts_address_prefix
+        )
+        wallet_json = storage.getItem 'wallet_json'
+        if wallet_json then yes else no
     
     WalletDb.create = (wallet_name = "default", extended_private, password, save = true) ->
-        if WalletDb.open wallet_name
+        if WalletDb.exists wallet_name
             LE.throw 'wallet.exists', [wallet_name]
         
         checksum = hash.sha512 password
@@ -189,13 +193,19 @@ class WalletDb
     
     ###* @return {WalletDb} or null ###
     WalletDb.open = (wallet_name = "default") ->
-        wallet_string = localStorage.getItem "wallet-" + CHAIN_SYMBOL + '-' + wallet_name
-        return undefined unless wallet_string
-        wallet_object = JSON.parse wallet_string
+        storage = new Storage(
+            wallet_name + " " + main_config.bts_address_prefix
+        )
+        wallet_json = storage.getItem 'wallet_json'
+        return undefined unless wallet_json
+        wallet_object = JSON.parse wallet_json
         new WalletDb wallet_object, wallet_name
     
     WalletDb.delete = (wallet_name)->
-        localStorage.removeItem "wallet-" + CHAIN_SYMBOL + '-' + wallet_name
+        storage = new Storage(
+            wallet_name + " " + main_config.bts_address_prefix
+        )
+        storage.removeItem 'wallet_json'
         return
     
     save_brainkey:(aes_root, brainkey, save)->
@@ -222,7 +232,7 @@ class WalletDb
     ###* @throws {QuotaExceededError} ###
     save: ->
         wallet_string = JSON.stringify @wallet_object, null, 0
-        localStorage.setItem("wallet-" + CHAIN_SYMBOL + '-' + @wallet_name, wallet_string)
+        @storage.setItem('wallet_json', wallet_string)
         return
         
     ### This does not work with Date objects ###

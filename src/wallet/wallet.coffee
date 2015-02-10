@@ -22,12 +22,13 @@ q = require 'q'
 ###* Public ###
 class Wallet
 
-    constructor: (@wallet_db, @rpc) ->
-        throw new Error "required parameter" unless @wallet_db
+    constructor: (@wallet_db, @rpc, chain_id) ->
+        throw new Error "required wallet_db" unless @wallet_db
+        throw new Error "required chain_id" unless chain_id
         @transaction_ledger = new TransactionLedger()
         @blockchain_api = new BlockchainAPI @rpc
-        @chain_interface = new ChainInterface @blockchain_api
-        @chain_database = new ChainDatabase @wallet_db, @rpc
+        @chain_interface = new ChainInterface @blockchain_api, chain_id
+        @chain_database = new ChainDatabase @wallet_db, @rpc, chain_id
     
     Wallet.entropy = null
     Wallet.add_entropy = (data) ->
@@ -67,9 +68,9 @@ class Wallet
         #@blockchain.is_valid_account_name wallet_name
         
         data = if brain_key
-            console.log 'WARN: Brain keys have not been tested with the native client'
+            console.log 'WARN: Brain keys are not yes compatible with the native client'
             base = hash.sha512 brain_key
-            for i in [0..100*1000] by 1
+            for i in [0...100*1000] by 1
                 # strengthen the key a bit
                 base = hash.sha512 base
             base
@@ -77,7 +78,7 @@ class Wallet
             # generate random
             Wallet.get_secure_random()
         
-        epk = ExtendedAddress.fromSha512 data
+        epk = ExtendedAddress.fromSha512_zeroChainCode data
         wallet_db = WalletDb.create wallet_name, epk, password, save
         if brain_key
             aes_root = Aes.fromSecret password

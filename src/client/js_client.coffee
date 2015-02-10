@@ -1,5 +1,6 @@
 {WalletAPI} = require '../client/wallet_api'
 {RelayNode} = require '../net/relay_node'
+config = require '../config'
 q = require 'q'
 
 class JsClient
@@ -8,25 +9,29 @@ class JsClient
         @rpc_pass_through =
             request: @rpc.request
         relay_node = new RelayNode @rpc_pass_through
-        relay_node.init() #get it started..
-        @rpc.request = (method, params, error_handler) =>
-            @request method, params, error_handler
+        relay_node.init().then => #get it started..
+            config.bts_address_prefix = relay_node.base_asset_symbol
+            config.chain_id = relay_node.chain_id
+            @wallet_api = new WalletAPI @rpc, @rpc_pass_through, relay_node
         
-        @wallet_api = new WalletAPI @rpc, @rpc_pass_through, relay_node
-        @log_hide=
-            get_info: on
-            get_config: on
-            wallet_create: on #don't log password and brainkey
-            wallet_get_info: on
-            wallet_list_accounts: on
-            wallet_account_yield: on
-            wallet_account_balance: on
-            wallet_account_transaction_history: on
-            blockchain_get_info: on
-            blockchain_get_security_state:on
-            blockchain_list_address_transactions: on
-            blockchain_list_key_balances: on
-            blockchain_get_account: on
+        @rpc.request = (method, params, error_handler) =>
+            relay_node.init().then =>
+                @request method, params, error_handler
+        
+        @log_hide={}
+            #get_info: on
+            #get_config: on
+            #wallet_create: on #don't log password and brainkey
+            #wallet_get_info: on
+            #wallet_list_accounts: on
+            #wallet_account_yield: on
+            #wallet_account_balance: on
+            #wallet_account_transaction_history: on
+            #blockchain_get_info: on
+            #blockchain_get_security_state:on
+            #blockchain_list_address_transactions: on
+            #blockchain_list_key_balances: on
+            #blockchain_get_account: on
         
         @aliases=((def)-># add aliases
             aliases = {}

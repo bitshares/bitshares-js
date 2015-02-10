@@ -1,6 +1,5 @@
 {TransactionLedger} = require '../wallet/transaction_ledger'
-localStorage = require '../common/local_storage'
-bts_address_prefix = (require '../config').bts_address_prefix
+{Storage} = require '../common/storage'
 q = require 'q'
 
 class ChainDatabase
@@ -9,8 +8,9 @@ class ChainDatabase
     sync_transactions_timeout_id = null
     sync_accounts_timeout_id = null
     
-    constructor: (@wallet_db, @rpc) ->
+    constructor: (@wallet_db, @rpc, chain_id) ->
         @transaction_ledger = new TransactionLedger()
+        @storage = new Storage chain_id.substring 0, 10
         # basic unit tests will not provide an rpc object
         if @rpc and not @rpc.request
             throw new Error 'expecting rpc object'
@@ -109,7 +109,7 @@ class ChainDatabase
         
         ## last block tracking involves merging with old transactions (not implemented)
         #address_last_block_map = (->
-        #    str = localStorage.getItem "#{bts_address_prefix}_address_last_block_map"
+        #    str = @storage.getItem "address_last_block_map"
         #    if str
         #        JSON.parse str
         #    else
@@ -146,7 +146,7 @@ class ChainDatabase
                     }
                 
                 if transactions.length > 0
-                    localStorage.setItem "transactions-"+address, JSON.stringify transactions,null,0
+                    @storage.setItem "transactions-"+address, JSON.stringify transactions,null,0
                     #address_last_block_map[address] = last_block
                     
                     # balance ids will tell us who the sender was
@@ -158,20 +158,20 @@ class ChainDatabase
             
             @_index_balanceid_readonly(Object.keys balance_ids)
             
-            #localStorage.setItem(
-            #    "#{bts_address_prefix}_address_last_block_map"
+            #@storage.setItem(
+            #    "address_last_block_map"
             #    JSON.stringify address_last_block_map,null,0
             #)
     
     _storage_balanceid_readonly:(balance_id_map)->
         if balance_id_map
-            localStorage.setItem(
-                "#{bts_address_prefix}_balanceid_readonly_map"
+            @storage.setItem(
+                "balanceid_readonly_map"
                 JSON.stringify balance_id_map,null,0
             )
             return
         else
-            str = localStorage.getItem "#{bts_address_prefix}_balanceid_readonly_map"
+            str = @storage.getItem "balanceid_readonly_map"
             if str then JSON.parse str else {}
     
     _index_balanceid_readonly:(balance_ids)->
@@ -310,7 +310,7 @@ class ChainDatabase
         
         history = []
         for account_address in @_account_addresses account_name
-            transactions_string = localStorage.getItem "transactions-"+account_address
+            transactions_string = @storage.getItem "transactions-"+account_address
             continue unless transactions_string
             transactions = JSON.parse transactions_string
             

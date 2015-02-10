@@ -27,7 +27,7 @@ class WalletAPI
             throw new Error 'expecting rpc object'
         
         @blockchain_api = new BlockchainAPI @rpc
-        @chain_interface = new ChainInterface @blockchain_api
+        @chain_interface = new ChainInterface @blockchain_api, @relay
     
     WalletAPI.libraries_api_wallet = libraries_api_wallet
     
@@ -41,9 +41,9 @@ class WalletAPI
         return
         
     _open_from_wallet_db:(wallet_db)->
-        @wallet = new Wallet wallet_db, @rpc
+        @wallet = new Wallet wallet_db, @rpc, @relay.chain_id
         @transaction_ledger = new TransactionLedger()
-        @chain_database = new ChainDatabase wallet_db, @rpc
+        @chain_database = new ChainDatabase wallet_db, @rpc, @relay.chain_id
         return @
     
     create: (wallet_name = "default", new_password, brain_key)->
@@ -75,6 +75,8 @@ class WalletAPI
         LE.throw "wallet.must_be_opened" unless @wallet
         @wallet.locked()
     
+    #account_set_favorite:(name, )->
+        
     backup_create:()->
         LE.throw "wallet.must_be_opened" unless @wallet
         if window
@@ -263,8 +265,8 @@ class WalletAPI
             q.all([
                 @chain_interface.convert_base_asset_amount(
                     asset_name_or_id
-                    @relay.welcome.network_fee_amount +
-                    @relay.welcome.relay_fee_amount
+                    @relay.network_fee_amount +
+                    @relay.relay_fee_amount
                 )
             ]).spread (total_fee)=>
                 asset_id: total_fee.asset_id
@@ -429,26 +431,31 @@ class WalletAPI
         []
     
     _finalize_and_send:(builder, payer_account, fee_asset_name_or_id)->
+        collector_account_promise = if @relay.relay_fee_collector
+            @wallet.get_chain_account( # cache in wallet_db
+                @relay.relay_fee_collector.name
+            )
         @relay.init().then =>
             q.all([
                 @chain_interface.convert_base_asset_amount(
                     fee_asset_name_or_id
-                    @relay.welcome.network_fee_amount
+                    @relay.network_fee_amount
                 )
                 @chain_interface.convert_base_asset_amount(
                     fee_asset_name_or_id
-                    @relay.welcome.relay_fee_amount
+                    @relay.relay_fee_amount
                 )
-                @wallet.get_chain_account( # cache in wallet_db
-                    @relay.welcome.relay_fee_collector.name
-                )
+                collector_account_promise
             ]).spread (
                 network_fee
                 light_fee
                 collector
             )=>
                 builder.pay_network_fee payer_account, network_fee
-                builder.pay_collector_fee payer_account, collector, light_fee
+                console.log '... collector',JSON.stringify collector
+                if collector
+                    builder.pay_collector_fee payer_account, collector, light_fee
+                
                 builder.finalize().then ()=>
                     builder.sign_transaction()
                     record = builder.get_transaction_record()

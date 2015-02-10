@@ -1,7 +1,7 @@
 config = require './config'
 LE = require('../common/exceptions').LocalizedException
 q = require 'q'
-localStorage = require '../common/local_storage'
+{Storage} = require '../common/storage'
 
 ###* 
     Chain interface is generally the interface that is useful for both chain 
@@ -10,7 +10,9 @@ localStorage = require '../common/local_storage'
 ###
 class ChainInterface
     
-    constructor:(@blockchain_api)->
+    constructor:(@blockchain_api, chain_id)->
+        throw new Error 'required chain_id' unless chain_id
+        @storage = new Storage chain_id
     
     ChainInterface.is_valid_account_orThrow=(account_name)->
         unless ChainInterface.is_valid_account_name account_name
@@ -66,7 +68,7 @@ class ChainInterface
     get_asset:(name_or_id, refresh_cache = false)->
         cache_key = 'chain-asset-'+name_or_id
         unless refresh_cache
-            asset_string = localStorage.getItem cache_key
+            asset_string = @storage.getItem cache_key
             if asset_string
                 defer = q.defer()
                 defer.resolve JSON.parse asset_string
@@ -80,7 +82,7 @@ class ChainInterface
                 asset.precision = 1
                 console.log 'INFO using default precision 1',asset
             asset_string = JSON.stringify asset,null,0
-            localStorage.setItem cache_key, asset_string
+            @storage.setItem cache_key, asset_string
             asset
     
     # refresh_assets:-> blockchain_list_assets probably once a day or if the user requests a refresh ...
