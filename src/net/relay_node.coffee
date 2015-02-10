@@ -25,7 +25,7 @@ class RelayNode
                     'relay_fee_amount','network_fee_amount'
                 ]
                     value = welcome[attribute]
-                    unless value
+                    unless value and attribute isnt 'relay_fee_collector'
                         throw new Error "required: #{attribute}" 
                     @welcome[attribute]=welcome[attribute]
                 
