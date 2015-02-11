@@ -6,16 +6,21 @@ q = require 'q'
 class JsClient
     
     constructor:(@rpc, @Growl)->
+        @init_defer = q.defer()
         @rpc_pass_through =
             request: @rpc.request
+        
         relay_node = new RelayNode @rpc_pass_through
         relay_node.init().then => #get it started..
             config.bts_address_prefix = relay_node.base_asset_symbol
             config.chain_id = relay_node.chain_id
             @wallet_api = new WalletAPI @rpc, @rpc_pass_through, relay_node
+            
+            #keep last
+            @init_defer.resolve()
         
         @rpc.request = (method, params, error_handler) =>
-            relay_node.init().then =>
+            @init_defer.promise.then =>
                 @request method, params, error_handler
         
         @log_hide={}
@@ -46,6 +51,9 @@ class JsClient
 
             aliases
         )(WalletAPI.libraries_api_wallet)
+    
+    init:->
+        @init_defer.promise
     
     request: (method, params, error_handler) =>
         defer = q.defer()
