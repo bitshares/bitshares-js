@@ -58,5 +58,5 @@ ${GDB-} \
  --rpcpassword=test\
  --upnp=false\
  --connect-to=$P2P_HOST\
- --disable-default-peers
-
+ --disable-default-peers\
+ --statistics-enabled
