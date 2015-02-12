@@ -25,8 +25,13 @@ BTS_BLOCKCHAIN_MAX_MEMO_SIZE = 19
 
 class TransactionBuilder
     
+    ###*
+        Warning, the expiration starts now.  It is used for deterministic
+        one-time-keys.
+    ###
     constructor:(@wallet, @rpc, @aes_root)->
         throw new Error 'wallet is a required parameter' unless @wallet
+        @expiration = @wallet.get_trx_expiration()
         @blockchain_api = new BlockchainAPI @rpc
         now = new Date().toISOString().split('.')[0]
         @transaction_record =
@@ -101,8 +106,9 @@ class TransactionBuilder
         #        0 #@wallet.select_slate trx, amount.asset_id, vote_method
         #    )
         #else
-        # sha256(<active private key>, <transaction expiration secs since epoch>) 
-        one_time_key = @wallet.getNewPrivateKey payer.name
+        #    one_time_key
+        exp_seconds = Math.floor @expiration.getTime() / 1000
+        one_time_key = @wallet.getNewPrivateKey payer.name, exp_seconds
         titan_one_time_key = one_time_key.toPublicKey()
         memoSenderPrivate = @wallet.getPrivateKey memo_sender
         memoSenderPublic = memoSenderPrivate.toPublicKey()
@@ -584,7 +590,6 @@ class TransactionBuilder
             for k in Object.keys @outstanding_balances
                 delete @outstanding_balances[k]
             
-            @expiration = @wallet.get_trx_expiration()
             return
     
     sign_transaction:() ->

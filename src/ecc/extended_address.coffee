@@ -88,7 +88,9 @@ class ExtendedAddress
         PrivateKey.fromBuffer ki.toBuffer(32)
         
     
-    # TODO, why is this different from deriveS_PublicKey?
+    # TODO, in scratchpad tests this variation on
+    # deriveS_PublicKey was required.  A little tweaking
+    # and this may be unnecessary.
     ExtendedAddress.derivePublic_outbound = (private_key, one_time_key) ->
         S = hash.sha512 private_key.sharedSecret one_time_key.toUncompressed()
         #console.log 'secret\t',S.toString 'hex'
@@ -112,7 +114,20 @@ class ExtendedAddress
         #public_key: 
         #private_key: new PrivateKey(pIL)
         PublicKey.fromPoint Ki
-            
+    
+    ###*
+        In the light-weight client: "One time keys are
+        hash(wif_active_key + " " + id) for some string ID. A
+        transaction OTK ID is its expiration time in seconds since
+        epoch."
+    ###
+    ExtendedAddress.create_one_time_key=(active_PrivateKey, key_id)->
+        wif = active_PrivateKey.toWif()
+        throw new Error "key_id is required" unless key_id
+        h = hash.sha512 wif  + " " + key_id
+        h = hash.sha256 h
+        PrivateKey.fromBuffer h
+    
 class _private
     
     @PAD = new Buffer("0000000000000000000000000000000000000000000000000000000000000000", 'hex')

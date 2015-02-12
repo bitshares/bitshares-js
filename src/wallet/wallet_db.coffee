@@ -478,7 +478,12 @@ class WalletDb
     ###
     
     ###* @return {PrivateKey} ###
+    
+    ###
+    # This is tested with the bitshares client as of Feb 2015.  This is being
+    # turned off in favor of light weight client one time keys.
     generate_new_account_child_key:(aes_root, account_name, save = true)->
+        console.log "WARN: Using a child key sequence.  On-going backups or heavy transaction scanning may be needed"
         private_key = @getActivePrivate aes_root, account_name
         LE.throw 'wallet.account_not_found',[account_name] unless current_account unless private_key
         account = @lookup_account account_name
@@ -503,7 +508,8 @@ class WalletDb
             encrypted_private_key: aes_root.encryptHex child_private.toHex()
         , save
         child_private
-        
+    ###
+    
     add_key_record:(rec, save = true)-> # store_and_reload_record
         @index_key_record rec
         @_append('key_record_type',rec)

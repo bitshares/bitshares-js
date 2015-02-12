@@ -207,9 +207,17 @@ class Wallet
     getWithdrawConditions:(account_name)->
         @wallet_db.getWithdrawConditions account_name
     
-    getNewPrivateKey:(account_name, save = true)->
+    getNewPrivateKey:(account_name, expiration_seconds_epoch)->
         LE.throw 'wallet.must_be_unlocked' unless @aes_root
-        @wallet_db.generate_new_account_child_key @aes_root, account_name, save
+        private_key = @wallet_db.getActivePrivate @aes_root, account_name
+        LE.throw 'wallet.account_not_found',[account_name] unless private_key
+        unless expiration_seconds_epoch > 1423765682
+            throw new Error "Invalid expiration_seconds_epoch #{expiration_seconds_epoch}"
+        
+        ExtendedAddress.create_one_time_key private_key, expiration_seconds_epoch
+        # seq key generation deprecated
+        # @wallet_db.generate_new_account_child_key @aes_root, account_name, save
+    
     ###
     wallet_transfer:(
         amount, asset, 
@@ -273,11 +281,11 @@ class Wallet
         return null unless rec
         @aes_root.decryptHex rec.encrypted_private_key
     
-    get_new_private_key:(account_name, save) ->
-        @generate_new_account_child_key @aes_root, account_name, save
-        
-    get_new_public_key:(account_name) ->
-        @get_new_private_key(account_name).toPublicKey()
+    #get_new_private_key:(account_name, save) ->
+    #    @generate_new_account_child_key @aes_root, account_name, save
+    #    
+    #get_new_public_key:(account_name) ->
+    #    @get_new_private_key(account_name).toPublicKey()
     
     get_my_key_records:(owner_key) ->
         @wallet_db.get_my_key_records owner_key
