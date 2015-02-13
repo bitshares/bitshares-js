@@ -1,6 +1,6 @@
 # BitShares-JS #
 
-Pure JavaScript library for the BitShares platform. 
+JavaScript library for the BitShares platform. 
 
 ## Features ##
 
@@ -20,10 +20,13 @@ npm install -g coffee-script
 ## BROWSER TESTS ##
 (Mac, Linux or Cygwin needed for packaging)
 
-`npm run-script deploy-test`
+`npm run-script package_test`
 
 Open: test/index.html
 
 ## DEPLOY ##
 
-`npm run-script deploy`
+```
+BTS_WEB=~/bitshares/web_wallet
+npm run-script web_wallet
+```

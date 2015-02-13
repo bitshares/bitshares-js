@@ -6,4 +6,3 @@ module.exports =
   client: require "../client"
   hash: require '../ecc/hash'
   secureRandom: require 'secure-random'
-#  wallet_api: require '../wallet_api.json'

@@ -1,3 +1,4 @@
+{WalletDb} = require '../wallet/wallet_db'
 {WalletAPI} = require '../client/wallet_api'
 {RelayNode} = require '../net/relay_node'
 config = require '../config'
@@ -6,9 +7,13 @@ q = require 'q'
 class JsClient
     
     constructor:(@rpc, @Growl)->
-        @init_defer = q.defer()
         @rpc_pass_through =
             request: @rpc.request
+        
+        @init_defer = q.defer()
+        @rpc.request = (method, params, error_handler) =>
+            @init_defer.promise.then =>
+                @request method, params, error_handler
         
         relay_node = new RelayNode @rpc_pass_through
         relay_node.init().then => #get it started..
@@ -16,12 +21,26 @@ class JsClient
             config.chain_id = relay_node.chain_id
             @wallet_api = new WalletAPI @rpc, @rpc_pass_through, relay_node
             
-            #keep last
+            if window.bts.developer
+                console.log '... window.bts.developer', window.bts.developer
+                dev = window.bts.developer
+                #pw = hash.sha512 hash.sha512 dev.password
+                #wallet_name = pw.toString('hex').substring 0,32
+                wallet_name = 'default'
+                if WalletDb.exists wallet_name
+                    console.log '... wallet_api.open'
+                    @wallet_api.open wallet_name
+                    @wallet_api.unlock 99999999, dev.password
+                else
+                    console.log '... wallet_api.create'
+                    @wallet_api.create(
+                        wallet_name
+                        dev.password
+                        dev.brainkey
+                    )
+            
+            #keep last (in relay_node.init())
             @init_defer.resolve()
-        
-        @rpc.request = (method, params, error_handler) =>
-            @init_defer.promise.then =>
-                @request method, params, error_handler
         
         # logging is per developer and listed in .gitignore
         @rpc_hide=(require '../logging').rpc_hide
@@ -83,7 +102,7 @@ class JsClient
         )()
         
         handle_response=(intercept=true) =>
-            unless @rpc_hide.all or @rpc_hide[method] or (method is "batch" and @rpc_hide[params[0]])
+            unless @rpc_hide.hide_all or @rpc_hide[method] or (method is "batch" and @rpc_hide[params[0]])
                 type = if intercept then "intercept" else "pass-through"
                 error_label = if err then "error:" else ""
                 error_value = if err then (if err.stack then err.stack else (JSON.stringify err)) else ""
