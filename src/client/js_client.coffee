@@ -23,20 +23,8 @@ class JsClient
             @init_defer.promise.then =>
                 @request method, params, error_handler
         
-        @log_hide={}
-            #get_info: on
-            #get_config: on
-            #wallet_create: on #don't log password and brainkey
-            #wallet_get_info: on
-            #wallet_list_accounts: on
-            #wallet_account_yield: on
-            #wallet_account_balance: on
-            #wallet_account_transaction_history: on
-            #blockchain_get_info: on
-            #blockchain_get_security_state:on
-            #blockchain_list_address_transactions: on
-            #blockchain_list_key_balances: on
-            #blockchain_get_account: on
+        # logging is per developer and listed in .gitignore
+        @rpc_hide=(require '../logging').rpc_hide
         
         @aliases=((def)-># add aliases
             aliases = {}
@@ -95,7 +83,7 @@ class JsClient
         )()
         
         handle_response=(intercept=true) =>
-            unless @log_hide[method] or (method is "batch" and @log_hide[params[0]])
+            unless @rpc_hide.all or @rpc_hide[method] or (method is "batch" and @rpc_hide[params[0]])
                 type = if intercept then "intercept" else "pass-through"
                 error_label = if err then "error:" else ""
                 error_value = if err then (if err.stack then err.stack else (JSON.stringify err)) else ""

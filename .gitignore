@@ -8,3 +8,4 @@ testnet/htdocs
 testnet/tmp
 testnet/core
 bts.js
+src/logging.coffee
