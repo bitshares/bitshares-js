@@ -20,7 +20,7 @@ npm install -g coffee-script
 ## BROWSER TESTS ##
 (Mac, Linux or Cygwin needed for packaging)
 
-`npm run-script package_test`
+`npm run-script package_tests`
 
 Open: test/index.html
 
