@@ -4,7 +4,7 @@ JavaScript library for the BitShares platform.
 
 ## Features ##
 
-Run the Mocha unit tests and view sample code from your [browser](http://dev.jcalfee.info/bts/mocha).
+Run the Mocha unit tests and view sample code from your browser.  Here is a [live](http://dev.jcalfee.info/bts/mocha) deployment.
 
 ## INSTALL ##
 
