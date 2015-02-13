@@ -5,6 +5,8 @@ q = require 'q'
 class ChainDatabase
 
     REGISTERED_ACCOUNT_LOOKAHEAD = 11
+    
+    # Per-Chain: timeout_ids = {"chain_id": trx: id, sync: id} 
     sync_transactions_timeout_id = null
     sync_accounts_timeout_id = null
     
@@ -25,11 +27,13 @@ class ChainDatabase
             clearTimeout sync_accounts_timeout_id
             sync_accounts_timeout_id = null
         else
-            sync_accounts_timeout_id = setTimeout ()=>
-                    @poll_accounts aes_root
-                ,
-                    10*1000
-            @sync_accounts aes_root
+            # unless already polling
+            unless sync_accounts_timeout_id
+                sync_accounts_timeout_id = setTimeout ()=>
+                        @poll_accounts aes_root
+                    ,
+                        10*1000
+                @sync_accounts aes_root
     
     ###
         Watch for public transactions sent to any
@@ -41,11 +45,13 @@ class ChainDatabase
             clearTimeout sync_transactions_timeout_id
             sync_transactions_timeout_id = null
         else
-            sync_transactions_timeout_id = setTimeout ()=>
-                    @poll_transactions()
-                ,
-                    10*1000
-            @sync_transactions()
+            # unless already polling
+            unless sync_transactions_timeout_id
+                sync_transactions_timeout_id = setTimeout ()=>
+                        @poll_transactions()
+                    ,
+                        10*1000
+                @sync_transactions()
     
     _account_keys:(account_name)->
         account_names = []
