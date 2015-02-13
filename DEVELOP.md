@@ -4,8 +4,6 @@
 export BTS_JS=~/bitshares/BitShares-JS
 export BTS_WEB=~/bitshares/web_wallet
 export BTS_BUILD=~/bitshares/master
-#export BTS_BUILD=~/bitshares/develop
-#export BTS_BUILD=~/bitshares/toolkit
 ```
 
 ## DEVELOP ##
