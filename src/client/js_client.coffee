@@ -22,17 +22,15 @@ class JsClient
             @wallet_api = new WalletAPI @rpc, @rpc_pass_through, relay_node
             
             if window.bts.developer
-                console.log '... window.bts.developer', window.bts.developer
                 dev = window.bts.developer
-                #pw = hash.sha512 hash.sha512 dev.password
-                #wallet_name = pw.toString('hex').substring 0,32
-                wallet_name = 'default'
+                hash = require '../ecc/hash'
+                pw = hash.sha512 hash.sha512 dev.password
+                wallet_name = pw.toString('hex').substring 0,32
+                #wallet_name = 'default'
                 if WalletDb.exists wallet_name
-                    console.log '... wallet_api.open'
                     @wallet_api.open wallet_name
                     @wallet_api.unlock 99999999, dev.password
                 else
-                    console.log '... wallet_api.create'
                     @wallet_api.create(
                         wallet_name
                         dev.password
