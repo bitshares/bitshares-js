@@ -603,9 +603,8 @@ class WalletDb
     validate_password: (password)->
         checksum1 = hash.sha512 password
         checksum = hash.sha512 checksum1
-        unless @master_key.checksum is checksum.toString 'hex'
-            LE.throw 'wallet.invalid_password'
-            
+        @master_key.checksum is checksum.toString 'hex'
+    
     getActivePrivate:(aes_root, account_name)->
         throw new Error 'missing required parameter' unless account_name
         active_key = @lookup_active_key account_name

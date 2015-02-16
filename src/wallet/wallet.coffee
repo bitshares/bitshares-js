@@ -107,7 +107,8 @@ class Wallet
         JSON.stringify(@wallet_db.wallet_object, undefined, indent_spaces)
     
     unlock: (timeout_seconds = 1700, password)->
-        @wallet_db.validate_password password
+        unless @wallet_db.validate_password password
+            LE.throw 'wallet.invalid_password'
         @aes_root = Aes.fromSecret password
         unlock_timeout_id = setTimeout ()=>
             @lock()

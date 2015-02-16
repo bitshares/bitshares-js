@@ -55,10 +55,11 @@ class WalletAPI
     close:->
         @wallet = null
         return
-        
+    
     validate_password: (password)->
         LE.throw "wallet.must_be_opened" unless @wallet
-        @wallet.validate_password password
+        unless @wallet.validate_password password
+            LE.throw 'wallet.invalid_password'
         return
     
     unlock:(timeout_seconds = config.BTS_WALLET_DEFAULT_UNLOCK_TIME_SEC, password)->
@@ -90,6 +91,11 @@ class WalletAPI
             throw 'not implemented'
         
         return "OK"
+    
+    get_brainkey:->
+        LE.throw "wallet.must_be_opened" unless @wallet
+        LE.throw 'wallet.must_be_unlocked' unless @wallet.aes_root
+        @wallet.wallet_db.get_brainkey @wallet.aes_root
     
     ###* @return promise: {string} public key ###
     account_create:(account_name, private_data)->
