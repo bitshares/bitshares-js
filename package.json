@@ -14,7 +14,7 @@
   "scripts": {
     "test": "./node_modules/.bin/mocha --compilers coffee:coffee-script --require coffee-script/register",
     "develop": "coffee src/deploy/watchify.coffee src/deploy/developer.coffee -s bts --transform coffeeify --extension=.coffee -o $BTS_WEB/vendor/js/bts.js -v",
-    "web_wallet": "browserify src/deploy/web_wallet.coffee -s bts --transform coffeeify --extension=.coffee -o $BTS_WEB/vendor/js/bts.js -v",
+    "web_wallet": "coffee src/deploy/watchify.coffee src/deploy/web_wallet.coffee -s bts --transform coffeeify --extension=.coffee -o $BTS_WEB/vendor/js/bts.js -v",
     "package_tests": "browserify test/*.coffee --debug --transform coffeeify --extension=.coffee >bitshares-mocha.js",
     "package": "browserify src/deploy/web_wallet.coffee -s bts --debug --transform coffeeify --extension=.coffee >bitshares-debug.js"
   },

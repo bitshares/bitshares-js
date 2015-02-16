@@ -21,25 +21,6 @@ class JsClient
             config.chain_id = relay_node.chain_id
             @wallet_api = new WalletAPI @rpc, @rpc_pass_through, relay_node
             
-            if window.bts.developer
-                dev = window.bts.developer
-                #hash = require '../ecc/hash'
-                #pw = hash.sha512 hash.sha512 dev.password
-                # web_wallet is hard-coded to start-up looking for 'default'
-                #wallet_name = pw.toString('hex').substring 0,32
-                wallet_name = 'default'
-                if WalletDb.exists wallet_name
-                    console.log '... developer deploy, auto open wallet'
-                    @wallet_api.open wallet_name
-                    @wallet_api.unlock 9999999, dev.password
-                else
-                    console.log '... developer deploy, auto create wallet'
-                    @wallet_api.create(
-                        wallet_name
-                        dev.password
-                        dev.brainkey
-                    )
-            
             #keep last (in relay_node.init())
             @init_defer.resolve()
         

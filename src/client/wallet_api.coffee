@@ -38,6 +38,22 @@ class WalletAPI
             throw new LE 'wallet.not_found', [wallet_name]
         
         @_open_from_wallet_db wallet_db
+        
+        if window.bts.developer
+            dev = window.bts.developer
+            hash = require '../ecc/hash'
+            pw = hash.sha512 hash.sha512 dev.password
+            wallet_name = pw.toString('hex').substring 0,32
+            if WalletDb.exists wallet_name
+                console.log '... developer deploy, auto open wallet'
+                @unlock 9999999, dev.password
+            else
+                console.log '... developer deploy, auto create wallet'
+                @create(
+                    wallet_name
+                    dev.password
+                    dev.brainkey
+                )
         return
         
     _open_from_wallet_db:(wallet_db)->
