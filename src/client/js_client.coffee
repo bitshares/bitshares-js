@@ -23,14 +23,17 @@ class JsClient
             
             if window.bts.developer
                 dev = window.bts.developer
-                hash = require '../ecc/hash'
-                pw = hash.sha512 hash.sha512 dev.password
-                wallet_name = pw.toString('hex').substring 0,32
-                #wallet_name = 'default'
+                #hash = require '../ecc/hash'
+                #pw = hash.sha512 hash.sha512 dev.password
+                # web_wallet is hard-coded to start-up looking for 'default'
+                #wallet_name = pw.toString('hex').substring 0,32
+                wallet_name = 'default'
                 if WalletDb.exists wallet_name
+                    console.log '... developer deploy, auto open wallet'
                     @wallet_api.open wallet_name
-                    @wallet_api.unlock 99999999, dev.password
+                    @wallet_api.unlock 9999999, dev.password
                 else
+                    console.log '... developer deploy, auto create wallet'
                     @wallet_api.create(
                         wallet_name
                         dev.password
@@ -39,9 +42,6 @@ class JsClient
             
             #keep last (in relay_node.init())
             @init_defer.resolve()
-        
-        # logging is per developer and listed in .gitignore
-        @rpc_hide=(require '../logging').rpc_hide
         
         @aliases=((def)-># add aliases
             aliases = {}
@@ -99,17 +99,32 @@ class JsClient
                     @wallet_api[api_function]
         )()
         
+        # logging is per developer, listed in .gitignore, and may be undefined
+        @rpc_hide = (->
+            dev_private = require '../deploy/dev_private'
+            dev_private.rpc_hide
+        )()
+        
         handle_response=(intercept=true) =>
-            unless @rpc_hide.hide_all or @rpc_hide[method] or (method is "batch" and @rpc_hide[params[0]])
-                type = if intercept then "intercept" else "pass-through"
-                error_label = if err then "error:" else ""
-                error_value = if err then (if err.stack then err.stack else (JSON.stringify err)) else ""
-                return_label = if ret then "return:" else ""
-                return_value = if ret then ret else "" # stringify will produce too much output
-                console.log "[BitShares-JS] #{api_group}\t#{type}\t", method, params,return_label,return_value,error_label,error_value
+            if @rpc_hide
+                unless (
+                    @rpc_hide.hide_all or
+                    @rpc_hide[method] or
+                    (
+                        method is "batch" and
+                        @rpc_hide[params[0]]
+                    )
+                )
+                    type = if intercept then "intercept" else "pass-through"
+                    error_label = if err then "error:" else ""
+                    error_value = if err then (if err.stack then err.stack else (JSON.stringify err)) else ""
+                    return_label = if ret then "return:" else ""
+                    return_value = if ret then ret else "" # stringify will produce too much output
+                    console.log "[BitShares-JS] #{api_group}\t#{type}\t", method, params,return_label,return_value,error_label,error_value
             
             if err
                 err = message:err unless err.message
+                @Growl.error "", err.message
                 err = data:error: err
                 defer.reject err
                 error_handler err if error_handler
@@ -120,8 +135,7 @@ class JsClient
             return
         
         if not fun and method.match /^wallet_/
-            err = new Error 'Not Implemented'
-            @Growl.error "", 'Not Implemented'
+            err = new Error "Not Implemented [#{method}]"
             handle_response()
             return defer.promise
         
