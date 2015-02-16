@@ -1,6 +1,6 @@
 # BitShares-JS #
 
-JavaScript library for the BitShares platform. 
+JavaScript library for the BitShares platform.  This does not contain a graphical user interface.
 
 ## Features ##
 
