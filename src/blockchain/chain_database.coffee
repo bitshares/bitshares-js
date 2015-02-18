@@ -269,7 +269,6 @@ class ChainDatabase
                 entries.push entry = {}
                 entry.from_account = sender
                 entry.to_account = null
-                ###
                 defer = q.defer()
                 account_promises.push defer.promise
                 ((entry, defer)=>
@@ -284,7 +283,6 @@ class ChainDatabase
                         defer.resolve()
                         return
                 )(entry, defer) if sender
-                ###
                 unless sender
                     console.log "WARN chain_database::_add_ledger_entries did not find balance record #{balance_id}"
                 entry.amount=

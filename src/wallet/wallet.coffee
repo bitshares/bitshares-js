@@ -150,7 +150,7 @@ class Wallet
         resolve a name, ID, or public key.
     ###
     get_chain_account:(name, refresh = false)-> # was lookup_account
-        @wallet_db.get_chain_account name, @blockchain_api
+        @wallet_db.get_chain_account name, @blockchain_api, refresh
     
     is_my_account:(public_key)->
         @wallet_db.is_my_account public_key

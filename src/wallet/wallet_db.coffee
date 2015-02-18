@@ -287,13 +287,17 @@ class WalletDb
     get_chain_account:(name, blockchain_api, refresh = false)-> # was lookup_account
         unless refresh
             local_account = @lookup_account name
+            local_account = @lookup_key name unless local_account
             if local_account
                 defer = q.defer()
                 defer.resolve local_account
                 return defer.promise
+        
+        p = null
         ((name)=>
-            blockchain_api.get_account(name).then (chain_account)=>
+            p = blockchain_api.get_account(name).then (chain_account)=>
                 local_account = @lookup_account name
+                local_account = @lookup_key name unless local_account
                 unless local_account or chain_account
                     LE.throw "general.unknown_account", [name]
                 
@@ -303,10 +307,11 @@ class WalletDb
                 
                 if chain_account
                     @store_account_or_update chain_account
-                    local_account = @lookup_account name
+                    local_account = @lookup_account chain_account.name
                 
                 local_account
         )(name)
+        p
     
     lookup_account:(account_name)->
         account = @account[account_name]
