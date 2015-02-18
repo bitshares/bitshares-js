@@ -84,7 +84,7 @@ class WithdrawCondition
         
     WithdrawCondition.fromHex= (hex) ->
         b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
-        return SignedTransaction.fromByteBuffer b
+        return WithdrawCondition.fromByteBuffer b
 
     toHex: () ->
         b=@toByteBuffer()

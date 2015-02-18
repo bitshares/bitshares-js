@@ -33,19 +33,15 @@ class WalletAPI
     
     ###* open from persistent storage ###
     open: (wallet_name = "default")->
-        wallet_db = WalletDb.open wallet_name
-        unless wallet_db
-            throw new LE 'wallet.not_found', [wallet_name]
-        
-        @_open_from_wallet_db wallet_db
-        
-        if window.bts.developer
+        if window?.bts.developer and wallet_name is "default"
             dev = window.bts.developer
             hash = require '../ecc/hash'
             pw = hash.sha512 hash.sha512 dev.password
             wallet_name = pw.toString('hex').substring 0,32
             if WalletDb.exists wallet_name
                 console.log '... developer deploy, auto open wallet'
+                wallet_db = WalletDb.open wallet_name
+                @_open_from_wallet_db wallet_db
                 @unlock 9999999, dev.password
             else
                 console.log '... developer deploy, auto create wallet'
@@ -54,6 +50,13 @@ class WalletAPI
                     dev.password
                     dev.brainkey
                 )
+            return
+        
+        wallet_db = WalletDb.open wallet_name
+        unless wallet_db
+            throw new LE 'wallet.not_found', [wallet_name]
+        
+        @_open_from_wallet_db wallet_db
         return
         
     _open_from_wallet_db:(wallet_db)->
@@ -65,7 +68,7 @@ class WalletAPI
     create: (wallet_name = "default", new_password, brain_key)->
         Wallet.create wallet_name, new_password, brain_key
         @open wallet_name
-        @wallet.unlock config.BTS_WALLET_DEFAULT_UNLOCK_TIME_SEC, new_password
+        @unlock config.BTS_WALLET_DEFAULT_UNLOCK_TIME_SEC, new_password
         return
         
     close:->
@@ -264,6 +267,8 @@ class WalletAPI
             unlocked: not @wallet?.locked() #if @wallet then not @wallet.locked() else null
             name: @wallet.wallet_db?.wallet_name
             transaction_fee:fee
+            transaction_scanning:true
+            scan_progress: "100.00 %"
     
     # general get_info has wallet attributes in it
     general_get_info:->
@@ -274,6 +279,7 @@ class WalletAPI
                     delete info[key]
             info['wallet_open'] = if @wallet then true else false
             info['wallet_unlocked'] = not @wallet?.locked()
+            
             info
             #info['wallet_unlocked_until']="xx hours in the future"
             #info['wallet_unlocked_until_timestamp']=(
@@ -414,6 +420,7 @@ class WalletAPI
     
     #batch wallet_check_vote_proportion
     
+    ###* @return promise [transaction] ###
     account_transaction_history:(
         account_name=""
         asset=""

@@ -240,7 +240,7 @@ class TransactionBuilder
         )
         memo_content=->
             check_secret = from_Private.sharedSecret secret_Public.toUncompressed()
-            new MemoData(
+            MemoData.fromCheckSecret(
                 memo_Public
                 check_secret
                 new Buffer memo_message

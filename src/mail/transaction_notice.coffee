@@ -39,7 +39,7 @@ class TransactionNotice
     
     TransactionNotice.fromHex= (hex) ->
         b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
-        return SignedTransaction.fromByteBuffer b
+        return TransactionNotice.fromByteBuffer b
 
     toHex: () ->
         b=@toByteBuffer()

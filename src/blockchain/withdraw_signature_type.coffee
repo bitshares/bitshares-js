@@ -59,7 +59,7 @@ class WithdrawSignatureType
     
     WithdrawSignatureType.fromHex= (hex) ->
         b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
-        return SignedTransaction.fromByteBuffer b
+        return WithdrawSignatureType.fromByteBuffer b
 
     toHex: () ->
         b=@toByteBuffer()

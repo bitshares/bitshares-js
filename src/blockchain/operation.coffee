@@ -54,7 +54,7 @@ class Operation
     
     Operation.fromHex= (hex) ->
         b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
-        return SignedTransaction.fromByteBuffer b
+        return Operation.fromByteBuffer b
 
     toHex: () ->
         b=@toByteBuffer()

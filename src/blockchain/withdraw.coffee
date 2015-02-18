@@ -43,7 +43,7 @@ class Withdraw
     
     Withdraw.fromHex= (hex) ->
         b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
-        return SignedTransaction.fromByteBuffer b
+        return Withdraw.fromByteBuffer b
 
     toHex: () ->
         b=@toByteBuffer()

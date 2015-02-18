@@ -146,35 +146,14 @@ class Wallet
     get_local_account:(name)->
         @wallet_db.lookup_account name
     
-    is_my_account:(public_key)->
-        @wallet_db.is_my_account public_key
-    
     ###*
-        Get an account, try to sync with blockchain account 
-        cache in wallet_db.
+        resolve a name, ID, or public key.
     ###
     get_chain_account:(name, refresh = false)-> # was lookup_account
-        unless refresh
-            local_account = @wallet_db.lookup_account name
-            if local_account
-                defer = q.defer()
-                defer.resolve local_account
-                return defer.promise
-        
-        @blockchain_api.get_account(name).then (chain_account)=>
-            local_account = @wallet_db.lookup_account name
-            unless local_account or chain_account
-                LE.throw "general.unknown_account", [name]
-            
-            if local_account and chain_account
-                if local_account.owner_key isnt chain_account.owner_key
-                    LE.throw "wallet.conflicting_accounts", [name]
-            
-            if chain_account
-                @wallet_db.store_account_or_update chain_account
-                local_account = @wallet_db.lookup_account name
-            
-            local_account
+        @wallet_db.get_chain_account name, @blockchain_api
+    
+    is_my_account:(public_key)->
+        @wallet_db.is_my_account public_key
     
     ###* @return promise: {string} public key ###
     account_create:(account_name, private_data)->
@@ -253,7 +232,7 @@ class Wallet
         @wallet_db.add_transaction_record record
         return
     
-    
+    ###* @return promise [transaction] ###
     account_transaction_history:(
         account_name=""
         asset_id=-1
@@ -262,12 +241,14 @@ class Wallet
         end_block_num=-1
         transactions
     )->
+        LE.throw 'wallet.must_be_unlocked' unless @aes_root
         @chain_database.account_transaction_history(
             account_name
             asset_id
             limit
             start_block_num
             end_block_num
+            @aes_root
         )
     
     valid_unique_account:(account_name) ->

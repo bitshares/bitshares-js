@@ -1,8 +1,9 @@
+q = require 'q'
+config = require './config'
 hash = require '../ecc/hash'
+main_config = require '../config'
 LE = require('../common/exceptions').LocalizedException
 EC = require('../common/exceptions').ErrorWithCause
-config = require './config'
-main_config = require '../config'
 {Storage} = require '../common/storage'
 {Aes} = require '../ecc/aes'
 {Address} = require '../ecc/address'
@@ -277,6 +278,35 @@ class WalletDb
             account = @_pretty_account entry.data
             continue unless account.is_my_account if just_mine
             account
+    
+    ###*
+        Get an account, try to sync with blockchain account 
+        cache in wallet_db.  This may call blockchain_get_account
+        which will resolve a name, ID, or public key.
+    ###
+    get_chain_account:(name, blockchain_api, refresh = false)-> # was lookup_account
+        unless refresh
+            local_account = @lookup_account name
+            if local_account
+                defer = q.defer()
+                defer.resolve local_account
+                return defer.promise
+        ((name)=>
+            blockchain_api.get_account(name).then (chain_account)=>
+                local_account = @lookup_account name
+                unless local_account or chain_account
+                    LE.throw "general.unknown_account", [name]
+                
+                if local_account and chain_account
+                    if local_account.owner_key isnt chain_account.owner_key
+                        LE.throw "wallet.conflicting_accounts", [name]
+                
+                if chain_account
+                    @store_account_or_update chain_account
+                    local_account = @lookup_account name
+                
+                local_account
+        )(name)
     
     lookup_account:(account_name)->
         account = @account[account_name]

@@ -122,9 +122,9 @@ describe "Transactions", ->
         @timeout 10*1000
         wallet_api = new_wallet_api @rpc
         wallet_api.chain_database.sync_transactions().then ()->
-            history = wallet_api.account_transaction_history()
-            throw new Error 'no history' unless history?.length > 0
-            done()
+            wallet_api.account_transaction_history(wallet_api.aes_root).then (history)->
+                throw new Error 'no history' unless history?.length > 0
+                done()
         .done()
     
     it "account_register", (done) ->

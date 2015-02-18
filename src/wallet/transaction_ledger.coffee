@@ -33,7 +33,7 @@ class TransactionLedger
                 
         history = []
         for tx in transactions
-            tx = @_to_pretty_tx tx
+            # tx = @to_pretty_tx tx
             # tally all blocks even if they are not in the query
             for entry in tx.ledger_entries
                 from_account = entry.from_account_name
@@ -71,7 +71,7 @@ class TransactionLedger
         
     #get_pending_transaction_errors:->
     
-    _to_pretty_tx:(tx)->
+    to_pretty_tx:(tx)->
         unless tx.ledger_entries
             throw new Error "internal transaction missing ledger entries"
         
@@ -107,12 +107,12 @@ class TransactionLedger
                     if tx.is_market then "MARKET"
                     else "UNKNOWN"
             if pe.from_account is pe.to_account
-                if entry.memo.indexOf("withdraw pay") is 0
+                if entry.memo?.indexOf("withdraw pay") is 0
                     pe.from_account = "NETWORK"
-            if entry.memo.indexOf("yield") is 0
+            if entry.memo?.indexOf("yield") is 0
                 pe.from_account = "NETWORK"
                 console.log "WARN: to_account for yield (#{pe.to_account}) may need resolving"
-            else if entry.memo.indexOf("burn") is 0 then pe.to_account = "NETWORK"
+            else if entry.memo?.indexOf("burn") is 0 then pe.to_account = "NETWORK"
             #console.log 'pe',pe
             (->
                 from = pe.from_account or ""
@@ -130,7 +130,7 @@ class TransactionLedger
             )()
             pe.amount = entry.amount
             pe.memo = entry.memo
-            pe.running_balances = entry.running_balances
+            pe.running_balances = entry.running_balances or []
         
         pretty_tx.fee = tx.fee
         pretty_tx.timestamp = tx.timestamp

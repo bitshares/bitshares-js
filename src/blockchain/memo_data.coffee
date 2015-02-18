@@ -19,10 +19,7 @@ FC_REFLECT( bts::blockchain::memo_data,
 ###
 class MemoData
 
-    constructor: (@from, check_secret, @message, @memo_flags) ->
-        # serilize a 64bit number
-        check_secret_b = ByteBuffer.fromBinary check_secret.toString('binary'), ByteBuffer.LITTLE_ENDIAN
-        @from_signature = check_secret_b.readUint64()
+    constructor: (@from, @from_signature, @message, @memo_flags) ->
     
     MemoData.fromByteBuffer= (b) ->
         from = fp.public_key b
@@ -39,6 +36,17 @@ class MemoData
     
     ### <helper_functions> ###
     
+    MemoData.fromCheckSecret= (from, check_secret, message, memo_flags) ->
+        # serilize a 64bit number
+        check_secret_b = ByteBuffer.fromBinary check_secret.toString('binary'), ByteBuffer.LITTLE_ENDIAN
+        from_signature = check_secret_b.readUint64()
+        new MemoData(
+            from
+            from_signature
+            message
+            memo_flags
+        )
+    
     toBuffer: ->
         b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
         @appendByteBuffer(b)
@@ -46,7 +54,7 @@ class MemoData
     
     MemoData.fromHex= (hex) ->
         b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
-        return SignedTransaction.fromByteBuffer b
+        return MemoData.fromByteBuffer b
     
     toHex: () ->
         b=@toByteBuffer()
