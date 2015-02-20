@@ -1,4 +1,3 @@
-{WalletDb} = require '../wallet/wallet_db'
 {WalletAPI} = require '../client/wallet_api'
 {RelayNode} = require '../net/relay_node'
 config = require '../config'
@@ -105,7 +104,7 @@ class JsClient
             
             if err
                 err = message:err unless err.message
-                @Growl.error "", err.message
+                #@Growl.error "", err.message
                 err = data:error: err
                 defer.reject err
                 error_handler err if error_handler
