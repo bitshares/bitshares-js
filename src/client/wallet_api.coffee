@@ -33,7 +33,10 @@ class WalletAPI
     
     ###* open from persistent storage ###
     open: (wallet_name = "default")->
-        if window?.bts.developer and wallet_name is "default"
+        if @current_wallet_name is wallet_name
+            return
+        
+        if window?.bts?.developer and wallet_name is "default"
             dev = window.bts.developer
             hash = require '../ecc/hash'
             pw = hash.sha512 hash.sha512 dev.password
@@ -52,18 +55,21 @@ class WalletAPI
                 )
             return
         
+        #console.log '... wallet_name',wallet_name,(new Error()).stack
         wallet_db = WalletDb.open wallet_name
         unless wallet_db
             throw new LE 'wallet.not_found', [wallet_name]
         
+        #console.log '... wallet_db.wallet_object', JSON.stringify wallet_db.wallet_object
         @_open_from_wallet_db wallet_db
+        @current_wallet_name = wallet_name
         return
         
     _open_from_wallet_db:(wallet_db)->
-        @wallet = new Wallet wallet_db, @rpc, @relay.chain_id
         @transaction_ledger = new TransactionLedger()
         @chain_database = new ChainDatabase wallet_db, @rpc, @relay.chain_id
-        return @
+        @wallet = new Wallet wallet_db, @rpc, @relay.chain_id, @chain_database
+        return
     
     create: (wallet_name = "default", new_password, brain_key)->
         Wallet.create wallet_name, new_password, brain_key
