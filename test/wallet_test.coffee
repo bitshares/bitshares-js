@@ -3,6 +3,7 @@
 {WalletAPI} = require '../src/client/wallet_api'
 {TransactionLedger} = require '../src/wallet/transaction_ledger'
 {ChainInterface} = require '../src/blockchain/chain_interface'
+{Storage} = require '../src/common/storage'
 wallet_object = require '../testnet/config/wallet.json'
 EC = require('../src/common/exceptions').ErrorWithCause
 secureRandom = require 'secure-random'
@@ -124,7 +125,12 @@ describe "Wallet API (non-RPC)", ->
         accounts = @wallet_api.list_my_accounts()
         EC.throw "No accounts" unless accounts or accounts.length > 0
     
-
+    it "has local storage", ->
+        storage = new Storage "namespace"
+        storage.setItem 'key', 'value'
+        value = storage.getItem 'key'
+        throw new Error 'failed to save value' unless value is 'value'
+        
     ###
     it "create brain-key wallet", ->
         # exception in wallet.coffee: throw 'Brain keys have not been tested with the native client'
