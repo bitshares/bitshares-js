@@ -39,7 +39,10 @@ class ChainDatabase
                         @poll_accounts aes_root
                     ,
                         10*1000
-                @sync_accounts aes_root
+                try
+                    @sync_accounts aes_root
+                catch e
+                    console.log e,e.stack
     
     ###
         Watch for public transactions sent to any
@@ -58,7 +61,10 @@ class ChainDatabase
                     @poll_transactions()
                 ,
                     10*1000
-                @sync_transactions()
+                try
+                    @sync_transactions()
+                catch e
+                    console.log e,e.stack
     
     _account_keys:(account_name)->
         account_names = []
@@ -236,7 +242,7 @@ class ChainDatabase
                         entry.to_account, @blockchain_api
                     ).then (account) ->
                         entry.to_account = account.name if account
-                        console.log '... entry,account', entry,account
+                        #console.log '... entry,account', entry,account
                         defer.resolve()
                         return
                     , (ex)->
@@ -275,6 +281,8 @@ class ChainDatabase
                     @wallet_db.get_chain_account(
                         entry.from_account, @blockchain_api
                     ).then (account) ->
+                        #console.log '... entry.from_account',entry.from_account
+                        #console.log '... account',account
                         entry.from_account = account.name if account
                         defer.resolve()
                         return
@@ -291,6 +299,8 @@ class ChainDatabase
                 entry.memo = ""
                 entry.memo_from_account = null
         
+        #q.all(account_promises).then ->
+        #    console.log '... entries',JSON.stringify entries
         q.all account_promises
     
     _decrypt_memo:(titan_memo, account_address, aes_root)->
