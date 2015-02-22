@@ -70,7 +70,7 @@ class Wallet
         
         data = if brain_key
             base = hash.sha512 brain_key
-            for i in [0...100*1000] by 1
+            for i in [0...10*1000] by 1
                 # strengthen the key a bit
                 base = hash.sha512 base
             base
