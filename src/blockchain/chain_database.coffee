@@ -294,7 +294,7 @@ class ChainDatabase
                 unless sender
                     console.log "WARN chain_database::_add_ledger_entries did not find balance record #{balance_id}"
                 entry.amount=
-                    amount: amount
+                    amount: -amount
                     asset_id: asset_id
                 entry.memo = ""
                 entry.memo_from_account = null
