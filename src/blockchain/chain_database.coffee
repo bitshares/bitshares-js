@@ -223,6 +223,7 @@ class ChainDatabase
         balance_id = null
         transaction.ledger_entries = entries = []
         account_promises = []
+        has_from = no
         for op in transaction.trx.operations
             if (
                 op.type is "deposit_op_type" and 
@@ -232,7 +233,36 @@ class ChainDatabase
                 asset_id = op.data.condition.asset_id
                 recipient = op.data.condition.data.owner
                 entries.push entry = {}
-                entry.from_account = null
+                
+                if op.data.condition.data.memo
+                    try 
+                        memo_data = @_decrypt_memo(
+                            op.data.condition.data.memo
+                            account_address, aes_root
+                        )
+                        if memo_data
+                            has_from = yes
+                            memo_from = memo_data.from.toBtsPublic()
+                            entry.from_account = memo_from
+                            defer = q.defer()
+                            account_promises.push defer.promise
+                            ((entry, defer)=>
+                                @wallet_db.get_chain_account(
+                                    entry.from_account, @blockchain_api
+                                ).then (account) ->
+                                    entry.from_account = account.name if account
+                                    defer.resolve()
+                                    return
+                                , ()->
+                                    #unknown account
+                                    defer.resolve()
+                                    return
+                            )(entry, defer)
+                            entry.memo = memo_data.message.toString()
+                            entry.memo_from_account = memo_from
+                    catch e
+                        console.log e,e.stack
+                
                 entry.to_account = recipient
                 if recipient
                     defer = q.defer()
@@ -255,55 +285,43 @@ class ChainDatabase
                 entry.amount=
                     amount: amount
                     asset_id: asset_id
-                entry.memo = ""
-                entry.memo_from_account = null
-                if op.data.condition.data.memo
-                    try 
-                        memo_from = @_decrypt_memo(
-                            op.data.condition.data.memo
-                            account_address, aes_root
-                        )
-                        entry.memo = memo_from?.memo
-                        entry.memo_from_account = memo_from?.memo_from_account
-                    catch e
-                        console.log e,e.stack
-            
-            if op.type is "withdraw_op_type"
-                balance_id = op.data.balance_id
-                sender = balanceid_readonly[balance_id]?.owner
-                asset_id = balanceid_readonly[balance_id]?.asset_id
-                amount = op.data.amount
-                entries.push entry = {}
-                entry.from_account = sender
-                entry.to_account = null
-                if sender
-                    defer = q.defer()
-                    account_promises.push defer.promise
-                    ((entry, defer)=>
-                        @wallet_db.get_chain_account(
-                            entry.from_account, @blockchain_api
-                        ).then (account) ->
-                            #console.log '... entry.from_account',entry.from_account
-                            #console.log '... account',account
-                            entry.from_account = account.name if account
-                            defer.resolve()
-                            return
-                        , ()->
-                            #unknown account
-                            defer.resolve()
-                            return
-                    )(entry, defer)
-                
-                unless sender
-                    console.log "WARN chain_database::_add_ledger_entries did not find balance record #{balance_id}"
-                entry.amount=
-                    amount: -amount
-                    asset_id: asset_id
-                entry.memo = ""
-                entry.memo_from_account = null
         
-        #q.all(account_promises).then ->
-        #    console.log '... entries',JSON.stringify entries
+        unless has_from
+            for op in transaction.trx.operations
+                if op.type is "withdraw_op_type"
+                    balance_id = op.data.balance_id
+                    sender = balanceid_readonly[balance_id]?.owner
+                    asset_id = balanceid_readonly[balance_id]?.asset_id
+                    amount = op.data.amount
+                    entries.push entry = {}
+                    entry.from_account = sender
+                    entry.to_account = ""
+                    if sender
+                        defer = q.defer()
+                        account_promises.push defer.promise
+                        ((entry, defer)=>
+                            @wallet_db.get_chain_account(
+                                entry.from_account, @blockchain_api
+                            ).then (account) ->
+                                #console.log '... entry.from_account',entry.from_account
+                                #console.log '... account',account
+                                entry.from_account = account.name if account
+                                defer.resolve()
+                                return
+                            , ()->
+                                #unknown account
+                                defer.resolve()
+                                return
+                        )(entry, defer)
+                    
+                    unless sender
+                        console.log "WARN chain_database::_add_ledger_entries did not find balance record #{balance_id}"
+                    entry.amount=
+                        amount: amount
+                        asset_id: asset_id
+                    entry.memo = ""
+                    entry.memo_from_account = null
+        
         q.all account_promises
     
     _decrypt_memo:(titan_memo, account_address, aes_root)->
