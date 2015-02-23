@@ -10,13 +10,12 @@ class ChainDatabase
 
     REGISTERED_ACCOUNT_LOOKAHEAD = 11
     
-    # Per-Chain: timeout_ids = {"chain_id": trx: id, sync: id} 
     sync_transactions_timeout_id = null
     sync_accounts_timeout_id = null
     
-    constructor: (@wallet_db, @rpc, chain_id) ->
+    constructor: (@wallet_db, @rpc) ->
         @transaction_ledger = new TransactionLedger()
-        @storage = new Storage chain_id.substring 0, 10
+        @storage = new Storage @wallet_db.wallet_name + "_chain_db"
         # basic unit tests will not provide an rpc object
         if @rpc and not @rpc.request
             throw new Error 'expecting rpc object'
@@ -235,22 +234,24 @@ class ChainDatabase
                 entries.push entry = {}
                 entry.from_account = null
                 entry.to_account = recipient
-                defer = q.defer()
-                account_promises.push defer.promise
-                ((entry, defer)=>
-                    @wallet_db.get_chain_account(
-                        entry.to_account, @blockchain_api
-                    ).then (account) ->
-                        entry.to_account = account.name if account
-                        #console.log '... entry,account', entry,account
-                        defer.resolve()
-                        return
-                    , (ex)->
-                        #unknown account
-                        #console.log ex,ex.stack
-                        defer.resolve()
-                        return
-                )(entry, defer) if recipient
+                if recipient
+                    defer = q.defer()
+                    account_promises.push defer.promise
+                    ((entry, defer)=>
+                        @wallet_db.get_chain_account(
+                            entry.to_account, @blockchain_api
+                        ).then (account) ->
+                            entry.to_account = account.name if account
+                            #console.log '... entry,account', entry,account
+                            defer.resolve()
+                            return
+                        , (ex)->
+                            #unknown account
+                            #console.log ex,ex.stack
+                            defer.resolve()
+                            return
+                    )(entry, defer)
+                
                 entry.amount=
                     amount: amount
                     asset_id: asset_id
@@ -262,8 +263,8 @@ class ChainDatabase
                             op.data.condition.data.memo
                             account_address, aes_root
                         )
-                        entry.memo = memo_from.memo
-                        entry.memo_from_account = memo_from.memo_from_account
+                        entry.memo = memo_from?.memo
+                        entry.memo_from_account = memo_from?.memo_from_account
                     catch e
                         console.log e,e.stack
             
@@ -275,22 +276,24 @@ class ChainDatabase
                 entries.push entry = {}
                 entry.from_account = sender
                 entry.to_account = null
-                defer = q.defer()
-                account_promises.push defer.promise
-                ((entry, defer)=>
-                    @wallet_db.get_chain_account(
-                        entry.from_account, @blockchain_api
-                    ).then (account) ->
-                        #console.log '... entry.from_account',entry.from_account
-                        #console.log '... account',account
-                        entry.from_account = account.name if account
-                        defer.resolve()
-                        return
-                    , ()->
-                        #unknown account
-                        defer.resolve()
-                        return
-                )(entry, defer) if sender
+                if sender
+                    defer = q.defer()
+                    account_promises.push defer.promise
+                    ((entry, defer)=>
+                        @wallet_db.get_chain_account(
+                            entry.from_account, @blockchain_api
+                        ).then (account) ->
+                            #console.log '... entry.from_account',entry.from_account
+                            #console.log '... account',account
+                            entry.from_account = account.name if account
+                            defer.resolve()
+                            return
+                        , ()->
+                            #unknown account
+                            defer.resolve()
+                            return
+                    )(entry, defer)
+                
                 unless sender
                     console.log "WARN chain_database::_add_ledger_entries did not find balance record #{balance_id}"
                 entry.amount=
@@ -304,15 +307,11 @@ class ChainDatabase
         q.all account_promises
     
     _decrypt_memo:(titan_memo, account_address, aes_root)->
-        ###
         otk_public = PublicKey.fromBtsPublic titan_memo.one_time_key
         ciphertext = titan_memo.encrypted_memo_data
         
         account = @wallet_db.get_account_for_address account_address
         active_private = @wallet_db.getActivePrivate aes_root, account.name 
-        
-        console.log '... account_address', account_address
-        console.log '... account', account
         
         memo_data = (->
             aes = active_private.sharedAes otk_public
@@ -323,13 +322,14 @@ class ChainDatabase
             if memo_buffer.length > 0
                 memo_data = MemoData.fromHex memo_data
                 console.log '... memo_data', memo_data
+                return memo_data
+        return null
         ###
         #secret_private = ExtendedAddress.private_key_child active_private, otk_public
         #owner = secret_private.toPublicKey().toBlockchainAddress()
         #console.log '... owner2', secret_private.toPublicKey().toBtsPublic()
         #console.log '... memo_from_account: account.name', account.name
-        memo: ""
-        memo_from_account: null
+        ###
     
     _add_fee_entries:(transaction, balanceid_readonly)->
         transaction.fee = (->

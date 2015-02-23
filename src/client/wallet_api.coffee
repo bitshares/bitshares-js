@@ -67,7 +67,7 @@ class WalletAPI
         
     _open_from_wallet_db:(wallet_db)->
         @transaction_ledger = new TransactionLedger()
-        @chain_database = new ChainDatabase wallet_db, @rpc, @relay.chain_id
+        @chain_database = new ChainDatabase wallet_db, @rpc
         @wallet = new Wallet wallet_db, @rpc, @relay.chain_id, @chain_database
         return
     

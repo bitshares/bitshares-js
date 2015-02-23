@@ -284,20 +284,20 @@ class WalletDb
         cache in wallet_db.  This may call blockchain_get_account
         which will resolve a name, ID, or public key.
     ###
-    get_chain_account:(name, blockchain_api, refresh = false)-> # was lookup_account
+    get_chain_account:(name, blockchain_api, refresh = true)-> # was lookup_account
         unless refresh
             local_account = @lookup_account name
-            local_account = @lookup_key name unless local_account
+            local_account = @get_account_for_address name unless local_account
             if local_account
                 defer = q.defer()
                 defer.resolve local_account
                 return defer.promise
-        
+
         p = null
         ((name)=>
             p = blockchain_api.get_account(name).then (chain_account)=>
                 local_account = @lookup_account name
-                local_account = @lookup_key name unless local_account
+                local_account = @get_account_for_address name unless local_account
                 unless local_account or chain_account
                     LE.throw "general.unknown_account", [name]
                 
@@ -312,6 +312,7 @@ class WalletDb
                 local_account
         )(name)
         p
+
     
     lookup_account:(account_name)->
         account = @account[account_name]
@@ -584,7 +585,6 @@ class WalletDb
         hist[hist.length - 1][1]
     
     get_my_key_records:(account_name)->
-        active_only = false
         account = @lookup_account account_name
         return [] unless account
         addresses = {}
@@ -596,16 +596,10 @@ class WalletDb
             addresses[address] = on
         
         lookup account.owner_key
-        if active_only
-            lookup @_get_active_key account.active_key_history
-        else
-            lookup key[1] for key in account.active_key_history
-               
-        if account.delegate_info?.signing_key_history
-            if active_only 
-                lookup @_get_active_key account.delegate_info.signing_key_history
-            else
-                lookup key[1] for key in account.delegate_info.signing_key_history
+        lookup @_get_active_key account.active_key_history
+        
+        #if account.delegate_info?.signing_key_history
+        #    lookup @_get_active_key account.delegate_info.signing_key_history
         
         for entry in @wallet_object
             continue unless entry.type is "key_record_type"
