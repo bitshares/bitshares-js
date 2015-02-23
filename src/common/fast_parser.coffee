@@ -35,7 +35,10 @@ class CommonParser
     CommonParser.fixed_data = (b, len, buffer) ->
         return unless b 
         if buffer
-            b.append(buffer.slice(0, len).toString('binary'), 'binary')
+            data = buffer.slice(0, len).toString('binary')
+            b.append data, 'binary'
+            while len-- > data.length
+                b.writeUint8 0
             return
         else
             b_copy = b.copy(b.offset, b.offset + len); b.skip len
