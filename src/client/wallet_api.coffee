@@ -40,9 +40,9 @@ class WalletAPI
         if wallet_name is "default"
             fast_test_password =  "NoPassword!"
             pw = hash.sha512 hash.sha512 fast_test_password
-            wallet_name = pw.toString('hex').substring 0,32
-            if WalletDb.exists wallet_name
-                wallet_db = WalletDb.open wallet_name
+            fast_test_wallet = pw.toString('hex').substring 0,32
+            if WalletDb.exists fast_test_wallet
+                wallet_db = WalletDb.open fast_test_wallet
                 @_open_from_wallet_db wallet_db
                 @unlock 9999999, fast_test_password
                 return
@@ -57,7 +57,7 @@ class WalletAPI
     
     _open_from_wallet_db:(wallet_db)->
         @transaction_ledger = new TransactionLedger()
-        @chain_database = new ChainDatabase wallet_db, @rpc
+        @chain_database = new ChainDatabase wallet_db, @rpc, @relay.chain_id
         @wallet = new Wallet wallet_db, @rpc, @relay.chain_id, @chain_database
         return
     
