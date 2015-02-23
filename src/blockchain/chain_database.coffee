@@ -126,7 +126,6 @@ class ChainDatabase
             #return defer.promise
             return
         
-        ## last block tracking involves merging with old transactions (not implemented)
         #address_last_block_map = (->
         #    str = @storage.getItem "address_last_block_map"
         #    if str
@@ -262,7 +261,7 @@ class ChainDatabase
                             entry.memo = memo_data.message.toString()
                             entry.memo_from_account = memo_from
                     catch e
-                        console.log e,e.stack
+                        console.log 'chain_database._decrypt_memo',e
                 
                 entry.to_account = recipient
                 if recipient
@@ -340,7 +339,7 @@ class ChainDatabase
             memo_buffer = new Buffer memo_data, 'hex'
             if memo_buffer.length > 0
                 memo_data = MemoData.fromHex memo_data
-                console.log '... memo_data', memo_data
+                #console.log '... memo_data', memo_data
                 return memo_data
         return null
         ###
