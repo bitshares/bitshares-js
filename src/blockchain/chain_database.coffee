@@ -13,9 +13,10 @@ class ChainDatabase
     sync_transactions_timeout_id = null
     sync_accounts_timeout_id = null
     
-    constructor: (@wallet_db, @rpc) ->
+    constructor: (@wallet_db, @rpc, chain_id) ->
         @transaction_ledger = new TransactionLedger()
-        @storage = new Storage @wallet_db.wallet_name + "_chain_db"
+        chain_id = chain_id.substring 0, 10
+        @storage = new Storage @wallet_db.wallet_name + "_" + chain_id
         # basic unit tests will not provide an rpc object
         if @rpc and not @rpc.request
             throw new Error 'expecting rpc object'
