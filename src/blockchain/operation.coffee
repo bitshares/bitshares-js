@@ -52,6 +52,11 @@ class Operation
 
     ### <HEX> ###
     
+    toByteBuffer: () ->
+        b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
+        @appendByteBuffer(b)
+        b.copy 0, b.offset
+    
     Operation.fromHex= (hex) ->
         b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
         return Operation.fromByteBuffer b

@@ -93,6 +93,11 @@ class Signature
 
     ### <HEX> ###
     
+    toByteBuffer: () ->
+        b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
+        @appendByteBuffer(b)
+        b.copy 0, b.offset
+    
     Signature.fromHex = (hex) ->
         Signature.fromBuffer new Buffer hex, "hex"
 

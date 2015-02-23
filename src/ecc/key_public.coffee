@@ -90,6 +90,11 @@ class PublicKey
 
     ### <HEX> ###
     
+    toByteBuffer: () ->
+        b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
+        @appendByteBuffer(b)
+        b.copy 0, b.offset
+    
     PublicKey.fromHex = (hex) ->
         PublicKey.fromBuffer new Buffer hex, 'hex'
 

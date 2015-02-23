@@ -34,6 +34,11 @@ class Deposit
         
     ### <helper_functions> ###
     
+    toByteBuffer: () ->
+        b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
+        @appendByteBuffer(b)
+        b.copy 0, b.offset
+    
     toBuffer: ->
         b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
         @appendByteBuffer(b)

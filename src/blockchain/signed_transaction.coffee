@@ -36,6 +36,11 @@ class SignedTransaction
     
     ### <helper_functions> ###
     
+    toByteBuffer: () ->
+        b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
+        @appendByteBuffer(b)
+        b.copy 0, b.offset
+    
     SignedTransaction.fromHex= (hex) ->
         b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
         return SignedTransaction.fromByteBuffer b

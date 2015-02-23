@@ -76,6 +76,11 @@ class PrivateKey
         
     ### <helper_functions> ###
     
+    toByteBuffer: () ->
+        b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
+        @appendByteBuffer(b)
+        b.copy 0, b.offset
+    
     PrivateKey.fromHex = (hex) ->
         PrivateKey.fromBuffer new Buffer hex, 'hex'
 
