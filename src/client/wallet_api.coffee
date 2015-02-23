@@ -10,6 +10,7 @@
 
 config = require '../wallet/config'
 LE = require('../common/exceptions').LocalizedException
+hash = require '../ecc/hash'
 q = require 'q'
 
 # merge from bitshares/libraries/api/wallet_api.json
@@ -36,35 +37,24 @@ class WalletAPI
         if @current_wallet_name is wallet_name
             return
         
-        if window?.bts?.developer and wallet_name is "default"
-            dev = window.bts.developer
-            hash = require '../ecc/hash'
-            pw = hash.sha512 hash.sha512 dev.password
+        if wallet_name is "default"
+            fast_test_password =  "NoPassword!"
+            pw = hash.sha512 hash.sha512 fast_test_password
             wallet_name = pw.toString('hex').substring 0,32
             if WalletDb.exists wallet_name
-                console.log '... developer deploy, auto open wallet'
                 wallet_db = WalletDb.open wallet_name
                 @_open_from_wallet_db wallet_db
-                @unlock 9999999, dev.password
-            else
-                console.log '... developer deploy, auto create wallet'
-                @create(
-                    wallet_name
-                    dev.password
-                    dev.brainkey
-                )
-            return
+                @unlock 9999999, fast_test_password
+                return
         
-        #console.log '... wallet_name',wallet_name,(new Error()).stack
         wallet_db = WalletDb.open wallet_name
         unless wallet_db
             throw new LE 'wallet.not_found', [wallet_name]
         
-        #console.log '... wallet_db.wallet_object', JSON.stringify wallet_db.wallet_object
         @_open_from_wallet_db wallet_db
         @current_wallet_name = wallet_name
         return
-        
+    
     _open_from_wallet_db:(wallet_db)->
         @transaction_ledger = new TransactionLedger()
         @chain_database = new ChainDatabase wallet_db, @rpc
