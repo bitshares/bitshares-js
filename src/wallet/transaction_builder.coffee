@@ -239,14 +239,13 @@ class TransactionBuilder
             one_time_Private, to_Public
         )
         memo_content=->
-            check_secret = from_Private.sharedSecret secret_Public.toUncompressed()
+            check_secret = null# from_Private.sharedSecret secret_Public.toUncompressed()
             MemoData.fromCheckSecret(
                 memo_Public
                 check_secret
                 new Buffer memo_message
                 memo_type
             )
-        
         owner: secret_Public.toBlockchainAddress()
         one_time_key: one_time_Private.toPublicKey()
         encrypted_memo_data: (->

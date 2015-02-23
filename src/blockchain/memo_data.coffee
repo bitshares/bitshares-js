@@ -33,19 +33,28 @@ class MemoData
         b.writeUint64 @from_signature
         fp.fixed_data b, MEMO_SIZE, @message
         b.writeUint8 @memo_flags
+        return
     
     ### <helper_functions> ###
     
     MemoData.fromCheckSecret= (from, check_secret, message, memo_flags) ->
         # serilize a 64bit number
-        check_secret_b = ByteBuffer.fromBinary check_secret.toString('binary'), ByteBuffer.LITTLE_ENDIAN
-        from_signature = check_secret_b.readUint64()
+        from_signature = (->
+            return 0 unless check_secret
+            check_secret_b = ByteBuffer.fromBinary check_secret.toString('binary'), ByteBuffer.LITTLE_ENDIAN
+            check_secret_b.readUint64()
+        )()
         new MemoData(
             from
             from_signature
             message
             memo_flags
         )
+    
+    toByteBuffer: () ->
+        b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
+        @appendByteBuffer(b)
+        b.copy 0, b.offset
     
     toBuffer: ->
         b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
