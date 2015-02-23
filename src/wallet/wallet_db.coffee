@@ -284,7 +284,7 @@ class WalletDb
         cache in wallet_db.  This may call blockchain_get_account
         which will resolve a name, ID, or public key.
     ###
-    get_chain_account:(name, blockchain_api, refresh = true)-> # was lookup_account
+    get_chain_account:(name, blockchain_api, refresh = false)-> # was lookup_account
         unless refresh
             local_account = @lookup_account name
             local_account = @get_account_for_address name unless local_account
