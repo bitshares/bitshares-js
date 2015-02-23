@@ -29,7 +29,7 @@ class Wallet
         @blockchain_api = new BlockchainAPI @rpc
         @chain_interface = new ChainInterface @blockchain_api, chain_id
         unless @chain_database
-            @chain_database = new ChainDatabase @wallet_db, @rpc
+            @chain_database = new ChainDatabase @wallet_db, @rpc, chain_id
     
     Wallet.entropy = null
     Wallet.add_entropy = (data) ->
