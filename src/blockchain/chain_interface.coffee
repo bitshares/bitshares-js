@@ -112,6 +112,6 @@ class ChainInterface
                     else
                         fee = (amount / base_asset.precision) * feed_price
                         asset_id: target_asset.id
-                        amount: fee * target_asset.precision
+                        amount: Math.ceil fee * target_asset.precision
 
 exports.ChainInterface = ChainInterface

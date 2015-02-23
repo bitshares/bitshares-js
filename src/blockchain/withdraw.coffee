@@ -16,6 +16,7 @@ class Withdraw
     constructor: (@balance_id, @amount, @claim_input_data = new Buffer("")) ->
         @type_name = "withdraw_op_type"
         @type_id = type_id types.operation, @type_name
+        @amount = Math.ceil @amount
         
     Withdraw.fromByteBuffer= (b) ->
         balance_id = fp.ripemd160 b
@@ -35,12 +36,16 @@ class Withdraw
     
     ### <helper_functions> ###   
     
+    toByteBuffer: () ->
+        b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
+        @appendByteBuffer(b)
+        b.copy 0, b.offset
+    
     toBuffer: ->
         b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
         @appendByteBuffer(b)
         return new Buffer(b.copy(0, b.offset).toBinary(), 'binary')
 
-    
     Withdraw.fromHex= (hex) ->
         b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
         return Withdraw.fromByteBuffer b
