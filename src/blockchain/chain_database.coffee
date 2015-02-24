@@ -224,7 +224,6 @@ class ChainDatabase
                 
                 address_last_block_map[address] = last_unforked_block_num
                 if transactions.length > 0
-                    dirty = yes
                     if next_block isnt 1
                         existing_transactions = JSON.parse @storage.getItem(
                             "transactions-"+address
