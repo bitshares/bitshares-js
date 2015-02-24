@@ -11,6 +11,7 @@ EC = require('../common/exceptions').ErrorWithCause
 {PrivateKey} = require '../ecc/key_private'
 {ExtendedAddress} = require '../ecc/extended_address'
 {WithdrawCondition} = require '../blockchain/withdraw_condition'
+{ChainInterface} = require '../blockchain/chain_interface'
 
 class WalletDb
     
@@ -347,7 +348,7 @@ class WalletDb
             # web_wallet littered with this date
             account.registration_date = "1970-01-01T00:00:00"
         account.is_my_account = @is_my_account account.owner_key
-        account.active_key = @_get_active_key account.active_key_history
+        account.active_key = ChainInterface.get_active_key account.active_key_history
         account
     
     guess_next_account_keys:(aes_root, count)->
@@ -577,13 +578,6 @@ class WalletDb
     #        continue unless entry.type is "transaction_record_type"
     #        entry.data
     
-    _get_active_key:(hist)->
-        hist = hist.sort (a,b)-> 
-            if a[0] < b[0] then -1 
-            else if a[0] > b[0] then 1 
-            else 0
-        hist[hist.length - 1][1]
-    
     get_my_key_records:(account_name)->
         account = @lookup_account account_name
         return [] unless account
@@ -596,10 +590,10 @@ class WalletDb
             addresses[address] = on
         
         lookup account.owner_key
-        lookup @_get_active_key account.active_key_history
+        lookup ChainInterface.get_active_key account.active_key_history
         
         #if account.delegate_info?.signing_key_history
-        #    lookup @_get_active_key account.delegate_info.signing_key_history
+        #    lookup ChainInterface.get_active_key account.delegate_info.signing_key_history
         
         for entry in @wallet_object
             continue unless entry.type is "key_record_type"

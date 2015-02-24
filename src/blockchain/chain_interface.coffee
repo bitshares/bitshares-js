@@ -47,6 +47,13 @@ class ChainInterface
         amount:amount
         asset_id:asset.id
     
+    ChainInterface.get_active_key=(hist)->
+        hist = hist.sort (a,b)-> 
+            if a[0] < b[0] then -1 
+            else if a[0] > b[0] then 1 
+            else 0
+        hist[hist.length - 1][1]
+    
     valid_unique_account:(account_name)->
         defer = q.defer()
         try

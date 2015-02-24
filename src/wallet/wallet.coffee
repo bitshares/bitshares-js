@@ -22,14 +22,14 @@ q = require 'q'
 ###* Public ###
 class Wallet
 
-    constructor: (@wallet_db, @rpc, chain_id, @chain_database) ->
+    constructor: (@wallet_db, @rpc, @relay, @chain_database) ->
         throw new Error "required wallet_db" unless @wallet_db
-        throw new Error "required chain_id" unless chain_id
+        throw new Error "required relay" unless @relay
         @transaction_ledger = new TransactionLedger()
         @blockchain_api = new BlockchainAPI @rpc
-        @chain_interface = new ChainInterface @blockchain_api, chain_id
+        @chain_interface = new ChainInterface @blockchain_api, @relay.chain_id
         unless @chain_database
-            @chain_database = new ChainDatabase @wallet_db, @rpc, chain_id
+            @chain_database = new ChainDatabase @wallet_db, @rpc, @relay.chain_id, @relay.relay_fee_collector
     
     delete: ->
         WalletDb.delete @wallet_db.wallet_name

@@ -2,6 +2,7 @@
 {PublicKey} = require '../ecc/key_public'
 {ExtendedAddress} = require '../ecc/extended_address'
 {TransactionLedger} = require '../wallet/transaction_ledger'
+{ChainInterface} = require '../blockchain/chain_interface'
 {BlockchainAPI} = require '../blockchain/blockchain_api'
 {MemoData} = require '../blockchain/memo_data'
 q = require 'q'
@@ -13,7 +14,7 @@ class ChainDatabase
     sync_transactions_timeout_id = null
     sync_accounts_timeout_id = null
     
-    constructor: (@wallet_db, @rpc, chain_id) ->
+    constructor: (@wallet_db, @rpc, chain_id, relay_fee_collector) ->
         @transaction_ledger = new TransactionLedger()
         @chain_id = chain_id.substring 0, 10
         @storage = new Storage @wallet_db.wallet_name + "_" + @chain_id
@@ -21,6 +22,10 @@ class ChainDatabase
         if @rpc and not @rpc.request
             throw new Error 'expecting rpc object'
         @blockchain_api = new BlockchainAPI @rpc
+        if relay_fee_collector
+            # make this account available for ledger and fee entries
+            active_key = ChainInterface.get_active_key relay_fee_collector.active_key_history
+            @relay_fee_address = PublicKey.fromBtsPublic(active_key).toBtsAddy()
     
     delete: ->
         len = @storage.length()
@@ -240,6 +245,12 @@ class ChainDatabase
                 amount = op.data.amount
                 asset_id = op.data.condition.asset_id
                 recipient = op.data.condition.data.owner
+                
+                if recipient is @relay_fee_address
+                    if transaction.fee.asset_id is asset_id
+                        transaction.fee.amount += amount
+                        continue
+                
                 entries.push entry = {}
                 
                 if op.data.condition.data.memo
@@ -366,7 +377,7 @@ class ChainDatabase
                     balance_id = op.data.balance_id
                     asset_id = balanceid_readonly[balance_id]?.asset_id
                     if asset_id is undefined
-                        throw new Error "chain_database::_add_ledger_entries did not find balance record #{balance_id}"
+                        throw new Error "chain_database::_add_fee_entries did not find balance record #{balance_id}"
                         return
                     balance = balances[asset_id] or 0
                     balances[asset_id] = balance + amount
@@ -380,13 +391,12 @@ class ChainDatabase
             fee_balance = for asset_id in Object.keys balances
                 balance = balances[asset_id]
                 continue if balance is 0
-                asset_id: asset_id
+                asset_id: parseInt asset_id
                 amount: balance
                 
             if fee_balance.length isnt 1
-                err = "chain_database::_add_ledger_entries can't calc fee, transaction has more than one asset type in its remaning balance"
+                err = "chain_database::_add_fee_entries can't calc fee, transaction has more than one asset type in its remaning balance"
                 console.log err, transaction, balances
-                throw new Error err
                 return
             
             fee_balance[0]
@@ -474,11 +484,11 @@ class ChainDatabase
         for transaction in history
             account_address = transaction._tmp_account_address
             delete transaction._tmp_account_address
+            @_add_fee_entries transaction, balanceid_readonly
             add_ledger_promises.push @_add_ledger_entries(
                 transaction, account_address
                 aes_root, balanceid_readonly
             )
-            @_add_fee_entries transaction, balanceid_readonly
         
         defer = q.defer()
         q.all(add_ledger_promises).then =>
