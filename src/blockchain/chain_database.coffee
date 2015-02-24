@@ -134,21 +134,65 @@ class ChainDatabase
     sync_transactions:(account_name)->
         addresses = @_account_addresses account_name
         if addresses.length is 0
-            #defer = q.defer()
-            #defer.resolve()
-            #return defer.promise
             return
         
-        #address_last_block_map = (->
-        #    str = @storage.getItem "address_last_block_map"
-        #    if str
-        #        JSON.parse str
-        #    else
-        #        {}
-        #)()
+        get_last_unforked_block_num= =>
+            blocknum_hash_storage=(blocknum_hash)=>
+                if blocknum_hash
+                    @storage.setItem(
+                        "blocknum_hash"
+                        JSON.stringify blocknum_hash,null,0
+                    )
+                    return
+                else
+                    str = @storage.getItem "blocknum_hash"
+                    if str then JSON.parse str else [1, undefined]
+            
+            blocknum_hash = blocknum_hash_storage()
+            defer = q.defer()
+            @blockchain_api.get_block_hash(blocknum_hash[0]).then (hash)=>
+                if blocknum_hash[1] and hash isnt blocknum_hash[1]
+                    console.log "INFO, fork detected"
+                    defer.resolve 1
+                    return
+                # no fork, so jump to the head
+                @rpc.request('get_info').then (info)=>
+                    info = info.result
+                    block_num = info.blockchain_head_block_num
+                    @blockchain_api.get_block_hash(block_num).then (hash)=>
+                        blocknum_hash_storage [block_num, hash]
+                        defer.resolve block_num
+                        return
+            defer.promise
         
+        get_last_unforked_block_num().then (block_num) =>
+            @_sync_transactions(addresses, block_num)
+    
+    _sync_transactions:(addresses, last_unforked_block_num)->
+        address_last_block_map_storage=(address_last_block_map)=>
+            if address_last_block_map
+                @storage.setItem(
+                    "address_last_block_map"
+                    JSON.stringify address_last_block_map,null,0
+                )
+                return
+            else
+                str = @storage.getItem "address_last_block_map"
+                if str then JSON.parse str else {}
+        
+        address_last_block_map = address_last_block_map_storage()
         batch_args = for address in addresses
-            [address, block=0] #address_last_block_map[address] or 0
+            last_block = address_last_block_map[address]
+            next_block = if last_block then last_block + 1 else 1
+            if(
+                last_unforked_block_num < next_block and
+                last_unforked_block_num isnt 1
+            )
+                throw new Error "Only full refresh on fork is supported"
+            
+            next_block = Math.min last_unforked_block_num, next_block
+            # "next_block - 1" is to adjust for the "filter_before" parameter
+            [address, next_block - 1]
         
         @rpc.request("batch", [
             "blockchain_list_address_transactions"
@@ -156,9 +200,11 @@ class ChainDatabase
         ]).then (batch_result)=>
             batch_result = batch_result.result
             balance_ids = {}
+            balance_ids_dirty = no
             for i in [0...batch_result.length] by 1
                 result = batch_result[i]
                 address = batch_args[i][0]
+                next_block = batch_args[i][1] + 1
                 transactions = for trx_id in Object.keys result
                     value = result[trx_id]
                     block_timestamp = value.timestamp
@@ -170,15 +216,26 @@ class ChainDatabase
                         trx_id: trx_id
                         block_num: block_num
                         timestamp: block_timestamp
-                        is_confirmed: block_num >= 0
+                        is_confirmed: block_num > 0
                         is_virtual: false
                         #is_market: false
                         trx: transaction.trx
                     }
                 
+                address_last_block_map[address] = last_unforked_block_num
                 if transactions.length > 0
-                    @storage.setItem "transactions-"+address, JSON.stringify transactions,null,0
-                    #address_last_block_map[address] = last_block
+                    dirty = yes
+                    if next_block isnt 1
+                        existing_transactions = JSON.parse @storage.getItem(
+                            "transactions-"+address
+                        )
+                        existing_transactions.push tx for tx in transactions
+                        transactions = existing_transactions
+                    
+                    @storage.setItem(
+                        "transactions-"+address
+                        JSON.stringify transactions,null,0
+                    )
                     
                     # balance ids will tell us who the sender was
                     for transaction in transactions
@@ -186,13 +243,12 @@ class ChainDatabase
                             continue unless op.type is "withdraw_op_type"
                             balance_id = op.data.balance_id
                             balance_ids[balance_id]=on
+                            balance_ids_dirty = yes
             
-            @_index_balanceid_readonly(Object.keys balance_ids)
-            
-            #@storage.setItem(
-            #    "address_last_block_map"
-            #    JSON.stringify address_last_block_map,null,0
-            #)
+            @_index_balanceid_readonly Object.keys balance_ids if balance_ids_dirty
+            address_last_block_map_storage address_last_block_map
+            return
+        return
     
     _storage_balanceid_readonly:(balance_id_map)->
         if balance_id_map

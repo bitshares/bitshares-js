@@ -46,6 +46,14 @@ class BlockchainAPI
     @rpc.request('blockchain_broadcast_transaction', [trx]).then (response) ->
       response.result
 
+  # Returns hash of block in best-block-chain at index provided
+  # parameters: 
+  #   uint32_t `block_number` - index of the block, example: 42
+  # return_type: `block_id_type`
+  get_block_hash: (block_number, error_handler = null) ->
+    @rpc.request('blockchain_get_block_hash', [block_number]).then (response) ->
+      response.result
+
   # Returns the status of a particular market, including any trading errors.
   # parameters: 
   #   asset_symbol `quote_symbol` - quote symbol
