@@ -20,12 +20,12 @@ class Storage
         @local_storage.removeItem @namespace+'\t'+key
         return
     
-    #length:()->
-    #    @local_storage.length
-    #
-    #key:(index)->
-    #    @local_storage.key index
-    #
+    length:()->
+        @local_storage.length
+    
+    key:(index)->
+        @local_storage.key index
+    
     #clear:()->
     #    @local_storage.clear()
     #    return

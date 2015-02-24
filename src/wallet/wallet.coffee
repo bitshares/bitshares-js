@@ -31,6 +31,10 @@ class Wallet
         unless @chain_database
             @chain_database = new ChainDatabase @wallet_db, @rpc, chain_id
     
+    delete: ->
+        WalletDb.delete @wallet_db.wallet_name
+        @chain_database.delete()
+    
     Wallet.entropy = null
     Wallet.add_entropy = (data) ->
         unless data and data.length >= 1000

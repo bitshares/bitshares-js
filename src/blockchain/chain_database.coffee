@@ -15,12 +15,20 @@ class ChainDatabase
     
     constructor: (@wallet_db, @rpc, chain_id) ->
         @transaction_ledger = new TransactionLedger()
-        chain_id = chain_id.substring 0, 10
-        @storage = new Storage @wallet_db.wallet_name + "_" + chain_id
+        @chain_id = chain_id.substring 0, 10
+        @storage = new Storage @wallet_db.wallet_name + "_" + @chain_id
         # basic unit tests will not provide an rpc object
         if @rpc and not @rpc.request
             throw new Error 'expecting rpc object'
         @blockchain_api = new BlockchainAPI @rpc
+    
+    delete: ->
+        len = @storage.length()
+        for i in [0...len] by 1
+            key = @storage.key i
+            if key.indexOf(@wallet_db.wallet_name + "_" + @chain_id) is 0
+                #console.log '... @storage.removeItem key', key
+                @storage.removeItem key
     
     ###
         Watch for deterministic account keys beyond what was used to 
