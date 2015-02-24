@@ -23,7 +23,7 @@ libraries_api_wallet = require '../wallet/wallet_api.json'
 ###
 class WalletAPI
     
-    constructor:(@rpc, @rpc_pass_through, @relay)->
+    constructor:(@rpc, @rpc_pass_through, @relay, @events)->
         if @rpc and not @rpc.request
             throw new Error 'expecting rpc object'
         
@@ -58,7 +58,7 @@ class WalletAPI
     _open_from_wallet_db:(wallet_db)->
         @transaction_ledger = new TransactionLedger()
         @chain_database = new ChainDatabase wallet_db, @rpc, @relay.chain_id, @relay.relay_fee_collector
-        @wallet = new Wallet wallet_db, @rpc, @relay, @chain_database
+        @wallet = new Wallet wallet_db, @rpc, @relay, @chain_database, @events
         return
     
     create: (wallet_name = "default", new_password, brain_key)->

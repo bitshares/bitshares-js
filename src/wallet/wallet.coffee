@@ -22,7 +22,7 @@ q = require 'q'
 ###* Public ###
 class Wallet
 
-    constructor: (@wallet_db, @rpc, @relay, @chain_database) ->
+    constructor: (@wallet_db, @rpc, @relay, @chain_database, @events) ->
         throw new Error "required wallet_db" unless @wallet_db
         throw new Error "required relay" unless @relay
         @transaction_ledger = new TransactionLedger()
@@ -104,6 +104,7 @@ class Wallet
         finally #let nothing stop the lock
             @aes_root.clear()
             @aes_root = undefined
+            (@events['wallet.locked'] or ->)()
     
     locked: ->
         @aes_root is undefined
