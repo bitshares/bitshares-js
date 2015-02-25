@@ -6,14 +6,12 @@ EC = require('../common/exceptions').ErrorWithCause
 ###
 class RelayNode
     
-    init_promise: null
-    
     constructor:(@rpc)->
         throw new Error 'missing required parameter' unless @rpc
     
     init:->
-        return init_promise if init_promise
-        init_promise = @rpc.request('fetch_welcome_package').then(
+        return @init_promise if @init_promise
+        @init_promise = @rpc.request('fetch_welcome_package').then(
             (welcome)=>
                 welcome = welcome.result
                 for attribute in [
