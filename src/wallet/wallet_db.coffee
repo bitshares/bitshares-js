@@ -12,6 +12,7 @@ EC = require('../common/exceptions').ErrorWithCause
 {ExtendedAddress} = require '../ecc/extended_address'
 {WithdrawCondition} = require '../blockchain/withdraw_condition'
 {ChainInterface} = require '../blockchain/chain_interface'
+{RelayNode} = require '../net/relay_node'
 
 class WalletDb
     
@@ -270,7 +271,9 @@ class WalletDb
     get_trx_expiration:->
         exp = new Date()
         sec = @get_setting 'transaction_expiration_sec'
-        exp.setSeconds exp.getSeconds() + sec
+        # https://github.com/BitShares/BitShares-JS/issues/58
+        offset = sec + Math.round RelayNode.ntp_offset / 1000
+        exp.setSeconds exp.getSeconds() + offset
         exp = new Date(exp.toISOString().split('.')[0])
     
     list_accounts:(just_mine=false)->
