@@ -84,8 +84,8 @@ class JsClient
         
         # logging is per developer, listed in .gitignore, and may be undefined
         @rpc_hide = (->
-            dev_private = require '../deploy/dev_private'
-            dev_private.rpc_hide
+            loggin = require '../deploy/logging'
+            loggin.rpc_hide
         )()
         
         handle_response=(intercept=true) =>

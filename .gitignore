@@ -9,5 +9,5 @@ testnet/tmp
 testnet/core
 bts.js
 src/logging.coffee
-src/deploy/dev_private.coffee
+src/deploy/logging.coffee
 localstorage-bitsharesjs
