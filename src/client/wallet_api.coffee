@@ -42,12 +42,12 @@ class WalletAPI
             pw = hash.sha512 hash.sha512 fast_test_password
             fast_test_wallet = pw.toString('hex').substring 0,32
             if WalletDb.exists fast_test_wallet
-                wallet_db = WalletDb.open fast_test_wallet
+                wallet_db = WalletDb.open fast_test_wallet, @events
                 @_open_from_wallet_db wallet_db
                 @unlock 9999999, fast_test_password
                 return
         
-        wallet_db = WalletDb.open wallet_name
+        wallet_db = WalletDb.open wallet_name, @events
         unless wallet_db
             throw new LE 'wallet.not_found', [wallet_name]
         
@@ -62,7 +62,7 @@ class WalletAPI
         return
     
     create: (wallet_name = "default", new_password, brain_key)->
-        Wallet.create wallet_name, new_password, brain_key
+        Wallet.create wallet_name, new_password, brain_key, true, @events
         @open wallet_name
         @unlock config.BTS_WALLET_DEFAULT_UNLOCK_TIME_SEC, new_password
         return
@@ -247,11 +247,11 @@ class WalletAPI
         if wallet exists or is unable to save in local storage.
     ###
     backup_restore_object:(wallet_object, wallet_name)->
-        if WalletDb.open wallet_name
+        if WalletDb.open wallet_name, @events
             LE.throw 'wallet.exists', [wallet_name]
         
         try
-            wallet_db = new WalletDb wallet_object, wallet_name
+            wallet_db = new WalletDb wallet_object, wallet_name, @events
             wallet_db.save()
             return wallet_db
         catch error

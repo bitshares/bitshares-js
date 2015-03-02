@@ -158,11 +158,15 @@ class Wallet
     get_chain_account:(name, refresh = false)-> # was lookup_account
         @wallet_db.get_chain_account name, @blockchain_api, refresh
     
-    is_my_account:(public_key)->
-        @wallet_db.is_my_account public_key
-    
     ###* @return promise: {string} public key ###
     account_create:(account_name, private_data)->
+        LE.throw 'wallet.must_be_unlocked' unless @aes_root
+        @wallet_db.generate_new_account(
+            @aes_root, @blockchain_api, account_name, private_data
+        )
+    
+    ###* @return promise: {string} public key ###
+    account_create_legacy:(account_name, private_data)->
         LE.throw 'wallet.must_be_unlocked' unless @aes_root
         defer = q.defer()
         @chain_interface.valid_unique_account(account_name).then(
@@ -174,18 +178,13 @@ class Wallet
                     defer.reject e
                     return
                 
-                key = @wallet_db.generate_new_account @aes_root, account_name, private_data
+                key = @wallet_db.generate_new_account_legacy @aes_root, account_name, private_data
                 defer.resolve key
             (error)->
                 defer.reject error
         ).done()
         defer.promise
     
-    ### @return {promise} [
-        [
-            account_name,[ [asset_id,amount] ]
-        ]
-    ] ###
     #get_spendable_account_balances:(account_name)->
         
     

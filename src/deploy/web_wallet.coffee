@@ -6,3 +6,4 @@ module.exports =
   client: require "../client"
   hash: require '../ecc/hash'
   secureRandom: require 'secure-random'
+  logging: require './logging'

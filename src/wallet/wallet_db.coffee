@@ -16,7 +16,7 @@ EC = require('../common/exceptions').ErrorWithCause
 
 class WalletDb
     
-    constructor: (@wallet_object, @wallet_name = "default") ->
+    constructor: (@wallet_object, @wallet_name = "default", @events={}) ->
         EC.throw "required parameter" unless @wallet_object
         invalid_format = -> LE.throw "wallet.invalid_format", [@wallet_name]
         invalid_format() unless @wallet_object?.length > 0
@@ -56,16 +56,16 @@ class WalletDb
     index_account:(data, update_key_records = false)->
         account_name = data.name
         @account[account_name] = data
-        max_key_datestr = ""
+        max_key_datestr = null
         @ownerKey[data.owner_key] = data if data.owner_key
         for keyrec in data.active_key_history
             datestr = keyrec[0]
             key = keyrec[1]
-            @activeKey_account[key] = data
-            if datestr > max_key_datestr
+            if max_key_datestr is null or datestr > max_key_datestr
                 #console.log 'account_activeKey',account_name,key
                 # most recent active key
                 @account_activeKey[account_name] = key
+                @activeKey_account[key] = data
                 max_key_datestr = datestr
         
         if update_key_records
@@ -175,7 +175,7 @@ class WalletDb
         wallet_json = storage.getItem 'wallet_json'
         if wallet_json then yes else no
     
-    WalletDb.create = (wallet_name = "default", extended_private, password, save = true) ->
+    WalletDb.create = (wallet_name = "default", extended_private, password, save = true, events) ->
         if WalletDb.exists wallet_name
             LE.throw 'wallet.exists', [wallet_name]
         
@@ -190,19 +190,19 @@ class WalletDb
                 encrypted_key: encrypted_key.toString 'hex'
                 checksum: checksum.toString 'hex'
         ]
-        wallet_db = new WalletDb wallet_object, wallet_name
+        wallet_db = new WalletDb wallet_object, wallet_name, events
         wallet_db.save() if save
         wallet_db
     
     ###* @return {WalletDb} or null ###
-    WalletDb.open = (wallet_name = "default") ->
+    WalletDb.open = (wallet_name = "default", events) ->
         storage = new Storage(
             wallet_name + " " + main_config.bts_address_prefix
         )
         wallet_json = storage.getItem 'wallet_json'
         return undefined unless wallet_json
         wallet_object = JSON.parse wallet_json
-        new WalletDb wallet_object, wallet_name
+        new WalletDb wallet_object, wallet_name, events
     
     WalletDb.delete = (wallet_name)->
         storage = new Storage(
@@ -280,7 +280,8 @@ class WalletDb
         for entry in @wallet_object
             continue unless entry.type is "account_record_type"
             account = @_pretty_account entry.data
-            continue unless account.is_my_account if just_mine
+            if just_mine
+                continue unless @is_my_account account
             account
     
     ###*
@@ -340,9 +341,11 @@ class WalletDb
     lookup_owner_key:(account_name)->
         @lookup_account(account_name).owner_key
         
-    is_my_account:(public_key)->
-        rec = @get_key_record public_key
-        return yes if rec?.encrypted_private_key
+    is_my_account:(account)->
+        key = @key_record[account.owner_key]
+        return yes if key?.encrypted_private_key
+        key = @account_activeKey[account.name]
+        return yes if key?.encrypted_private_key
         return no
     
     _pretty_account:(account)->
@@ -350,11 +353,37 @@ class WalletDb
         unless account.registration_date
             # web_wallet littered with this date
             account.registration_date = "1970-01-01T00:00:00"
-        account.is_my_account = @is_my_account account.owner_key
+        account.is_my_account = @is_my_account account
         account.active_key = ChainInterface.get_active_key account.active_key_history
         account
     
-    guess_next_account_keys:(aes_root, count)->
+    generate_new_account:(
+        aes_root, blockchain_api
+        account_name, private_data
+        save = true
+    )->
+        # light-wallet compatible
+        brainkey = @get_brainkey aes_root
+        owner_key = PrivateKey.fromBuffer(
+            hash.sha256 hash.sha512 brainkey + " " + account_name
+        )
+        owner_public = owner_key.toPublicKey()
+        active_key = PrivateKey.fromBuffer(
+            hash.sha256 hash.sha512 owner_key.toWif() + " 0"
+        )
+        [account, active, owner] = @_new_account(
+            aes_root, account_name, owner_key
+            active_key, private_data
+            lightwallet_compatible = yes
+        )
+        blockchain_api.get_account(account_name).then (chain_account)=>
+            @store_account_or_update account, chain_account, false
+            @add_key_record owner, false
+            @add_key_record active, false
+            @save() if save
+            owner_public.toBtsPublic()
+    
+    guess_next_account_keys_legacy:(aes_root, count)->
         key_index = @get_child_key_index()
         master_key = @master_private_key aes_root
         for i in [0...count] by 1
@@ -363,11 +392,7 @@ class WalletDb
             public: private_key.toPublicKey().toBtsPublic()
             index: key_index
     
-    #get_wallet_child_key:(aes_root, key_index)->
-    #    master_key = @master_private_key aes_root
-    #    ExtendedAddress.private_key master_key key_index
-        
-    generate_new_account:(
+    generate_new_account_legacy:(
         aes_root, account_name, private_data
         save = true, next_account = null
     )->
@@ -399,17 +424,36 @@ class WalletDb
             # continue if (@lookup_key active_address)?.key?.encrypted_private_key
             break
         
+        [account, active, owner] = @_new_account(
+            aes_root, account_name, owner_private_key
+            active_private_key, private_data
+            _lightwallet_compatible = no
+        )
+        @set_child_key_index key_index, false
+        @store_account_or_update account, null, false
+        @add_key_record owner, false
+        @add_key_record active, false
+        save() if save
+        owner_public_key.toBtsPublic()
+    
+    _new_account:(
+        aes_root, account_name, owner_private_key
+        active_private_key, private_data
+        lightwallet_compatible = yes
+    )->
+        owner_public_key = owner_private_key.toPublicKey()
+        owner_address = owner_public_key.toBtsAddy()
+        active_public_key = active_private_key.toPublicKey()
+        active_address = active_public_key.toBtsAddy()
         active_key =
             account_address: active_address
             public_key: active_public_key.toBtsPublic()
             encrypted_private_key: aes_root.encryptHex active_private_key.toHex()
-            gen_seq_number: 0
         
         owner_key =
             account_address: owner_address
             public_key: owner_public_key.toBtsPublic()
             encrypted_private_key: aes_root.encryptHex owner_private_key.toHex()
-            gen_seq_number: key_index
         
         account =
             name: account_name
@@ -431,13 +475,8 @@ class WalletDb
             block_production_enabled: false
             last_used_gen_sequence: 0
             private_data: private_data
-        
-        @add_key_record active_key, false
-        @set_child_key_index key_index, false
-        @add_key_record owner_key, false
-        @add_account_record account, false
-        @save() if save
-        owner_public_key.toBtsPublic()
+            lightwallet_compatible: lightwallet_compatible
+        [account, active_key, owner_key]
     
     add_transaction_record:(rec, save = true)->
         @index_transaction rec
@@ -452,32 +491,54 @@ class WalletDb
     add_account_record:(account, save = true)->
         if @lookup_account account.name
             EC.throw "Account already exists"
-        @store_account_or_update account, save
+        @store_account_or_update account, null, save
         return
     
-    store_account_or_update:(account, save = true)-> #store_account
-        EC.throw "missing account name" unless account.name
-        EC.throw "missing owner key" unless account.owner_key
-        account.last_update = (new Date().toISOString()).split('.')[0]
-        delete account.is_my_account #calc in real time instead
-        delete account.active_key #populated from active key history array
-        existing = @lookup_account account.name
-        if existing
-            i = @_wallet_index (o)->
-                o.type is "account_record_type" and o.data.name is account.name
-            #console.log 'store_account_or_update', account.name,i
-            if @wallet_object[i].owner isnt account.owner
-                throw new Error "owner key unique violation on account '#{account.name}'"
-            account.index = existing.index
-            if existing.private_data
-                account.private_data = existing.private_data
-            @wallet_object[i].data = account
-        else
-            # New accounts in bitshares_client backups use an id of 0
-            account.id = 0 #last_account_index + 1
-            @_append('account_record_type',account)
+    store_account_or_update:(new_account, chain_account = null, save = true)-> #store_account
+        EC.throw "missing account name" unless new_account.name
+        EC.throw "missing owner key" unless new_account.owner_key
+        console.log '...  new_account.name', new_account.name,new_account.lightwallet_compatible
+        is_conflict=(account1, account2)->
+            if account1.owner_key isnt account2.owner_key
+                LE.throw 'wallet.account_already_exists',[account_name]
         
-        @index_account account, true
+        if chain_account
+            is_conflict new_account, chain_account
+            old_active = chain_active = null
+            if (
+                old_active = ChainInterface.get_active_key(new_account.active_key_history) isnt 
+                chain_active = ChainInterface.get_active_key chain_account.active_key_history
+            )
+                history = new_account.active_key_history
+                history.push chain_active
+                (@events['wallet.active_key_updated'] or ->)(
+                    chain_active, old_active
+                )
+            
+        new_account.last_update = (new Date().toISOString()).split('.')[0]
+        delete new_account.is_my_account #calc in real time instead
+        delete new_account.active_key #populated from active key history array
+        
+        existing_account = @lookup_account new_account.name
+        if existing_account
+            is_conflict new_account, existing_account
+            i = @_wallet_index (o)->
+                o.type is "account_record_type" and
+                o.data.name is new_account.name
+            
+            new_account.index = existing_account.index
+            new_account.lightwallet_compatible = (
+                new_account.lightwallet_compatible or 
+                existing_account.lightwallet_compatible
+            )
+            if existing_account.private_data
+                new_account.private_data = existing_account.private_data
+            @wallet_object[i].data = new_account
+        else
+            new_account.id = 0 #last_account_index + 1
+            @_append('account_record_type',new_account)
+        
+        @index_account new_account, true
         @save() if save
     
     ###
@@ -513,7 +574,7 @@ class WalletDb
                #    @add_key_record key_record, off
                unless account_record.is_my_account
                    account_record.is_my_account = yes
-                   @store_account_or_update account_record, off
+                   @store_account_or_update account_record, null, no
        @save() if save
     ###
     
@@ -541,7 +602,7 @@ class WalletDb
                 console.log "Error creating child key index #{seq} for account #{account_name}", error  # very rare
             
         account.last_used_gen_sequence = seq
-        @store_account_or_update account, save
+        @store_account_or_update account, null, save
         @add_key_record
             account_address: child_address
             public_key: child_public.toBtsPublic()

@@ -101,7 +101,7 @@ class ChainDatabase
         Object.keys addresses
     
     sync_accounts:(aes_root)->
-        next_accounts = @wallet_db.guess_next_account_keys(
+        next_accounts = @wallet_db.guess_next_account_keys_legacy(
             aes_root
             REGISTERED_ACCOUNT_LOOKAHEAD
         )
@@ -112,13 +112,14 @@ class ChainDatabase
             batch_params
         ]).then (batch_result)=>
             batch_result = batch_result.result
+            found = no
             for i in [0...batch_result.length] by 1
                 account = batch_result[i]
                 continue unless account
                 next_account = next_accounts[i]
                 # update the account index, create private key entries etc...
                 try
-                    @wallet_db.generate_new_account(
+                    @wallet_db.generate_new_account_legacy(
                         aes_root
                         account.name
                         account.private_data
@@ -127,8 +128,13 @@ class ChainDatabase
                     )
                     # sync direct account fields with the blockchain
                     @wallet_db.store_account_or_update account
+                    found = yes
                 catch e
                     console.log "ERROR",e
+            unless found
+                # All legacy accounts found, new accounts will not be 
+                # created like this (incompatible with light-wallet)
+                clearTimeout sync_accounts_timeout_id
             return
     
     sync_transactions:(account_name)->
