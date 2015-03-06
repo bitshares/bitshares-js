@@ -106,6 +106,7 @@ class JsClient
                     console.log "[BitShares-JS] #{api_group}\t#{type}\t", method, params,return_label,return_value,error_label,error_value
             
             if err
+                console.log 'ERROR',err # why is "defer.reject err" not logging?
                 err = message:err unless err.message
                 #@Growl.error "", err.message
                 err = data:error: err
