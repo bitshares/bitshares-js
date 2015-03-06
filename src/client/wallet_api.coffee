@@ -169,7 +169,6 @@ class WalletAPI
             @_finalize_and_send(builder, payer, fee_asset_name_or_id).then (record)->
                 record
     
-    ###* Transfer to a public address (non TITAN) ##
     transfer_to_address:(
         amount
         asset_symbol
@@ -178,29 +177,15 @@ class WalletAPI
         memo_message = ""
         vote_method = ""#vote_recommended"
     )->
-        LE.throw "wallet.must_be_opened" unless @wallet
-        defer = q.defer()
-        @chain_interface.get_asset(asset_symbol).then(
-            (asset)=>
-                unless asset
-                    error = new LE 'blockchain.unknown_asset', [asset]
-                    defer.reject error
-                    return
-                builder = @ransaction_builder()
-                builder.wallet_transfer_to_address(
-                    amount, asset, from, to_address
-                    memo_message, vote_method
-                ).then(
-                    (signed_trx)=>
-                        @broadcast defer, signed_trx
-                    (error)->
-                        defer.reject error
-                ).done()
-            (error)->
-                defer.reject error
-        ).done()
-        defer.promise
-    ###
+        @transfer_from(
+            amount
+            asset_symbol
+            from
+            from
+            to_address
+            memo_message
+            vote_method
+        )
     
     account_register:(
         account_name
