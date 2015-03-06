@@ -2,7 +2,7 @@ module.exports =
     BTS_WALLET_VERSION: 109
 
     BTS_WALLET_MIN_PASSWORD_LENGTH: 8
-    BTS_WALLET_MIN_BRAINKEY_LENGTH: 32
+    BTS_WALLET_MIN_BRAINKEY_LENGTH: 17 # Very min (max entropy): 9 one letter words
     
     BTS_WALLET_DEFAULT_UNLOCK_TIME_SEC: (60*60)
     
