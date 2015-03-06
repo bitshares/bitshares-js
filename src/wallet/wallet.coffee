@@ -58,8 +58,8 @@ class Wallet
         #console.log 'Wallet.get_secure_random length',(Buffer.concat [rnd, Wallet.entropy]).length
         hash.sha512 Buffer.concat [rnd, Wallet.entropy]
     
-    ###* Unless brain_key is used, must add_entropy first ### 
     Wallet.create = (wallet_name, password, brain_key, save = true)->
+        brain_key = Wallet.normalize_brain_key brain_key
         wallet_name = wallet_name?.trim()
         unless wallet_name and wallet_name.length > 0
             LE.throw "wallet.invalid_name"
@@ -67,10 +67,8 @@ class Wallet
         if not password or password.length < config.BTS_WALLET_MIN_PASSWORD_LENGTH
             LE.throw "wallet.password_too_short"
         
-        if brain_key and brain_key.length < config.BTS_WALLET_MIN_BRAINKEY_LENGTH
+        if not brain_key or brain_key.length < config.BTS_WALLET_MIN_BRAINKEY_LENGTH
             LE.throw "wallet.brain_key_too_short"
-        
-        #@blockchain.is_valid_account_name wallet_name
         
         data = if brain_key
             base = hash.sha512 brain_key
@@ -81,20 +79,16 @@ class Wallet
         else
             # generate random
             Wallet.get_secure_random()
-        
         epk = ExtendedAddress.fromSha512_zeroChainCode data
-        wallet_db = WalletDb.create wallet_name, epk, password, save
-        if brain_key
-            aes_root = Aes.fromSecret password
-            wallet_db.save_brainkey aes_root, brain_key, save
-        
-        ###
-        set_version( BTS_WALLET_VERSION );
-        set_transaction_fee( asset( BTS_WALLET_DEFAULT_TRANSACTION_FEE ) );
-        set_transaction_expiration( BTS_WALLET_DEFAULT_TRANSACTION_EXPIRATION_SEC );
-        ###
+        wallet_db = WalletDb.create wallet_name, epk, brain_key, password, save
         wallet_db.save() if save
         wallet_db
+    
+    ### Light-Wallet compatible brain seeds ### 
+    Wallet.normalize_brain_key=(brain_key)->
+        # http://doc.qt.io/qt-5/qstring.html#simplified
+        brain_key = brain_key.split(/[\t\n\v\f\r ]+/).join ' '
+        brain_key = brain_key.toUpperCase()
     
     lock: ->
         EC.throw "Wallet is already locked" unless @aes_root

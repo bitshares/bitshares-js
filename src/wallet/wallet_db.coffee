@@ -175,7 +175,7 @@ class WalletDb
         wallet_json = storage.getItem 'wallet_json'
         if wallet_json then yes else no
     
-    WalletDb.create = (wallet_name = "default", extended_private, password, save = true, events) ->
+    WalletDb.create = (wallet_name = "default", extended_private, brainkey, password, save = true, events) ->
         if WalletDb.exists wallet_name
             LE.throw 'wallet.exists', [wallet_name]
         
@@ -190,7 +190,9 @@ class WalletDb
                 encrypted_key: encrypted_key.toString 'hex'
                 checksum: checksum.toString 'hex'
         ]
+        
         wallet_db = new WalletDb wallet_object, wallet_name, events
+        wallet_db.save_brainkey aes, brainkey, save
         wallet_db.save() if save
         wallet_db
     
