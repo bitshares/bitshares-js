@@ -16,7 +16,7 @@ class ChainInterface
     
     ChainInterface.is_valid_account_orThrow=(account_name)->
         unless ChainInterface.is_valid_account_name account_name
-            LE.throw 'wallet.invalid_account_name',[account_name]
+            LE.throw 'jslib_wallet.invalid_account_name',[account_name]
         return
             
     ChainInterface.is_valid_account_name=(account_name)->
@@ -60,7 +60,7 @@ class ChainInterface
             ChainInterface.is_valid_account_orThrow account_name
             @blockchain_api.get_account(account_name).then (resp)->
                 if resp
-                    error = new LE 'blockchain.account_already_exists', [account_name]
+                    error = new LE 'jslib_blockchain.account_already_exists', [account_name]
                     defer.reject error
                 else
                     defer.resolve()

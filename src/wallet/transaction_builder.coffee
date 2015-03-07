@@ -86,13 +86,13 @@ class TransactionBuilder
         
         #TODO
         #if recipient.is_retracted #active_key() == public_key_type()
-        #    LE.throw 'blockchain.account_retracted',[recipient.name]
+        #    LE.throw 'jslib_blockchain.account_retracted',[recipient.name]
         
         unless amount and amount.amount > 0
-            LE.throw 'Invalid amount', [amount]
+            LE.throw 'jslib_Invalid amount', [amount]
         
         if memo?.length > BTS_BLOCKCHAIN_MAX_MEMO_SIZE
-            LE.throw 'chain.memo_too_long'
+            LE.throw 'jslib_chain.memo_too_long'
         
         recipientActivePublic = @wallet.getActiveKey recipient.name
         payerActivePublic = @wallet.getActiveKey payer.name
@@ -262,7 +262,7 @@ class TransactionBuilder
     )->
         defer = q.defer()
         if memo_message?.length > BTS_BLOCKCHAIN_MAX_MEMO_SIZE
-            LE.throw 'chain.memo_too_long' 
+            LE.throw 'jslib_chain.memo_too_long' 
         
         otk_private = @wallet.generate_new_account_child_key(
             @aes_root
@@ -296,7 +296,7 @@ class TransactionBuilder
         delegate_pay_rate = -1
         account_type
     )->
-        LE.throw "wallet.must_be_opened" unless @wallet
+        LE.throw "jslib_wallet.must_be_opened" unless @wallet
         as_delegate = no
         if delegate_pay_rate isnt -1
             throw new Error "delegate account registration is not implemented"
@@ -305,11 +305,11 @@ class TransactionBuilder
         owner_key = @wallet.getOwnerKey account_to_register
         active_key = @wallet.getActiveKey account_to_register
         unless owner_key
-            LE.throw "create_account_before_register"
+            LE.throw "jslib_create_account_before_register"
         
         pay_from_ActiveKey = @wallet.getActiveKey pay_from_account
         unless pay_from_ActiveKey
-            LE.throw "blockchain.unknown_account", pay_from_account
+            LE.throw "jslib_blockchain.unknown_account", pay_from_account
         
         meta_data = null
         if account_type is "public_account"
@@ -321,7 +321,7 @@ class TransactionBuilder
                 data: new Buffer("")
         
         if delegate_pay_rate > 100
-            LE.throw 'wallet.delegate_pay_rate_invalid', [delegate_pay_rate]
+            LE.throw 'jslib_wallet.delegate_pay_rate_invalid', [delegate_pay_rate]
         
         register = new RegisterAccount(
             new Buffer account_to_register
@@ -341,7 +341,7 @@ class TransactionBuilder
             for parent in parents
                 account = @wallet.get_chain_account parent
                 unless account
-                    LE.throw 'wallet.need_parent_for_registration', [parent]
+                    LE.throw 'jslib_wallet.need_parent_for_registration', [parent]
                 
                 #continue if account.is_retracted #pay_from_ActiveKey == public_key
                 @wallet.has_private_key account
@@ -408,7 +408,7 @@ class TransactionBuilder
         
         if amount_remaining isnt 0
             available = amount_to_withdraw.amount - amount_remaining
-            throw new LE 'wallet.insufficient_funds', amount_to_withdraw.amount, available
+            throw new LE 'jslib_wallet.insufficient_funds', amount_to_withdraw.amount, available
     
     get_extended_balance:(balance_record)-> # renamed from get_spendable_balance
         switch balance_record.condition.type

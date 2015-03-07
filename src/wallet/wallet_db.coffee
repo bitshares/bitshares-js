@@ -18,7 +18,7 @@ class WalletDb
     
     constructor: (@wallet_object, @wallet_name = "default", @events={}) ->
         EC.throw "required parameter" unless @wallet_object
-        invalid_format = -> LE.throw "wallet.invalid_format", [@wallet_name]
+        invalid_format = -> LE.throw "jslib_wallet.invalid_format", [@wallet_name]
         invalid_format() unless @wallet_object?.length > 0
         @storage = new Storage(
             @wallet_name + " " + main_config.bts_address_prefix
@@ -177,7 +177,7 @@ class WalletDb
     
     WalletDb.create = (wallet_name = "default", extended_private, brainkey, password, save = true, events) ->
         if WalletDb.exists wallet_name
-            LE.throw 'wallet.exists', [wallet_name]
+            LE.throw 'jslib_wallet.exists', [wallet_name]
         
         checksum = hash.sha512 password
         checksum = hash.sha512 checksum
@@ -306,7 +306,7 @@ class WalletDb
                 local_account = @lookup_account name
                 local_account = @get_account_for_address name unless local_account
                 unless local_account or chain_account
-                    LE.throw "general.unknown_account", [name]
+                    LE.throw "jslib_general.unknown_account", [name]
                 
                 if local_account and chain_account
                     if local_account.owner_key isnt chain_account.owner_key
@@ -411,7 +411,7 @@ class WalletDb
         aes_root, account_name, private_data
         save = true, next_account = null
     )->
-        LE.throw 'wallet.account_already_exists' if @account[account_name]
+        LE.throw 'jslib_wallet.account_already_exists' if @account[account_name]
         key_index = if next_account
            next_account.index 
         else

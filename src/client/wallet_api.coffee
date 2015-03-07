@@ -49,7 +49,7 @@ class WalletAPI
         
         wallet_db = WalletDb.open wallet_name, @events
         unless wallet_db
-            throw new LE 'wallet.not_found', [wallet_name]
+            throw new LE 'jslib_wallet.not_found', [wallet_name]
         
         @_open_from_wallet_db wallet_db
         @current_wallet_name = wallet_name
@@ -72,29 +72,29 @@ class WalletAPI
         return
     
     validate_password: (password)->
-        LE.throw "wallet.must_be_opened" unless @wallet
+        LE.throw "jslib_wallet.must_be_opened" unless @wallet
         unless @wallet.validate_password password
-            LE.throw 'wallet.invalid_password'
+            LE.throw 'jslib_wallet.invalid_password'
         return
     
     unlock:(timeout_seconds = config.BTS_WALLET_DEFAULT_UNLOCK_TIME_SEC, password)->
-        LE.throw "wallet.must_be_opened" unless @wallet
+        LE.throw "jslib_wallet.must_be_opened" unless @wallet
         @wallet.unlock timeout_seconds, password
         return
         
     lock:->
-        LE.throw "wallet.must_be_opened" unless @wallet
+        LE.throw "jslib_wallet.must_be_opened" unless @wallet
         @wallet.lock()
         return
         
     locked: ->
-        LE.throw "wallet.must_be_opened" unless @wallet
+        LE.throw "jslib_wallet.must_be_opened" unless @wallet
         @wallet.locked()
     
     #account_set_favorite:(name, )->
         
     backup_create:()->
-        LE.throw "wallet.must_be_opened" unless @wallet
+        LE.throw "jslib_wallet.must_be_opened" unless @wallet
         if window
             window.document.location = (
                 'data:Application/octet-stream,' +
@@ -108,23 +108,23 @@ class WalletAPI
         return "OK"
     
     get_brainkey:->
-        LE.throw "wallet.must_be_opened" unless @wallet
-        LE.throw 'wallet.must_be_unlocked' unless @wallet.aes_root
+        LE.throw "jslib_wallet.must_be_opened" unless @wallet
+        LE.throw 'jslib_wallet.must_be_unlocked' unless @wallet.aes_root
         @wallet.wallet_db.get_brainkey @wallet.aes_root
     
     ###* @return promise: {string} public key ###
     account_create:(account_name, private_data)->
-        LE.throw "wallet.must_be_opened" unless @wallet
+        LE.throw "jslib_wallet.must_be_opened" unless @wallet
         @wallet.account_create account_name, private_data
     
     ###* @return promise: {string} public key ###
     account_recover:(account_name)->
-        LE.throw "wallet.must_be_opened" unless @wallet
+        LE.throw "jslib_wallet.must_be_opened" unless @wallet
         @wallet.account_recover account_name
     
     _transaction_builder:()->
-        LE.throw "wallet.must_be_opened" unless @wallet
-        LE.throw 'wallet.must_be_unlocked' unless @wallet.aes_root
+        LE.throw "jslib_wallet.must_be_opened" unless @wallet
+        LE.throw 'jslib_wallet.must_be_unlocked' unless @wallet.aes_root
         new TransactionBuilder(
             @wallet, @rpc, @wallet.aes_root
         )
@@ -146,7 +146,7 @@ class WalletAPI
         memo_message = "", selection_method = ""
         fee_asset_name_or_id
     )->
-        LE.throw "wallet.must_be_opened" unless @wallet
+        LE.throw "jslib_wallet.must_be_opened" unless @wallet
         asset = @chain_interface.get_asset asset_name_or_id
         payer = @wallet.get_chain_account paying_account_name
         sender = if paying_account_name is from_account_name then payer else @wallet.get_chain_account from_account_name
@@ -160,7 +160,7 @@ class WalletAPI
             asset, payer, sender, recipient
         )=>
             unless asset
-                error = new LE 'blockchain.unknown_asset', [asset]
+                error = new LE 'jslib_blockchain.unknown_asset', [asset]
                 defer.reject error
                 return
             
@@ -200,7 +200,7 @@ class WalletAPI
         account_type = 'public_account'
         fee_asset_name_or_id = 0
     )->
-        LE.throw "wallet.must_be_opened" unless @wallet
+        LE.throw "jslib_wallet.must_be_opened" unless @wallet
         account_check = @chain_interface.valid_unique_account account_name
         payer = @wallet.get_chain_account pay_with_account
         q.all([account_check, payer]).spread (account_check, payer)=>
@@ -238,14 +238,14 @@ class WalletAPI
     ###
     backup_restore_object:(wallet_object, wallet_name)->
         if WalletDb.open wallet_name, @events
-            LE.throw 'wallet.exists', [wallet_name]
+            LE.throw 'jslib_wallet.exists', [wallet_name]
         
         try
             wallet_db = new WalletDb wallet_object, wallet_name, @events
             wallet_db.save()
             return wallet_db
         catch error
-            LE.throw 'wallet.save_error', [wallet_name, error], error
+            LE.throw 'jslib_wallet.save_error', [wallet_name, error], error
             
     get_info:->
         @get_transaction_fee().then (fee)=>
@@ -274,7 +274,7 @@ class WalletAPI
             #)
     
     get_transaction_fee:(asset_name_or_id = 0)->
-        LE.throw "wallet.must_be_opened" unless @wallet
+        LE.throw "jslib_wallet.must_be_opened" unless @wallet
         @relay.init().then =>
             q.all([
                 @chain_interface.convert_base_asset_amount(
@@ -287,7 +287,7 @@ class WalletAPI
                 amount: total_fee.amount
     
     set_transaction_fee:(fee_amount)->
-        LE.throw "wallet.must_be_opened" unless @wallet
+        LE.throw "jslib_wallet.must_be_opened" unless @wallet
         q.all([
             @chain_interface.get_asset(0)
             @get_transaction_fee(0)
@@ -296,24 +296,24 @@ class WalletAPI
                 throw new Error "Rejected attempt to change fee, this is set by your light-weight API provider"
     
     get_setting:(key)->
-        LE.throw "wallet.must_be_opened" unless @wallet
+        LE.throw "jslib_wallet.must_be_opened" unless @wallet
         value = @wallet.get_setting key
         return key: key, value: value
         
     set_setting:(key, value)->
-        LE.throw "wallet.must_be_opened" unless @wallet
+        LE.throw "jslib_wallet.must_be_opened" unless @wallet
         @wallet.set_setting key, value
         
     get_account:(name)->
-        LE.throw "wallet.must_be_opened" unless @wallet
+        LE.throw "jslib_wallet.must_be_opened" unless @wallet
         @wallet.get_chain_account name, refresh=true
     
     list_accounts:->
-        LE.throw "wallet.must_be_opened" unless @wallet
+        LE.throw "jslib_wallet.must_be_opened" unless @wallet
         @wallet.list_accounts()
     
     list_my_accounts:->
-        LE.throw "wallet.must_be_opened" unless @wallet
+        LE.throw "jslib_wallet.must_be_opened" unless @wallet
         @wallet.list_accounts just_mine=true
     
     account_yield_warned:off
@@ -324,7 +324,7 @@ class WalletAPI
         []
         
     dump_private_key:(account_name)->
-        LE.throw "wallet.must_be_opened" unless @wallet
+        LE.throw "jslib_wallet.must_be_opened" unless @wallet
         @wallet.dump_private_key account_name
      
     account_balance_extended:(account_name)->
@@ -337,11 +337,11 @@ class WalletAPI
     ] ###
     account_balance:(account_name, extended = false)->
         ###
-            LE.throw "wallet.must_be_opened" unless @wallet
+            LE.throw "jslib_wallet.must_be_opened" unless @wallet
             @wallet.get_spendable_account_balances account_name
         _account_balance:(account_name)->
         ###
-        LE.throw "wallet.must_be_opened" unless @wallet
+        LE.throw "jslib_wallet.must_be_opened" unless @wallet
         totals_by_account={}
         total=(account_name, asset_id, balance)->
             totals = totals_by_account[account_name]
@@ -414,7 +414,7 @@ class WalletAPI
         start_block_num=0
         end_block_num=-1
     )->
-        LE.throw "wallet.must_be_opened" unless @wallet
+        LE.throw "jslib_wallet.must_be_opened" unless @wallet
         asset_id = if asset.match /^[0-9]$/
             parseInt asset
         else
@@ -431,7 +431,7 @@ class WalletAPI
             )
         
         @chain_interface.get_asset(asset_symbol).then (asset_lookup)=>
-            LE.throw "blockchain.unknown_asset",[asset] unless asset_lookup
+            LE.throw "jslib_blockchain.unknown_asset",[asset] unless asset_lookup
             asset_id = asset_lookup.id
             @wallet.account_transaction_history(
                 account_name

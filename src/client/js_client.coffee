@@ -5,7 +5,7 @@ q = require 'q'
 
 class JsClient
     
-    constructor:(@rpc, @Growl)->
+    constructor:(@rpc, @error_translator)->
         @rpc_pass_through =
             request: @rpc.request
         
@@ -108,10 +108,18 @@ class JsClient
             if err
                 console.log 'ERROR',err # why is "defer.reject err" not logging?
                 err = message:err unless err.message
-                #@Growl.error "", err.message
-                err = data:error: err
-                defer.reject err
-                error_handler err if error_handler
+                if @error_translator
+                    ((defer, error_handler, err)=>
+                        @error_translator(err.message).then (message)->
+                            err.message = message
+                            err = data:error: err
+                            defer.reject err
+                            error_handler err if error_handler
+                    )(defer, error_handler, err)
+                else
+                    err = data:error: err
+                    defer.reject err
+                    error_handler err if error_handler
             else
                 ret = null if ret is undefined
                 defer.resolve result:ret

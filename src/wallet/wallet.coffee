@@ -62,13 +62,13 @@ class Wallet
         brain_key = Wallet.normalize_brain_key brain_key
         wallet_name = wallet_name?.trim()
         unless wallet_name and wallet_name.length > 0
-            LE.throw "wallet.invalid_name"
+            LE.throw "jslib_wallet.invalid_name"
         
         if not password or password.length < config.BTS_WALLET_MIN_PASSWORD_LENGTH
-            LE.throw "wallet.password_too_short"
+            LE.throw "jslib_wallet.password_too_short"
         
         if not brain_key or brain_key.length < config.BTS_WALLET_MIN_BRAINKEY_LENGTH
-            LE.throw "wallet.brain_key_too_short"
+            LE.throw "jslib_wallet.brain_key_too_short"
         
         data = if brain_key
             base = hash.sha512 brain_key
@@ -108,7 +108,7 @@ class Wallet
     
     unlock: (timeout_seconds = 1700, password)->
         unless @wallet_db.validate_password password
-            LE.throw 'wallet.invalid_password'
+            LE.throw 'jslib_wallet.invalid_password'
         @aes_root = Aes.fromSecret password
         unlock_timeout_id = setTimeout ()=>
             @lock()
@@ -123,7 +123,7 @@ class Wallet
         @wallet_db.validate_password password
     
     master_private_key:->
-        LE.throw 'wallet.must_be_unlocked' unless @aes_root
+        LE.throw 'jslib_wallet.must_be_unlocked' unless @aes_root
         @wallet_db.master_private_key @aes_root
     
     get_setting: (key) ->
@@ -154,7 +154,7 @@ class Wallet
     
     ###* @return promise: {string} public key ###
     account_create:(account_name, private_data)->
-        LE.throw 'wallet.must_be_unlocked' unless @aes_root
+        LE.throw 'jslib_wallet.must_be_unlocked' unless @aes_root
         @wallet_db.generate_new_account(
             @aes_root, @blockchain_api, account_name
             private_data = null
@@ -163,7 +163,7 @@ class Wallet
     
     ###* @return promise: {string} public key ###
     account_recover:(account_name)->
-        LE.throw 'wallet.must_be_unlocked' unless @aes_root
+        LE.throw 'jslib_wallet.must_be_unlocked' unless @aes_root
         @wallet_db.generate_new_account(
             @aes_root, @blockchain_api, account_name
             private_data = null, save = true
@@ -172,14 +172,14 @@ class Wallet
     
     ###* @return promise: {string} public key ###
     account_create_legacy:(account_name, private_data)->
-        LE.throw 'wallet.must_be_unlocked' unless @aes_root
+        LE.throw 'jslib_wallet.must_be_unlocked' unless @aes_root
         defer = q.defer()
         @chain_interface.valid_unique_account(account_name).then(
             ()=>
                 #cnt = @wallet_db.list_my_accounts()
                 account = @wallet_db.lookup_account account_name
                 if account
-                    e = new LE 'wallet.account_already_exists',[account_name]
+                    e = new LE 'jslib_wallet.account_already_exists',[account_name]
                     defer.reject e
                     return
                 
@@ -197,7 +197,7 @@ class Wallet
         @wallet_db.getWithdrawConditions account_name
     
     getNewPrivateKey:(account_name, expiration_seconds_epoch)->
-        LE.throw 'wallet.must_be_unlocked' unless @aes_root
+        LE.throw 'jslib_wallet.must_be_unlocked' unless @aes_root
         private_key = @wallet_db.getActivePrivate @aes_root, account_name
         LE.throw 'jslib_wallet.account_not_found',[account_name] unless private_key
         unless expiration_seconds_epoch > 1423765682
@@ -213,14 +213,14 @@ class Wallet
         paying_name, from_name, to_name
         memo_message = "", vote_method = ""
     )->
-        LE.throw 'wallet.must_be_unlocked' unless @aes_root
+        LE.throw 'jslib_wallet.must_be_unlocked' unless @aes_root
         defer = q.defer()
         to_public = @wallet_db.getActiveKey to_name
         #console.log to_name,to_public?.toBtsPublic()
         @rpc.request("blockchain_get_account",[to_name]).then(
             (result)=>
                 unless result or to_public
-                    error = new LE 'blockchain.unknown_account', [to_name]
+                    error = new LE 'jslib_blockchain.unknown_account', [to_name]
                     defer.reject error
                     return
                 
@@ -251,7 +251,7 @@ class Wallet
         end_block_num=-1
         transactions
     )->
-        LE.throw 'wallet.must_be_unlocked' unless @aes_root
+        LE.throw 'jslib_wallet.must_be_unlocked' unless @aes_root
         @chain_database.account_transaction_history(
             account_name
             asset_id
@@ -265,7 +265,7 @@ class Wallet
         @chain_interface.valid_unique_account account_name
     
     dump_private_key:(account_name)->
-        LE.throw 'wallet.must_be_unlocked' unless @aes_root
+        LE.throw 'jslib_wallet.must_be_unlocked' unless @aes_root
         account = @wallet_db.lookup_account account_name
         return null unless account
         rec = @wallet_db.get_key_record account.owner_key
@@ -287,7 +287,7 @@ class Wallet
         PublicKey.fromBtsPublic account.owner_key
     
     getOwnerPrivate: (aes_root, account_name)->
-        LE.throw 'wallet.must_be_unlocked' unless @aes_root
+        LE.throw 'jslib_wallet.must_be_unlocked' unless @aes_root
         account = @wallet_db.lookup_account account_name
         return null unless account
         account.owner_key
@@ -300,7 +300,7 @@ class Wallet
         @wallet_db.get_account_for_address address
     
     keyrec_to_private:(key_record)->
-        LE.throw 'wallet.must_be_unlocked' unless @aes_root
+        LE.throw 'jslib_wallet.must_be_unlocked' unless @aes_root
         return null unless key_record?.encrypted_private_key
         PrivateKey.fromHex @aes_root.decryptHex key_record.encrypted_private_key
         
@@ -321,7 +321,7 @@ class Wallet
         
     ###* @return {PrivateKey} ###
     getActivePrivate: (account_name) ->
-        LE.throw 'wallet.must_be_unlocked' unless @aes_root
+        LE.throw 'jslib_wallet.must_be_unlocked' unless @aes_root
         @wallet_db.getActivePrivate @aes_root, account_name
     
 exports.Wallet = Wallet

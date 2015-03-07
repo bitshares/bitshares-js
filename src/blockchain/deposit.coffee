@@ -14,7 +14,7 @@ bts::blockchain::deposit_operation, (amount)(condition)
 class Deposit
 
     constructor: (@amount, @withdraw_condition) ->
-        LE.throw 'general.positive_amount',[amount] unless amount > 0
+        LE.throw 'jslib_general.positive_amount',[amount] unless amount > 0
         @type_name = "deposit_op_type"
         @type_id = type_id types.operation, @type_name        
         

@@ -1,5 +1,6 @@
 module.exports=
-    rpc_hide:# {} means hide nothing
+    rpc_hide: #{}
+        ## {} means hide nothing
         ##hide_all:on
         get_info: on
         get_config: on
@@ -16,3 +17,4 @@ module.exports=
         ##blockchain_list_address_transactions: on
         ##blockchain_list_key_balances: on
         ##blockchain_get_account: on
+        ####
