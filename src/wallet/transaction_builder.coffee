@@ -254,41 +254,6 @@ class TransactionBuilder
         )()
         receiver_address_Public: secret_Public
     
-    ###
-    wallet_transfer:(
-        amount, asset
-        from_name, to_public
-        memo_message, vote_method
-    )->
-        defer = q.defer()
-        if memo_message?.length > BTS_BLOCKCHAIN_MAX_MEMO_SIZE
-            LE.throw 'jslib_chain.memo_too_long' 
-        
-        otk_private = @wallet.generate_new_account_child_key(
-            @aes_root
-            from_name
-        )
-        owner = ExtendedAddress.derivePublic_outbound otk_private, to_public
-        one_time_public = otk_private.toPublicKey()
-        sender_private = @wallet.getActivePrivate @aes_root, from_name
-        aes = sender_private.sharedAes one_time_public
-        encrypted_memo = if memo_message then aes.encrypt memo_message else ""
-        @_transfer(
-            amount
-            asset
-            from_name
-            owner.toBtsAddy()
-            memo_message
-            encrypted_memo
-            vote_method
-            one_time_public
-            to_public
-        ).then(
-            (result)->defer.resolve result
-            (error)->defer.reject error
-        ).done()
-        defer.promise
-    ###
     account_register:(
         account_to_register
         pay_from_account

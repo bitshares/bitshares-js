@@ -9,10 +9,7 @@ q = require 'q'
 
 class ChainDatabase
 
-    REGISTERED_ACCOUNT_LOOKAHEAD = 11
-    
     sync_transactions_timeout_id = null
-    sync_accounts_timeout_id = null
     
     constructor: (@wallet_db, @rpc, chain_id, relay_fee_collector) ->
         @transaction_ledger = new TransactionLedger()
@@ -32,28 +29,6 @@ class ChainDatabase
         for i in [0...len] by 1
             @storage.removeItemOrThrow @storage.key i
         return
-    
-    ###
-        Watch for deterministic account keys beyond what was used to 
-        see if any are registered from another computer wallet
-        with the same key.  Also, this may be a restore.
-    ###
-    poll_accounts:(aes_root, shutdown=false)->
-        if shutdown
-            clearTimeout sync_accounts_timeout_id
-            sync_accounts_timeout_id = null
-        else
-            # unless already polling
-            unless sync_accounts_timeout_id
-                sync_accounts_timeout_id = setTimeout ()=>
-                        sync_accounts_timeout_id = null
-                        @poll_accounts aes_root
-                    ,
-                        10*1000
-                try
-                    @sync_accounts aes_root
-                catch e
-                    console.log e,e.stack
     
     ###
         Watch for public transactions sent to any
@@ -97,43 +72,6 @@ class ChainDatabase
         for key in keys
             addresses[key.account_address]=yes
         Object.keys addresses
-    
-    sync_accounts:(aes_root)->
-        next_accounts = @wallet_db.guess_next_account_keys_legacy(
-            aes_root
-            REGISTERED_ACCOUNT_LOOKAHEAD
-        )
-        batch_params = []
-        batch_params.push [next_account.public] for next_account in next_accounts
-        @rpc.request("batch", [
-            "blockchain_get_account"
-            batch_params
-        ]).then (batch_result)=>
-            batch_result = batch_result.result
-            found = no
-            for i in [0...batch_result.length] by 1
-                account = batch_result[i]
-                continue unless account
-                next_account = next_accounts[i]
-                # update the account index, create private key entries etc...
-                try
-                    @wallet_db.generate_new_account_legacy(
-                        aes_root
-                        account.name
-                        account.private_data
-                        _save = false
-                        next_account
-                    )
-                    # sync direct account fields with the blockchain
-                    @wallet_db.store_account_or_update account
-                    found = yes
-                catch e
-                    console.log "ERROR",e
-            unless found
-                # All legacy accounts found, new accounts will not be 
-                # created like this (incompatible with light-wallet)
-                clearTimeout sync_accounts_timeout_id
-            return
     
     sync_transactions:(account_name)->
         addresses = @_account_addresses account_name

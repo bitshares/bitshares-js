@@ -22,7 +22,7 @@ q = require 'q'
 ###* Public ###
 class Wallet
 
-    constructor: (@wallet_db, @rpc, @relay, @chain_database, @events) ->
+    constructor: (@wallet_db, @rpc, @relay, @chain_database, @events = {}) ->
         throw new Error "required wallet_db" unless @wallet_db
         throw new Error "required relay" unless @relay
         @transaction_ledger = new TransactionLedger()
@@ -94,7 +94,6 @@ class Wallet
         EC.throw "Wallet is already locked" unless @aes_root
         try
             @chain_database.poll_transactions shutdown=true if @rpc
-            @chain_database.poll_accounts null, shutdown=true if @rpc
         finally #let nothing stop the lock
             @aes_root.clear()
             @aes_root = undefined
@@ -116,7 +115,6 @@ class Wallet
             timeout_seconds * 1000
         
         @chain_database.poll_transactions shutdown=false if @rpc
-        @chain_database.poll_accounts @aes_root, shutdown=false if @rpc
         unlock_timeout_id
     
     validate_password: (password)->
@@ -170,29 +168,6 @@ class Wallet
             recover_only = true
         )
     
-    ###* @return promise: {string} public key ###
-    account_create_legacy:(account_name, private_data)->
-        LE.throw 'jslib_wallet.must_be_unlocked' unless @aes_root
-        defer = q.defer()
-        @chain_interface.valid_unique_account(account_name).then(
-            ()=>
-                #cnt = @wallet_db.list_my_accounts()
-                account = @wallet_db.lookup_account account_name
-                if account
-                    e = new LE 'jslib_wallet.account_already_exists',[account_name]
-                    defer.reject e
-                    return
-                
-                key = @wallet_db.generate_new_account_legacy @aes_root, account_name, private_data
-                defer.resolve key
-            (error)->
-                defer.reject error
-        ).done()
-        defer.promise
-    
-    #get_spendable_account_balances:(account_name)->
-        
-    
     getWithdrawConditions:(account_name)->
         @wallet_db.getWithdrawConditions account_name
     
@@ -204,8 +179,6 @@ class Wallet
             throw new Error "Invalid expiration_seconds_epoch #{expiration_seconds_epoch}"
         
         ExtendedAddress.create_one_time_key private_key, expiration_seconds_epoch
-        # seq key generation deprecated
-        # @wallet_db.generate_new_account_child_key @aes_root, account_name, save
     
     ###
     wallet_transfer:(
@@ -271,12 +244,6 @@ class Wallet
         rec = @wallet_db.get_key_record account.owner_key
         return null unless rec
         @aes_root.decryptHex rec.encrypted_private_key
-    
-    #get_new_private_key:(account_name, save) ->
-    #    @generate_new_account_child_key @aes_root, account_name, save
-    #    
-    #get_new_public_key:(account_name) ->
-    #    @get_new_private_key(account_name).toPublicKey()
     
     get_my_key_records:(owner_key) ->
         @wallet_db.get_my_key_records owner_key

@@ -377,7 +377,6 @@ class WalletDb
         [account, active, owner] = @_new_account(
             aes_root, account_name, owner_key
             active_key, private_data
-            lightwallet_compatible = yes
         )
         defer = q.defer()
         blockchain_api.get_account(account_name).then (chain_account)=>
@@ -397,64 +396,10 @@ class WalletDb
                 @save() if save
                 defer.resolve owner_public.toBtsPublic()
         defer.promise
-    
-    guess_next_account_keys_legacy:(aes_root, count)->
-        key_index = @get_child_key_index()
-        master_key = @master_private_key aes_root
-        for i in [0...count] by 1
-            ++key_index
-            private_key = ExtendedAddress.private_key master_key, key_index
-            public: private_key.toPublicKey().toBtsPublic()
-            index: key_index
-    
-    generate_new_account_legacy:(
-        aes_root, account_name, private_data
-        save = true, next_account = null
-    )->
-        LE.throw 'jslib_wallet.account_already_exists' if @account[account_name]
-        key_index = if next_account
-           next_account.index 
-        else
-            @get_child_key_index()
-        master_key = @master_private_key aes_root
-        owner_private_key = owner_public_key = owner_address = null
-        while true
-            ++key_index unless next_account
-            throw new Error "overflow" if key_index > Math.pow(2,32)
-            owner_private_key = ExtendedAddress.private_key master_key, key_index
-            owner_public_key = owner_private_key.toPublicKey()
-            if next_account
-                # account backup recovery
-                unless next_account.public is owner_public_key.toBtsPublic()
-                    throw new Error "unable to generate account matching requested owner key"
-            
-            owner_address = owner_public_key.toBtsAddy()
-            continue if @get_account_for_address owner_address
-            continue if (@lookup_key owner_address)?.key?.encrypted_private_key
-            
-            active_private_key = ExtendedAddress.private_key owner_private_key, 0
-            active_public_key = active_private_key.toPublicKey()
-            active_address = active_public_key.toBtsAddy()
-            continue if @get_account_for_address active_address
-            # continue if (@lookup_key active_address)?.key?.encrypted_private_key
-            break
-        
-        [account, active, owner] = @_new_account(
-            aes_root, account_name, owner_private_key
-            active_private_key, private_data
-            _lightwallet_compatible = no
-        )
-        @set_child_key_index key_index, false
-        @store_account_or_update account, null, false
-        @add_key_record owner, false
-        @add_key_record active, false
-        save() if save
-        owner_public_key.toBtsPublic()
-    
+
     _new_account:(
         aes_root, account_name, owner_private_key
         active_private_key, private_data
-        lightwallet_compatible = yes
     )->
         owner_public_key = owner_private_key.toPublicKey()
         owner_address = owner_public_key.toBtsAddy()
@@ -490,7 +435,6 @@ class WalletDb
             block_production_enabled: false
             last_used_gen_sequence: 0
             private_data: private_data
-            lightwallet_compatible: lightwallet_compatible
         [account, active_key, owner_key]
     
     add_transaction_record:(rec, save = true)->
@@ -512,7 +456,6 @@ class WalletDb
     store_account_or_update:(new_account, chain_account = null, save = true)-> #store_account
         EC.throw "missing account name" unless new_account.name
         EC.throw "missing owner key" unless new_account.owner_key
-        console.log '...  new_account.name', new_account.name,new_account.lightwallet_compatible
         is_conflict=(account1, account2)->
             if account1.owner_key isnt account2.owner_key
                 LE.throw "jslib_wallet.conflicting_account", [new_account.name]
@@ -542,10 +485,6 @@ class WalletDb
                 o.data.name is new_account.name
             
             new_account.index = existing_account.index
-            new_account.lightwallet_compatible = (
-                new_account.lightwallet_compatible or 
-                existing_account.lightwallet_compatible
-            )
             if existing_account.private_data
                 new_account.private_data = existing_account.private_data
             @wallet_object[i].data = new_account
@@ -555,76 +494,6 @@ class WalletDb
         
         @index_account new_account, true
         @save() if save
-    
-    ###
-    ##* @return {PrivateKey} ##
-    generate_new_one_time_key:(aes_root)->
-        throw new Error 'not implemented'
-        # Deterministic instead of random to piggy-back
-        # on the extra entropy used in the master key
-        one_time_private_key = PrivateKey.newRandom()
-        one_time_public = one_time_private_key.toPublicKey()
-        one_time_address = one_time_public.toBtsAddy()
-        key_record = @lookup_key one_time_address
-        throw new Error 'key exists' if key_record
-        @store_key
-            public_key: one_time_public
-            encrypted_private_key: aes_root.encryptHex one_time_private_key.toHex()
-        one_time_private_key
-    ###
-    ###
-    store_key:(key, save)->
-       key_record = @lookup_key key.public_key.getBtsAddy()
-       key_record = {} unless key_record
-       @add_key_record key_record, off
-       if key_record.encrypted_private_key
-           account_record = @get_account_for_address key.public_key
-           unless account_record
-               account_record = @get_account_for_address key.account_address
-           if account_record
-               account_record_address = PublicKey.fromHex(account_record.owner_key).toBtsAddy()
-               if key_record.account_address isnt account_record_address
-                   throw 'address miss match'
-               #    key_record.account_address = account_record_address
-               #    @add_key_record key_record, off
-               unless account_record.is_my_account
-                   account_record.is_my_account = yes
-                   @store_account_or_update account_record, null, no
-       @save() if save
-    ###
-    
-    ###* @return {PrivateKey} ###
-    
-    ###
-    # This is tested with the bitshares client as of Feb 2015.  This is being
-    # turned off in favor of light weight client one time keys.
-    generate_new_account_child_key:(aes_root, account_name, save = true)->
-        console.log "WARN: Using a child key sequence.  On-going backups or heavy transaction scanning may be needed"
-        private_key = @getActivePrivate aes_root, account_name
-        LE.throw 'jslib_wallet.account_not_found',[account_name] unless current_account unless private_key
-        account = @lookup_account account_name
-        seq = account.last_used_gen_sequence
-        seq = 0 unless seq
-        child_private = child_public = child_address = null
-        while true
-            ++seq
-            try
-                child_private = ExtendedAddress.private_key private_key, seq
-                child_public = child_private.toPublicKey()
-                child_address = child_public.toBtsAddy()
-                break unless @key_record[child_address]
-            catch error
-                console.log "Error creating child key index #{seq} for account #{account_name}", error  # very rare
-            
-        account.last_used_gen_sequence = seq
-        @store_account_or_update account, null, save
-        @add_key_record
-            account_address: child_address
-            public_key: child_public.toBtsPublic()
-            encrypted_private_key: aes_root.encryptHex child_private.toHex()
-        , save
-        child_private
-    ###
     
     add_key_record:(rec, save = true)-> # store_and_reload_record
         @index_key_record rec
