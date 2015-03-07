@@ -30,10 +30,8 @@ class ChainDatabase
     delete: ->
         len = @storage.length()
         for i in [0...len] by 1
-            key = @storage.key i
-            if key.indexOf(@wallet_db.wallet_name + "_" + @chain_id) is 0
-                #console.log '... @storage.removeItem key', key
-                @storage.removeItem key
+            @storage.removeItemOrThrow @storage.key i
+        return
     
     ###
         Watch for deterministic account keys beyond what was used to 

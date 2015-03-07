@@ -1,11 +1,13 @@
 {WalletAPI} = require '../client/wallet_api'
 {RelayNode} = require '../net/relay_node'
+{Storage} = require '../common/storage'
 config = require '../config'
 q = require 'q'
 
 class JsClient
     
-    constructor:(@rpc, @error_translator)->
+    constructor:(@rpc, version_name, @error_translator)->
+        Storage.version_name = version_name
         @rpc_pass_through =
             request: @rpc.request
         

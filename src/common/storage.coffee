@@ -2,6 +2,9 @@
 class Storage
     
     constructor:(@namespace = "default")->
+        Storage.version_name = "default_version" unless Storage.version_name
+        @namespace = Storage.version_name + '\t' + @namespace
+        
         @local_storage = window?.localStorage ||
             # WARNING: node-localstorage may not be atomic
             # https://github.com/lmaccherone/node-localstorage/issues/6
@@ -13,10 +16,19 @@ class Storage
         @local_storage.getItem @namespace+'\t'+key
     
     setItem:(key, value)->
+        #console.log '... setItem ', @namespace+'\t'+key
         @local_storage.setItem @namespace+'\t'+key, value
         return
     
+    removeItemOrThrow:(key)->
+        return if key is undefined
+        unless @getItem(key)
+            throw Error "Could not remove #{@namespace+'\t'+key}" 
+        @removeItem key
+        return
+    
     removeItem:(key)->
+        #console.log '... removeItem ', @namespace+'\t'+key
         @local_storage.removeItem @namespace+'\t'+key
         return
     
@@ -24,7 +36,12 @@ class Storage
         @local_storage.length
     
     key:(index)->
-        @local_storage.key index
+        key = (@local_storage.key index)
+        prefix = @namespace+'\t'
+        unless key?.indexOf(prefix) is 0
+            return undefined
+        #console.log '... key', key,'substring',key.substring prefix.length
+        key.substring prefix.length
     
     #clear:()->
     #    @local_storage.clear()

@@ -210,7 +210,7 @@ class WalletDb
         storage = new Storage(
             wallet_name + " " + main_config.bts_address_prefix
         )
-        storage.removeItem 'wallet_json'
+        storage.removeItemOrThrow 'wallet_json'
         return
     
     save_brainkey:(aes_root, brainkey, save)->

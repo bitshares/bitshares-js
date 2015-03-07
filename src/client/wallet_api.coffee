@@ -28,7 +28,7 @@ class WalletAPI
             throw new Error 'expecting rpc object'
         
         @blockchain_api = new BlockchainAPI @rpc
-        @chain_interface = new ChainInterface @blockchain_api, @relay
+        @chain_interface = new ChainInterface @blockchain_api, @relay.chain_id
     
     WalletAPI.libraries_api_wallet = libraries_api_wallet
     
