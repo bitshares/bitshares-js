@@ -245,8 +245,8 @@ class Wallet
         return null unless rec
         @aes_root.decryptHex rec.encrypted_private_key
     
-    get_my_key_records:(owner_key) ->
-        @wallet_db.get_my_key_records owner_key
+    get_my_key_records:(account_name) ->
+        @wallet_db.get_my_key_records account_name
     
     getOwnerKey: (account_name)->
         account = @wallet_db.lookup_account account_name

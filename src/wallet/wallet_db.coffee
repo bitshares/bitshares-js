@@ -521,12 +521,7 @@ class WalletDb
     set_child_key_index:(value, save = true)->
         @set_setting 'next_child_key_index', value, save
     
-    #get_transactions:->
-    #    for entry in @wallet_object
-    #        continue unless entry.type is "transaction_record_type"
-    #        entry.data
-    
-    get_my_key_records:(account_name)->
+    get_my_key_records:(account_name, include_owner_key = false)->
         account = @lookup_account account_name
         return [] unless account
         addresses = {}
@@ -537,7 +532,7 @@ class WalletDb
             return unless key?.encrypted_private_key
             addresses[address] = on
         
-        lookup account.owner_key
+        lookup account.owner_key if include_owner_key
         lookup ChainInterface.get_active_key account.active_key_history
         
         #if account.delegate_info?.signing_key_history

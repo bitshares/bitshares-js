@@ -183,6 +183,7 @@ class TransactionBuilder
             messages.push encrypted_mail
         messages
     ###
+    
     order_key_for_account:(account_address, account_name)->
         order_key = @order_keys[account_address]
         unless order_key
@@ -420,80 +421,30 @@ class TransactionBuilder
             defer.resolve {}
             return defer.promise
 
-        owner_keys_params = []
-        owner_keys_params.push [key.public_key] for key in my_keys
+        public_key_params = []
+        public_key_params.push [key.public_key] for key in my_keys
         try
-            @rpc.request("batch", ["blockchain_list_key_balances", owner_keys_params]).then(
-                (batch_result)->
-                    batch_result = batch_result.result
-                    balance_records = {}
-                    for i in [0...batch_result.length] by 1
-                        balances = batch_result[i]
-                        continue if balances.length is 0
-                        public_key = owner_keys_params[i]
-                        balances_for_key = balance_records[public_key] = []
-                        for balance in balances
-                            if balance[1].condition.type is "withdraw_signature_type"
-                                balances_for_key.push balance
-                    defer.resolve balance_records
-                    return
-                (error)->
-                    defer.reject error
-            )
+            ((public_key_params)=>
+                @rpc.request("batch", ["blockchain_list_key_balances", public_key_params]).then(
+                    (batch_result)->
+                        batch_result = batch_result.result
+                        balance_records = {}
+                        for i in [0...batch_result.length] by 1
+                            balances = batch_result[i]
+                            continue if balances.length is 0
+                            public_key = public_key_params[i]
+                            balances_for_key = balance_records[public_key] = []
+                            for balance in balances
+                                if balance[1].condition.type is "withdraw_signature_type"
+                                    balances_for_key.push balance
+                        defer.resolve balance_records
+                        return
+                    (error)->
+                        defer.reject error
+                )
+            )(public_key_params)
         catch error
             defer.reject error
-        defer.promise
-    
-    blockchain_lookup_balances:(balances, extended = false)->
-        defer = q.defer()
-        batch_ids = []
-        batch_ids.push [id, 1] for id in balances
-        @rpc.request("batch", ["blockchain_list_balances", batch_ids]).then(
-            (batch_balances)=>
-                ###
-                blockchain_list_key_balances= = [[
-                  "XTS4pca7BPiQqnQLXUZp8ojTxfXo2g4EzBLP"
-                  {
-                    condition:
-                      asset_id: 0
-                      slate_id: 0
-                      type: "withdraw_signature_type"
-                      data:
-                        owner: "XTSD5rYtofD6D4UHJH6mo953P5wpBfMhdMEi"
-                        memo: null
-                
-                    balance: 99009900990
-                    restricted_owner: null
-                    snapshot_info:
-                      original_address: "Po3mqkgMzBL4F1VXJArwQxeWf3fWEpxUf3"
-                      original_balance: 99009900990
-                
-                    deposit_date: "1970-01-01T00:00:00"
-                    last_update: "2014-10-07T10:55:00"
-                  }
-                ]]
-                ###
-                # or [] (no genesis claim)
-                balance_records = []
-                for balances in batch_balances.result
-                    for balance in balances
-                        continue unless extended or
-                            balance[1].condition.type is "withdraw_signature_type"
-                        balance_records.push balance
-                defer.resolve balance_records
-            (error)->
-                defer.reject error
-        ).done()
-        ###
-        @rpc.request("get_pending_transactions").then(
-            (result)->
-                # TODO need example output to complete...
-                console.log '... result',JSON.stringify result
-                defer.resolve result
-            (error)->
-                defer.reject error
-        )
-        ###
         defer.promise
     
     ###* @return {promise} ###

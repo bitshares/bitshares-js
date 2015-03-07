@@ -330,17 +330,8 @@ class WalletAPI
     account_balance_extended:(account_name)->
         @account_balance account_name, extended = true
     
-    ###* @return {promise} [
-        [
-            account_name,[ [asset_id,amount] ]
-        ]
-    ] ###
+    ###* @return {promise} ###
     account_balance:(account_name, extended = false)->
-        ###
-            LE.throw "jslib_wallet.must_be_opened" unless @wallet
-            @wallet.get_spendable_account_balances account_name
-        _account_balance:(account_name)->
-        ###
         LE.throw "jslib_wallet.must_be_opened" unless @wallet
         totals_by_account={}
         total=(account_name, asset_id, balance)->
