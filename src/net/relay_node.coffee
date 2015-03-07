@@ -15,7 +15,7 @@ class RelayNode
     
     init:->
         return @init_promise if @init_promise
-        @init_promise = @rpc.request('fetch_welcome_package').then(
+        @init_promise = @rpc.request('fetch_welcome_package', [{}]).then(
             (welcome)=>
                 welcome = welcome.result
                 for attribute in [
