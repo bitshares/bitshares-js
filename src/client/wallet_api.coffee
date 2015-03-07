@@ -117,6 +117,11 @@ class WalletAPI
         LE.throw "wallet.must_be_opened" unless @wallet
         @wallet.account_create account_name, private_data
     
+    ###* @return promise: {string} public key ###
+    account_recover:(account_name)->
+        LE.throw "wallet.must_be_opened" unless @wallet
+        @wallet.account_recover account_name
+    
     _transaction_builder:()->
         LE.throw "wallet.must_be_opened" unless @wallet
         LE.throw 'wallet.must_be_unlocked' unless @wallet.aes_root

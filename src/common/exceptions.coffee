@@ -42,9 +42,11 @@ class LocalizedException
         throw new LocalizedException key, key_params, cause
         
     substitute_params:(key, params)->
-        #get locale-*
-        #for i in [0...params] by 1
-        return key + JSON.stringify params
+        result = { key: key }
+        for i in [0...params.length] by 1
+            result["v"+(i+1)] = params[i]
+        
+        return JSON.stringify result
         
 exports.LocalizedException = LocalizedException
 exports.ErrorWithCause = ErrorWithCause

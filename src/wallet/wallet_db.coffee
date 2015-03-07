@@ -310,7 +310,7 @@ class WalletDb
                 
                 if local_account and chain_account
                     if local_account.owner_key isnt chain_account.owner_key
-                        LE.throw "wallet.conflicting_accounts", [name]
+                        LE.throw "jslib_wallet.conflicting_account", [name]
                 
                 if chain_account
                     @store_account_or_update chain_account
@@ -363,6 +363,7 @@ class WalletDb
         aes_root, blockchain_api
         account_name, private_data
         save = true
+        recover_only = false
     )->
         # light-wallet compatible
         brainkey = @get_brainkey aes_root
@@ -378,12 +379,24 @@ class WalletDb
             active_key, private_data
             lightwallet_compatible = yes
         )
+        defer = q.defer()
         blockchain_api.get_account(account_name).then (chain_account)=>
-            @store_account_or_update account, chain_account, false
-            @add_key_record owner, false
-            @add_key_record active, false
-            @save() if save
-            owner_public.toBtsPublic()
+            if recover_only
+                unless chain_account
+                    defer.reject new LE 'jslib_wallet.account_not_found', [account_name]
+            if (
+                try
+                    @store_account_or_update account, chain_account, false
+                    true
+                catch error
+                    defer.reject error
+                    false
+            )
+                @add_key_record owner, false
+                @add_key_record active, false
+                @save() if save
+                defer.resolve owner_public.toBtsPublic()
+        defer.promise
     
     guess_next_account_keys_legacy:(aes_root, count)->
         key_index = @get_child_key_index()
@@ -502,7 +515,7 @@ class WalletDb
         console.log '...  new_account.name', new_account.name,new_account.lightwallet_compatible
         is_conflict=(account1, account2)->
             if account1.owner_key isnt account2.owner_key
-                LE.throw 'wallet.account_already_exists',[account_name]
+                LE.throw "jslib_wallet.conflicting_account", [new_account.name]
         
         if chain_account
             is_conflict new_account, chain_account
@@ -588,7 +601,7 @@ class WalletDb
     generate_new_account_child_key:(aes_root, account_name, save = true)->
         console.log "WARN: Using a child key sequence.  On-going backups or heavy transaction scanning may be needed"
         private_key = @getActivePrivate aes_root, account_name
-        LE.throw 'wallet.account_not_found',[account_name] unless current_account unless private_key
+        LE.throw 'jslib_wallet.account_not_found',[account_name] unless current_account unless private_key
         account = @lookup_account account_name
         seq = account.last_used_gen_sequence
         seq = 0 unless seq

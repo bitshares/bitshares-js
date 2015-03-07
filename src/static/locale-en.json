@@ -1,5 +1,5 @@
 {
-    "wallet": {
+    "jslib_wallet": {
         "not_found": "Wallet '{{v1}}' not found",
         "invalid_name": "Invalid name",
         "invalid_account_name": "Invalid account name {{v1}}",
@@ -9,7 +9,7 @@
         "unable_to_pay_fee":"Unable to pay fee",
         "already_exists": "Wallet {{v1}} already exists,
         "account_already_exists": "Account '{{v1}}' already exists in your wallet",
-        "account_not_found": "Account '{{v1}}' was not found in your wallet",
+        "account_not_found": "Account '{{v1}}' was not found",
         "save_error": "Error saving wallet {{v1}}: {{v2}}",
         "must_be_opened": "Wallet must be opened first",
         "must_be_unlocked": "Wallet must be unlocked first",
@@ -19,16 +19,16 @@
         "delegate_pay_rate_invalid": "Invalid delegate pay rate: {{v1}}",
         "need_parent_for_registration":"Need parent account ({{v1}}) to authorize registration",
         "account_without_private_key":"Your wallet does not have a private key for account: '{{v1}'",
-        "conflicting_accounts":"The local account '{{v1}}' is owned by a different public key than blockchain account"
+        "conflicting_account":"Account '{{v1}}' is not owned by this brain-key."
     },
-    "blockchain":{
+    "jslib_blockchain":{
         "create_account_before_register": "Create account before registering",
         "account_already_exists": "Account {{v1}} is already registered with the blockchain",
         "account_retracted":"Account {{v1}} is retracted",
         "unknown_asset":"Asset symbol '{{v1}}' was not found",
         "unknown_account": "Account {{v1}} was not found on the blockchain"
     }
-    "general":{
+    "jslib_general":{
         "unknown_account": "Account {{v1}} was not found",
         "positive_amount": "Amount '{{v1}} must be positive"
     }

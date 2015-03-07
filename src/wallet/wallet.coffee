@@ -156,7 +156,18 @@ class Wallet
     account_create:(account_name, private_data)->
         LE.throw 'wallet.must_be_unlocked' unless @aes_root
         @wallet_db.generate_new_account(
-            @aes_root, @blockchain_api, account_name, private_data
+            @aes_root, @blockchain_api, account_name
+            private_data = null
+        )
+        
+    
+    ###* @return promise: {string} public key ###
+    account_recover:(account_name)->
+        LE.throw 'wallet.must_be_unlocked' unless @aes_root
+        @wallet_db.generate_new_account(
+            @aes_root, @blockchain_api, account_name
+            private_data = null, save = true
+            recover_only = true
         )
     
     ###* @return promise: {string} public key ###
@@ -188,7 +199,7 @@ class Wallet
     getNewPrivateKey:(account_name, expiration_seconds_epoch)->
         LE.throw 'wallet.must_be_unlocked' unless @aes_root
         private_key = @wallet_db.getActivePrivate @aes_root, account_name
-        LE.throw 'wallet.account_not_found',[account_name] unless private_key
+        LE.throw 'jslib_wallet.account_not_found',[account_name] unless private_key
         unless expiration_seconds_epoch > 1423765682
             throw new Error "Invalid expiration_seconds_epoch #{expiration_seconds_epoch}"
         

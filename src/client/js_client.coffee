@@ -133,9 +133,9 @@ class JsClient
                 message = if error.message then error.message else error
                 err = error
                 #error = message:error unless error.message
-                if message.match /^wallet.not_found/
+                if message.match /wallet.not_found/
                     @event 'wallet.not_found'
-                else if message.match /^wallet.must_be_opened/
+                else if message.match /wallet.must_be_opened/
                     @event 'wallet.must_be_opened'
             finally
                 handle_response() unless promise
