@@ -81,7 +81,7 @@ class WalletAPI
         LE.throw "jslib_wallet.must_be_opened" unless @wallet
         @wallet.unlock timeout_seconds, password
         return
-        
+    
     lock:->
         LE.throw "jslib_wallet.must_be_opened" unless @wallet
         @wallet.lock()
@@ -92,7 +92,7 @@ class WalletAPI
         @wallet.locked()
     
     #account_set_favorite:(name, )->
-        
+    
     backup_create:()->
         LE.throw "jslib_wallet.must_be_opened" unless @wallet
         if window

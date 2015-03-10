@@ -47,4 +47,12 @@ class Storage
     #    @local_storage.clear()
     #    return
     
+    isEmpty:->
+        length = @local_storage.length
+        for i in [0...length] by 1
+            key = @local_storage.key i
+            if key?.indexOf Storage.version_name is 0
+                return no
+        return yes
+    
 exports.Storage = Storage

@@ -1,4 +1,5 @@
 {WalletDb} = require './wallet_db'
+{Storage} = require '../common/storage'
 {TransactionLedger} = require '../wallet/transaction_ledger'
 {ChainInterface} = require '../blockchain/chain_interface'
 {ChainDatabase} = require '../blockchain/chain_database'
@@ -57,6 +58,9 @@ class Wallet
         rnd = secureRandom.randomBuffer 512/8
         #console.log 'Wallet.get_secure_random length',(Buffer.concat [rnd, Wallet.entropy]).length
         hash.sha512 Buffer.concat [rnd, Wallet.entropy]
+    
+    Wallet.has_wallet = ->
+        not (new Storage().isEmpty())
     
     Wallet.create = (wallet_name, password, brain_key, save = true)->
         brain_key = Wallet.normalize_brain_key brain_key
