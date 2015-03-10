@@ -19,7 +19,7 @@
         "delegate_pay_rate_invalid": "Invalid delegate pay rate: {{v1}}",
         "need_parent_for_registration":"Need parent account ({{v1}}) to authorize registration",
         "account_without_private_key":"Your wallet does not have a private key for account: '{{v1}'",
-        "conflicting_account":"Account '{{v1}}' is not owned by this brain-key."
+        "conflicting_account":"Account '{{v1}}' is not owned by this recovery key."
     },
     "jslib_blockchain":{
         "create_account_before_register": "Create account before registering",
