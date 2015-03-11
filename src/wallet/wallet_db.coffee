@@ -213,6 +213,19 @@ class WalletDb
         storage.removeItemOrThrow 'wallet_json'
         return
     
+    WalletDb.has_legacy_bts_wallet=->
+        storage = new Storage()
+        return no if storage.getItem "no_legacy_bts_wallet"
+        for i in [0...storage.local_storage.length] by 1
+            key = storage.local_storage.key i
+            console.log '... key', key
+            # Only BTS had users create legacy accounts
+            continue unless key.match /^[A-Za-z0-9]+ BTS\twallet_json$/
+            console.log '... return yes', yes
+            return yes
+        storage.setItem "no_legacy_bts_wallet",""
+        return no
+    
     save_brainkey:(aes_root, brainkey, save)->
         (-># hide a really weak brainkey
             pad = 256 - brainkey.length
