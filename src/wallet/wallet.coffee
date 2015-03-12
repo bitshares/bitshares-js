@@ -97,6 +97,7 @@ class Wallet
     lock: ->
         EC.throw "Wallet is already locked" unless @aes_root
         try
+            @chain_database.poll_accounts null, shutdown=true if @rpc
             @chain_database.poll_transactions shutdown=true if @rpc
         finally #let nothing stop the lock
             @aes_root.clear()
@@ -118,6 +119,7 @@ class Wallet
         ,
             timeout_seconds * 1000
         
+        @chain_database.poll_accounts @aes_root, shutdown=false if @rpc
         @chain_database.poll_transactions shutdown=false if @rpc
         unlock_timeout_id
     
@@ -166,7 +168,7 @@ class Wallet
     ###* @return promise: {string} public key ###
     account_recover:(account_name)->
         LE.throw 'jslib_wallet.must_be_unlocked' unless @aes_root
-        @wallet_db.generate_new_account(
+        @wallet_db.recover_account(
             @aes_root, @blockchain_api, account_name
             private_data = null, save = true
             recover_only = true

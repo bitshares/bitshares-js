@@ -215,7 +215,7 @@ class WalletDb
     
     WalletDb.has_legacy_bts_wallet=->
         storage = new Storage()
-        return no if storage.getItem "no_legacy_bts_wallet"
+        return no if storage.getItem("no_legacy_bts_wallet") is ""
         for i in [0...storage.local_storage.length] by 1
             key = storage.local_storage.key i
             console.log '... key', key
@@ -372,7 +372,71 @@ class WalletDb
         account.active_key = ChainInterface.get_active_key account.active_key_history
         account
     
+    guess_next_account_keys:(aes_root, count)->
+        key_index = @get_child_key_index()
+        brainkey = @get_brainkey aes_root
+        for i in [0...count] by 1
+            owner_key = PrivateKey.fromBuffer(
+                hash.sha256 hash.sha512 brainkey + " " + (key_index + i)
+            )
+            public: owner_key.toPublicKey().toBtsPublic()
+            index: (key_index + i)
+    
     generate_new_account:(
+        aes_root, blockchain_api
+        account_name, private_data
+        next_account = null
+    )->
+        console.log '... @get_child_key_index()', @get_child_key_index()
+        LE.throw 'jslib_wallet.account_already_exists' if @account[account_name]
+        key_index = if next_account
+           next_account.index 
+        else
+            @get_child_key_index()
+        
+        console.log '... key_index', key_index
+        
+        brainkey = @get_brainkey aes_root
+        owner_key = PrivateKey.fromBuffer(
+            hash.sha256 hash.sha512 brainkey + " " + key_index
+        )
+        owner_public = owner_key.toPublicKey()
+        if next_account
+            # account backup recovery
+            unless next_account.public is owner_public.toBtsPublic()
+                throw new Error "unable to generate account matching requested owner key"
+        
+        active_key = PrivateKey.fromBuffer(
+            hash.sha256 hash.sha512 owner_key.toWif() + " 0"
+        )
+        
+        [account, active, owner] = @_new_account(
+            aes_root, account_name, owner_key
+            active_key, private_data
+        )
+        defer = q.defer()
+        ((key_index)=>
+            blockchain_api.get_account(account_name).then (chain_account)=>
+                if (
+                    try
+                        @store_account_or_update(account, chain_account, _save=false)
+                        true
+                    catch error
+                        # registered account conflict
+                        defer.reject error
+                        false
+                )
+                    @add_key_record owner, _save=false
+                    @add_key_record active, _save=false
+                    new_index = Math.max @get_child_key_index(), key_index + 1
+                    @set_child_key_index new_index, _save=false
+                    @save()
+                    defer.resolve owner_public.toBtsPublic()
+        )(key_index)
+        defer.promise
+    
+    ### but may be needed by legacy light wallet accounts ###
+    recover_account:(
         aes_root, blockchain_api
         account_name, private_data
         save = true

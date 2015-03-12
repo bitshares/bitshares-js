@@ -9,6 +9,8 @@ q = require 'q'
 
 class ChainDatabase
 
+    sync_accounts_lookahead = 11
+    sync_accounts_timeout_id = null
     sync_transactions_timeout_id = null
     
     constructor: (@wallet_db, @rpc, chain_id, relay_fee_collector) ->
@@ -29,6 +31,28 @@ class ChainDatabase
         for i in [0...len] by 1
             @storage.removeItemOrThrow @storage.key i
         return
+    
+    ###
+        Watch for deterministic account keys beyond what was used to 
+        see if any are registered from another computer wallet
+        with the same key.  Also, this may be a restore.
+    ###
+    poll_accounts:(aes_root, shutdown=false)->
+        if shutdown
+            clearTimeout sync_accounts_timeout_id
+            sync_accounts_timeout_id = null
+        else
+            # unless already polling
+            unless sync_accounts_timeout_id
+                sync_accounts_timeout_id = setTimeout ()=>
+                        sync_accounts_timeout_id = null
+                        @poll_accounts aes_root
+                    ,
+                        10*1000
+                try
+                    @sync_accounts aes_root
+                catch e
+                    console.log e,e.stack
     
     ###
         Watch for public transactions sent to any
@@ -72,6 +96,38 @@ class ChainDatabase
         for key in keys
             addresses[key.account_address]=yes
         Object.keys addresses
+    
+    sync_accounts:(aes_root)->
+        next_accounts = @wallet_db.guess_next_account_keys(
+            aes_root
+            sync_accounts_lookahead
+        )
+        batch_params = []
+        batch_params.push [next_account.public] for next_account in next_accounts
+        @rpc.request("batch", [
+            "blockchain_get_account"
+            batch_params
+        ]).then (batch_result)=>
+            batch_result = batch_result.result
+            found = no
+            for i in [0...batch_result.length] by 1
+                account = batch_result[i]
+                continue unless account
+                next_account = next_accounts[i]
+                # update the account index, create private key entries etc...
+                try
+                    @wallet_db.generate_new_account(
+                        aes_root, @blockchain_api
+                        account.name
+                        account.private_data
+                        next_account
+                    )
+                    found = yes
+                catch e
+                    console.log "ERROR",e.stack
+            unless found
+               sync_accounts_lookahead = 1
+            return
     
     sync_transactions:(account_name)->
         addresses = @_account_addresses account_name
