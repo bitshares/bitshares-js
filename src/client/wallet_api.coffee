@@ -142,15 +142,26 @@ class WalletAPI
     
     transfer_from:(
         amount_to_transfer, asset_name_or_id, 
-        paying_account_name, from_account_name, to_account_name
+        paying_account_name, from_account_name, to_account_name_or_key
         memo_message = "", selection_method = ""
         fee_asset_name_or_id
     )->
         LE.throw "jslib_wallet.must_be_opened" unless @wallet
         asset = @chain_interface.get_asset asset_name_or_id
         payer = @wallet.get_chain_account paying_account_name
-        sender = if paying_account_name is from_account_name then payer else @wallet.get_chain_account from_account_name
-        recipient = @wallet.get_chain_account to_account_name
+        sender = if paying_account_name is from_account_name
+            payer
+        else
+            @wallet.get_chain_account from_account_name
+        
+        recipient = try
+                PublicKey.fromBtsPublic to_account_name_or_key
+                defer = q.defer()
+                defer.resolve recipient
+                defer.promise
+            catch
+                @wallet.get_chain_account to_account_name_or_key
+        
         unless fee_asset_name_or_id
             fee_asset_name_or_id = asset_name_or_id
         

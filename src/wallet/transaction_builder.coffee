@@ -81,12 +81,16 @@ class TransactionBuilder
         use_stealth_address
     )->
         throw new Error 'missing payer' unless payer?.name
-        throw new Error 'missing recipient' unless recipient?.name
+        throw new Error 'missing recipient' unless recipient
         throw new Error 'missing amount' unless amount?.amount
         
-        #TODO
-        #if recipient.is_retracted #active_key() == public_key_type()
-        #    LE.throw 'jslib_blockchain.account_retracted',[recipient.name]
+        recipientActivePublic = if typeof recipient is 'string'
+            PublicKey.fromBtsPublic recipient
+        else
+            #TODO
+            #if recipient.is_retracted #active_key() == public_key_type()
+            #    LE.throw 'jslib_blockchain.account_retracted',[recipient.name]
+            @wallet.getActiveKey recipient.name
         
         unless amount and amount.amount > 0
             LE.throw 'jslib_Invalid amount', [amount]
@@ -94,7 +98,6 @@ class TransactionBuilder
         if memo?.length > BTS_BLOCKCHAIN_MAX_MEMO_SIZE
             LE.throw 'jslib_chain.memo_too_long'
         
-        recipientActivePublic = @wallet.getActiveKey recipient.name
         payerActivePublic = @wallet.getActiveKey payer.name
         unless memo_sender
             memo_sender = @wallet.lookup_active_key payer.name
@@ -123,7 +126,7 @@ class TransactionBuilder
         @_deduct_balance payer.active_key, amount
         @transaction_record.ledger_entries.push ledger_entry =
             from_account: payer.active_key
-            to_account: recipient.active_key
+            to_account: recipientActivePublic.toBtsPublic()
             amount: amount
             memo: memo
         if memo_sender isnt payerActivePublic.toBtsPublic()
