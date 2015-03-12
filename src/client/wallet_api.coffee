@@ -7,6 +7,7 @@
 {ChainInterface} = require '../blockchain/chain_interface'
 {ChainDatabase} = require '../blockchain/chain_database'
 {BlockchainAPI} = require '../blockchain/blockchain_api'
+{PublicKey} = require '../ecc/key_public'
 
 config = require '../wallet/config'
 LE = require('../common/exceptions').LocalizedException
@@ -157,7 +158,7 @@ class WalletAPI
         recipient = try
                 PublicKey.fromBtsPublic to_account_name_or_key
                 defer = q.defer()
-                defer.resolve recipient
+                defer.resolve to_account_name_or_key
                 defer.promise
             catch
                 @wallet.get_chain_account to_account_name_or_key
@@ -180,7 +181,7 @@ class WalletAPI
             builder.deposit_asset(
                 payer, recipient, amount
                 memo_message, selection_method, sender.active_key
-                use_stealth_address = !recipient.meta_data?.type is "public_account"
+                use_stealth_address = no#!recipient.meta_data?.type is "public_account"
             )
             @_finalize_and_send(builder, payer, fee_asset_name_or_id).then (record)->
                 record
