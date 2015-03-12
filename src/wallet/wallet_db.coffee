@@ -218,10 +218,8 @@ class WalletDb
         return no if storage.getItem("no_legacy_bts_wallet") is ""
         for i in [0...storage.local_storage.length] by 1
             key = storage.local_storage.key i
-            console.log '... key', key
             # Only BTS had users create legacy accounts
             continue unless key.match /^[A-Za-z0-9]+ BTS\twallet_json$/
-            console.log '... return yes', yes
             return yes
         storage.setItem "no_legacy_bts_wallet",""
         return no
@@ -387,14 +385,12 @@ class WalletDb
         account_name, private_data
         next_account = null
     )->
-        console.log '... @get_child_key_index()', @get_child_key_index()
-        LE.throw 'jslib_wallet.account_already_exists' if @account[account_name]
+        if @account[account_name]
+            LE.throw 'jslib_wallet.account_already_exists', [account_name]
         key_index = if next_account
            next_account.index 
         else
             @get_child_key_index()
-        
-        console.log '... key_index', key_index
         
         brainkey = @get_brainkey aes_root
         owner_key = PrivateKey.fromBuffer(
