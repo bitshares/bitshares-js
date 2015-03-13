@@ -3,7 +3,6 @@ class Storage
     
     constructor:(@namespace = "default")->
         if Storage.version_name and Storage.version_name.trim() isnt ""
-            console.log "... Storage #{@namespace} version_name="+Storage.version_name
             @namespace = Storage.version_name + '\t' + @namespace
         
         @local_storage = window?.localStorage ||

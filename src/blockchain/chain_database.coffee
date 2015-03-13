@@ -344,7 +344,7 @@ class ChainDatabase
                             entry.memo = memo_data.message.toString()
                             entry.memo_from_account = memo_from
                     catch e
-                        console.log 'chain_database._decrypt_memo',e
+                        #console.log 'chain_database._decrypt_memo',e
                 
                 entry.to_account = recipient
                 if recipient
