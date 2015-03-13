@@ -2,8 +2,9 @@
 class Storage
     
     constructor:(@namespace = "default")->
-        Storage.version_name = "default_version" unless Storage.version_name
-        @namespace = Storage.version_name + '\t' + @namespace
+        if Storage.version_name and Storage.version_name.trim() isnt ""
+            console.log "... Storage #{@namespace} version_name="+Storage.version_name
+            @namespace = Storage.version_name + '\t' + @namespace
         
         @local_storage = window?.localStorage ||
             # WARNING: node-localstorage may not be atomic

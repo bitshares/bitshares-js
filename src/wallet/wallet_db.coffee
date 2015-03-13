@@ -571,20 +571,29 @@ class WalletDb
         
         if chain_account
             is_conflict new_account, chain_account
-            old_active = chain_active = null
-            if (
-                old_active = ChainInterface.get_active_key(new_account.active_key_history) isnt 
-                chain_active = ChainInterface.get_active_key chain_account.active_key_history
-            )
-                history = new_account.active_key_history
-                history.push chain_active
-                (@events['wallet.active_key_updated'] or ->)(
-                    chain_active, old_active
-                )
+            new_account.registration_date = chain_account.registration_date
+            new_account.last_update = chain_account.last_update
             
-        new_account.last_update = (new Date().toISOString()).split('.')[0]
+            # Active key updates are not fully supported, better to have the chain_account
+            # verified by a secondary server first before trusting its history.
+            # new_account.active_key_history = chain_account.active_key_history
+            
+            #old_active = chain_active = null
+            #if (
+            #    old_active = ChainInterface.get_active_key(new_account.active_key_history) isnt 
+            #    chain_active = ChainInterface.get_active_key chain_account.active_key_history
+            #)
+            #    
+            #    history = new_account.active_key_history
+            #    history.push chain_active
+            #    (@events['wallet.active_key_updated'] or ->)(
+            #        chain_active, old_active
+            #    )
+        else
+            new_account.last_update = (new Date().toISOString()).split('.')[0]
+        
         delete new_account.is_my_account #calc in real time instead
-        delete new_account.active_key #populated from active key history array
+        delete new_account.active_key #populated from active key history array instead
         
         existing_account = @lookup_account new_account.name
         if existing_account
