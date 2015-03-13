@@ -66,8 +66,12 @@ class WalletAPI
         Wallet.create wallet_name, new_password, brain_key, true, @events
         @open wallet_name
         @unlock config.BTS_WALLET_DEFAULT_UNLOCK_TIME_SEC, new_password
+        # Technically online_wallet_2015_03_14 only needed on recovery
+        @chain_database.sync_accounts(
+            @wallet.aes_root, 1, algorithm = 'online_wallet_2015_03_14'
+        )
         return
-        
+    
     close:->
         @wallet = null
         return

@@ -107,10 +107,6 @@ class Wallet
         
         @chain_database.poll_accounts @aes_root, shutdown=false if @rpc
         @chain_database.poll_transactions shutdown=false if @rpc
-        # todo, run sync for online_wallet_2015_03_14 only on recovery (not unlock)
-        @chain_database.sync_accounts(
-            @aes_root, 1, algorithm = 'online_wallet_2015_03_14'
-        )
         unlock_timeout_id
     
     validate_password: (password)->
