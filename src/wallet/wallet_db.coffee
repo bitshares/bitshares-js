@@ -374,6 +374,16 @@ class WalletDb
         account.active_key = ChainInterface.get_active_key account.active_key_history
         account
     
+    has_unregistered_account:->
+        for entry in @wallet_object
+            continue unless entry.type is "account_record_type"
+            account = entry.data
+            continue unless @is_my_account account
+            unless account.registration_date
+                account.registration_date = "1970-01-01T00:00:00"
+            return yes if account.registration_date is "1970-01-01T00:00:00"
+        return no
+    
     guess_next_account_keys:(aes_root, count, algorithm = 'standard')->
         switch algorithm
             when 'standard'
@@ -400,8 +410,8 @@ class WalletDb
         next_account = null
         algorithm = 'standard'
     )->
-        if @account[account_name]
-            LE.throw 'jslib_wallet.account_already_exists', [account_name]
+        if @has_unregistered_account()
+            LE.throw 'jslib_wallet.register_account_first'
         
         standard_child_index = undefined
         [owner_key, active_key] = switch algorithm
@@ -573,6 +583,7 @@ class WalletDb
             is_conflict new_account, chain_account
             new_account.registration_date = chain_account.registration_date
             new_account.last_update = chain_account.last_update
+            new_account.name = chain_account.name
             
             # Active key updates are not fully supported, better to have the chain_account
             # verified by a secondary server first before trusting its history.
