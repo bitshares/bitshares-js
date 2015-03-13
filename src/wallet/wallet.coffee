@@ -46,13 +46,6 @@ class Wallet
         Wallet.entropy = hash.sha512 data
         return
         
-    Wallet.has_secure_random = ->
-        try
-            secureRandom.randomBuffer 10
-            true
-        catch
-            false
-    
     Wallet.get_secure_random = ->
         throw 'Call add_entropy first' unless Wallet.entropy
         rnd = secureRandom.randomBuffer 512/8
