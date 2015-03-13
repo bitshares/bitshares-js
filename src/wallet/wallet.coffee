@@ -63,7 +63,6 @@ class Wallet
         not (new Storage().isEmpty())
     
     Wallet.create = (wallet_name, password, brain_key, save = true)->
-        brain_key = Wallet.normalize_brain_key brain_key
         wallet_name = wallet_name?.trim()
         unless wallet_name and wallet_name.length > 0
             LE.throw "jslib_wallet.invalid_name"
@@ -87,12 +86,6 @@ class Wallet
         wallet_db = WalletDb.create wallet_name, epk, brain_key, password, save
         wallet_db.save() if save
         wallet_db
-    
-    ### Light-Wallet compatible brain seeds ### 
-    Wallet.normalize_brain_key=(brain_key)->
-        # http://doc.qt.io/qt-5/qstring.html#simplified
-        brain_key = brain_key.split(/[\t\n\v\f\r ]+/).join ' '
-        brain_key = brain_key.toUpperCase()
     
     lock: ->
         EC.throw "Wallet is already locked" unless @aes_root
@@ -121,6 +114,10 @@ class Wallet
         
         @chain_database.poll_accounts @aes_root, shutdown=false if @rpc
         @chain_database.poll_transactions shutdown=false if @rpc
+        # todo, run sync for online_wallet_2015_03_14 only on recovery (not unlock)
+        @chain_database.sync_accounts(
+            @aes_root, 1, algorithm = 'online_wallet_2015_03_14'
+        )
         unlock_timeout_id
     
     validate_password: (password)->
@@ -166,13 +163,13 @@ class Wallet
         
     
     ###* @return promise: {string} public key ###
-    account_recover:(account_name)->
-        LE.throw 'jslib_wallet.must_be_unlocked' unless @aes_root
-        @wallet_db.recover_account(
-            @aes_root, @blockchain_api, account_name
-            private_data = null, save = true
-            recover_only = true
-        )
+    #account_recover:(account_name)->
+    #    LE.throw 'jslib_wallet.must_be_unlocked' unless @aes_root
+    #    @wallet_db.recover_account(
+    #        @aes_root, @blockchain_api, account_name
+    #        private_data = null, save = true
+    #        recover_only = true
+    #    )
     
     getWithdrawConditions:(account_name)->
         @wallet_db.getWithdrawConditions account_name

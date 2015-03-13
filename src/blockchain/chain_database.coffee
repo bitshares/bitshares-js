@@ -50,7 +50,12 @@ class ChainDatabase
                     ,
                         10*1000
                 try
-                    @sync_accounts aes_root
+                    @sync_accounts(
+                        aes_root, sync_accounts_lookahead
+                        algorithm = 'standard'
+                    ).then (found)->
+                        unless found
+                            sync_accounts_lookahead = 1
                 catch e
                     console.log e,e.stack
     
@@ -97,37 +102,39 @@ class ChainDatabase
             addresses[key.account_address]=yes
         Object.keys addresses
     
-    sync_accounts:(aes_root)->
+    sync_accounts:(aes_root, lookahead, algorithm)->
         next_accounts = @wallet_db.guess_next_account_keys(
             aes_root
-            sync_accounts_lookahead
+            lookahead
+            algorithm
         )
         batch_params = []
         batch_params.push [next_account.public] for next_account in next_accounts
-        @rpc.request("batch", [
-            "blockchain_get_account"
-            batch_params
-        ]).then (batch_result)=>
-            batch_result = batch_result.result
-            found = no
-            for i in [0...batch_result.length] by 1
-                account = batch_result[i]
-                continue unless account
-                next_account = next_accounts[i]
-                # update the account index, create private key entries etc...
-                try
-                    @wallet_db.generate_new_account(
-                        aes_root, @blockchain_api
-                        account.name
-                        account.private_data
-                        next_account
-                    )
-                    found = yes
-                catch e
-                    console.log "ERROR",e.stack
-            unless found
-               sync_accounts_lookahead = 1
-            return
+        ((algorithm, next_accounts)=>
+            @rpc.request("batch", [
+                "blockchain_get_account"
+                batch_params
+            ]).then (batch_result)=>
+                batch_result = batch_result.result
+                found = no
+                for i in [0...batch_result.length] by 1
+                    account = batch_result[i]
+                    continue unless account
+                    next_account = next_accounts[i]
+                    # update the account index, create private key entries etc...
+                    try
+                        @wallet_db.generate_new_account(
+                            aes_root, @blockchain_api
+                            account.name
+                            account.private_data
+                            next_account
+                            algorithm
+                        )
+                        found = yes
+                    catch e
+                        console.log "ERROR",e.stack
+                found
+        )(algorithm, next_accounts)
     
     sync_transactions:(account_name)->
         addresses = @_account_addresses account_name
@@ -148,19 +155,23 @@ class ChainDatabase
             
             blocknum_hash = blocknum_hash_storage()
             defer = q.defer()
-            @blockchain_api.get_block_hash(blocknum_hash[0]).then (hash)=>
-                if blocknum_hash[1] and hash isnt blocknum_hash[1]
-                    console.log "INFO, fork detected"
-                    defer.resolve 1
-                    return
-                # no fork, so jump to the head
-                @rpc.request('get_info').then (info)=>
-                    info = info.result
-                    block_num = info.blockchain_head_block_num
-                    @blockchain_api.get_block_hash(block_num).then (hash)=>
-                        blocknum_hash_storage [block_num, hash]
-                        defer.resolve block_num
+            ((blocknum_hash)=>
+                @blockchain_api.get_block_hash(blocknum_hash[0]).then (hash)=>
+                    if blocknum_hash[1] and hash isnt blocknum_hash[1]
+                        console.log "INFO, fork detected"
+                        defer.resolve 1
                         return
+                    # no fork, so jump to the head
+                    @rpc.request('get_info').then (info)=>
+                        info = info.result
+                        block_num = info.blockchain_head_block_num
+                        ((block_num)=>
+                            @blockchain_api.get_block_hash(block_num).then (hash)=>
+                                blocknum_hash_storage [block_num, hash]
+                                defer.resolve block_num
+                                return
+                        )(block_num)
+            )(blocknum_hash)
             defer.promise
         
         get_last_unforked_block_num().then (block_num) =>

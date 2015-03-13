@@ -111,7 +111,7 @@ class WalletAPI
     get_brainkey:->
         LE.throw "jslib_wallet.must_be_opened" unless @wallet
         LE.throw 'jslib_wallet.must_be_unlocked' unless @wallet.aes_root
-        @wallet.wallet_db.get_brainkey @wallet.aes_root
+        @wallet.wallet_db.get_brainkey @wallet.aes_root, normalize = no
     
     ###* @return promise: {string} public key ###
     account_create:(account_name, private_data)->

@@ -213,16 +213,16 @@ class WalletDb
         storage.removeItemOrThrow 'wallet_json'
         return
     
-    WalletDb.has_legacy_bts_wallet=->
-        storage = new Storage()
-        #return no if storage.getItem("no_legacy_bts_wallet") is ""
-        for i in [0...storage.local_storage.length] by 1
-            key = storage.local_storage.key i
-            # Only BTS had users create legacy accounts
-            continue unless key.match /^[A-Za-z0-9]+ BTS\twallet_json$/
-            return yes
-        #storage.setItem "no_legacy_bts_wallet",""
-        return no
+    #WalletDb.has_legacy_bts_wallet=->
+    #    storage = new Storage()
+    #    #return no if storage.getItem("no_legacy_bts_wallet") is ""
+    #    for i in [0...storage.local_storage.length] by 1
+    #        key = storage.local_storage.key i
+    #        # Only BTS had users create legacy accounts
+    #        continue unless key.match /^[A-Za-z0-9]+ BTS\twallet_json$/
+    #        return yes
+    #    #storage.setItem "no_legacy_bts_wallet",""
+    #    return no
     
     save_brainkey:(aes_root, brainkey, save)->
         (-># hide a really weak brainkey
@@ -236,9 +236,13 @@ class WalletDb
         @set_setting 'encrypted_brainkey', cipherhex, save
         return
     
-    get_brainkey:(aes_root)->
-        plainhex = aes_root.decryptHex @get_setting 'encrypted_brainkey'
-        new Buffer(plainhex,'hex').toString().trim()
+    get_brainkey:(aes_root, normalize)->
+        brain_key = aes_root.decryptHex @get_setting 'encrypted_brainkey'
+        brain_key = new Buffer(brain_key,'hex').toString().trim()
+        return brain_key unless normalize
+        # http://doc.qt.io/qt-5/qstring.html#simplified
+        brain_key = brain_key.split(/[\t\n\v\f\r ]+/).join ' '
+        brain_key = brain_key.toUpperCase()
     
     master_private_key:(aes_root)->
         plainhex = aes_root.decryptHex @master_key.encrypted_key
@@ -370,48 +374,78 @@ class WalletDb
         account.active_key = ChainInterface.get_active_key account.active_key_history
         account
     
-    guess_next_account_keys:(aes_root, count)->
-        key_index = @get_child_key_index()
-        brainkey = @get_brainkey aes_root
-        for i in [0...count] by 1
-            owner_key = PrivateKey.fromBuffer(
-                hash.sha256 hash.sha512 brainkey + " " + (key_index + i)
-            )
-            public: owner_key.toPublicKey().toBtsPublic()
-            index: (key_index + i)
+    guess_next_account_keys:(aes_root, count, algorithm = 'standard')->
+        switch algorithm
+            when 'standard'
+                key_index = @get_child_key_index()
+                brainkey = @get_brainkey aes_root, normalize = yes
+                for i in [0...count] by 1
+                    owner_key = PrivateKey.fromBuffer(
+                        hash.sha256 hash.sha512 brainkey + " " + (key_index + i)
+                    )
+                    public: owner_key.toPublicKey().toBtsPublic()
+                    index: (key_index + i)
+            
+            when 'online_wallet_2015_03_14'
+                key_index = 1
+                for i in [0...count] by 1
+                    master_key = @master_private_key aes_root
+                    private_key = ExtendedAddress.private_key master_key, (key_index + i)
+                    public: private_key.toPublicKey().toBtsPublic()
+                    index: key_index
     
     generate_new_account:(
         aes_root, blockchain_api
         account_name, private_data
         next_account = null
+        algorithm = 'standard'
     )->
         if @account[account_name]
             LE.throw 'jslib_wallet.account_already_exists', [account_name]
-        key_index = if next_account
-           next_account.index 
-        else
-            @get_child_key_index()
         
-        brainkey = @get_brainkey aes_root
-        owner_key = PrivateKey.fromBuffer(
-            hash.sha256 hash.sha512 brainkey + " " + key_index
-        )
-        owner_public = owner_key.toPublicKey()
-        if next_account
-            # account backup recovery
-            unless next_account.public is owner_public.toBtsPublic()
-                throw new Error "unable to generate account matching requested owner key"
-        
-        active_key = PrivateKey.fromBuffer(
-            hash.sha256 hash.sha512 owner_key.toWif() + " 0"
-        )
+        standard_child_index = undefined
+        [owner_key, active_key] = switch algorithm
+            when 'standard'
+                standard_child_index = if next_account
+                    next_account.index 
+                else
+                    @get_child_key_index()
+                
+                brainkey = @get_brainkey aes_root, normalize = yes
+                owner_key = PrivateKey.fromBuffer(
+                    hash.sha256 hash.sha512 brainkey + " " + standard_child_index
+                )
+                if next_account
+                    # account recovery
+                    owner_public = owner_key.toPublicKey()
+                    unless next_account.public is owner_public.toBtsPublic()
+                        throw new Error "unable to generate account matching requested owner key"
+                
+                active_key = PrivateKey.fromBuffer(
+                    hash.sha256 hash.sha512 owner_key.toWif() + " 0"
+                )
+                
+                [owner_key, active_key]
+            
+            when 'online_wallet_2015_03_14'
+                throw new Error 'next_account required' unless next_account
+                master_key = @master_private_key aes_root
+                owner_key = ExtendedAddress.private_key master_key, next_account.index 
+                owner_public = owner_key.toPublicKey()
+                # account recovery
+                unless next_account.public is owner_public.toBtsPublic()
+                    throw new Error "unable to generate account matching requested owner key"
+                
+                active_key = ExtendedAddress.private_key owner_key, 0
+                [owner_key, active_key]
         
         [account, active, owner] = @_new_account(
             aes_root, account_name, owner_key
             active_key, private_data
         )
+        
         defer = q.defer()
-        ((key_index)=>
+        ((standard_child_index, account, active, owner)=>
             blockchain_api.get_account(account_name).then (chain_account)=>
                 if (
                     try
@@ -424,14 +458,15 @@ class WalletDb
                 )
                     @add_key_record owner, _save=false
                     @add_key_record active, _save=false
-                    new_index = Math.max @get_child_key_index(), key_index + 1
-                    @set_child_key_index new_index, _save=false
+                    if standard_child_index isnt undefined
+                        new_index = Math.max @get_child_key_index(), standard_child_index + 1
+                        @set_child_key_index new_index, _save=false
                     @save()
-                    defer.resolve owner_public.toBtsPublic()
-        )(key_index)
+                    defer.resolve owner.public_key
+        )(standard_child_index, account, active, owner)
         defer.promise
     
-    ### but may be needed by legacy light wallet accounts ###
+    ### but may be needed by legacy light wallet accounts 
     recover_account:(
         aes_root, blockchain_api
         account_name, private_data
@@ -439,7 +474,7 @@ class WalletDb
         recover_only = false
     )->
         # light-wallet compatible
-        brainkey = @get_brainkey aes_root
+        brainkey = @get_brainkey aes_root, normalize = yes
         owner_key = PrivateKey.fromBuffer(
             hash.sha256 hash.sha512 brainkey + " " + account_name
         )
@@ -469,7 +504,8 @@ class WalletDb
                 @save() if save
                 defer.resolve owner_public.toBtsPublic()
         defer.promise
-
+    ###
+    
     _new_account:(
         aes_root, account_name, owner_private_key
         active_private_key, private_data
