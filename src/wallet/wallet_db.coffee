@@ -213,17 +213,6 @@ class WalletDb
         storage.removeItemOrThrow 'wallet_json'
         return
     
-    #WalletDb.has_legacy_bts_wallet=->
-    #    storage = new Storage()
-    #    #return no if storage.getItem("no_legacy_bts_wallet") is ""
-    #    for i in [0...storage.local_storage.length] by 1
-    #        key = storage.local_storage.key i
-    #        # Only BTS had users create legacy accounts
-    #        continue unless key.match /^[A-Za-z0-9]+ BTS\twallet_json$/
-    #        return yes
-    #    #storage.setItem "no_legacy_bts_wallet",""
-    #    return no
-    
     save_brainkey:(aes_root, brainkey, save)->
         (-># hide a really weak brainkey
             pad = 256 - brainkey.length
@@ -410,9 +399,6 @@ class WalletDb
         next_account = null
         algorithm = 'standard'
     )->
-        if @has_unregistered_account()
-            LE.throw 'jslib_wallet.register_account_first'
-        
         standard_child_index = undefined
         [owner_key, active_key] = switch algorithm
             when 'standard'
@@ -475,6 +461,18 @@ class WalletDb
                     defer.resolve owner.public_key
         )(standard_child_index, account, active, owner)
         defer.promise
+    
+    fake_guest_account:(aes_root, rnd)->
+        owner_key = PrivateKey.fromBuffer rnd
+        active_key = PrivateKey.fromBuffer rnd
+        [account, active, owner] = @_new_account(
+            aes_root, "Guest", owner_key
+            active_key, private_data=null
+        )
+        @store_account_or_update account
+        @add_key_record owner, _save=false
+        @add_key_record active, _save=false
+        return
     
     ### but may be needed by legacy light wallet accounts 
     recover_account:(

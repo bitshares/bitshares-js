@@ -52,8 +52,16 @@ class Wallet
         #console.log 'Wallet.get_secure_random length',(Buffer.concat [rnd, Wallet.entropy]).length
         hash.sha512 Buffer.concat [rnd, Wallet.entropy]
     
-    Wallet.has_wallet = ->
-        not (new Storage().isEmpty())
+    Wallet.has_wallet=->
+        storage = new Storage()
+        for i in [0...storage.local_storage.length] by 1
+            key = storage.local_storage.key i
+            console.log '... key', key
+            # Only BTS had users create legacy accounts
+            continue if key.match /^(\w\t)?guest [A-Z]*\twallet_json$/
+            continue unless key.match /\twallet_json$/
+            return yes
+        return no
     
     Wallet.create = (wallet_name, password, brain_key, save = true)->
         wallet_name = wallet_name?.trim()
@@ -81,7 +89,9 @@ class Wallet
         wallet_db
     
     lock: ->
-        EC.throw "Wallet is already locked" unless @aes_root
+        unless @aes_root
+            (@events['wallet.locked'] or ->)()
+            EC.throw "Wallet is already locked"
         try
             @chain_database.poll_accounts null, shutdown=true if @rpc
             @chain_database.poll_transactions shutdown=true if @rpc
@@ -96,7 +106,7 @@ class Wallet
     toJson: (indent_spaces=undefined) ->
         JSON.stringify(@wallet_db.wallet_object, undefined, indent_spaces)
     
-    unlock: (timeout_seconds = 1700, password)->
+    unlock: (timeout_seconds = 1700, password, guest = no)->
         unless @wallet_db.validate_password password
             LE.throw 'jslib_wallet.invalid_password'
         @aes_root = Aes.fromSecret password
@@ -105,8 +115,9 @@ class Wallet
         ,
             timeout_seconds * 1000
         
-        @chain_database.poll_accounts @aes_root, shutdown=false if @rpc
-        @chain_database.poll_transactions shutdown=false if @rpc
+        unless guest
+            @chain_database.poll_accounts @aes_root, shutdown=false if @rpc
+            @chain_database.poll_transactions shutdown=false if @rpc
         unlock_timeout_id
     
     validate_password: (password)->
@@ -145,6 +156,9 @@ class Wallet
     ###* @return promise: {string} public key ###
     account_create:(account_name, private_data)->
         LE.throw 'jslib_wallet.must_be_unlocked' unless @aes_root
+        if @wallet_db.has_unregistered_account()
+            LE.throw 'jslib_wallet.register_account_first'
+        
         @wallet_db.generate_new_account(
             @aes_root, @blockchain_api, account_name
             private_data = null

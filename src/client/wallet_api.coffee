@@ -11,6 +11,7 @@
 
 config = require '../wallet/config'
 LE = require('../common/exceptions').LocalizedException
+secureRandom = require 'secure-random'
 hash = require '../ecc/hash'
 q = require 'q'
 
@@ -30,6 +31,27 @@ class WalletAPI
         
         @blockchain_api = new BlockchainAPI @rpc
         @chain_interface = new ChainInterface @blockchain_api, @relay.chain_id
+        @login_guest()
+    
+    login_guest:->
+        console.log '... login_guest'
+        if WalletDb.exists "guest"
+            WalletDb.delete "guest"
+            #@open "guest"
+            #@unlock 9999999, "guestpass"
+            #return
+        
+        rnd = secureRandom.randomBuffer 32
+        epk = ExtendedAddress.fromSha512_zeroChainCode hash.sha512 rnd
+        @_open_from_wallet_db WalletDb.create(
+            "guest", epk, rnd.toString('hex').substring 0, 10
+            "guestpass", _save=false
+            @events
+        )
+        @current_wallet_name = "guest"
+        @unlock 9999999, "guestpass", guest=yes
+        @wallet.wallet_db.fake_guest_account @wallet.aes_root, rnd
+        return
     
     WalletAPI.libraries_api_wallet = libraries_api_wallet
     
@@ -38,15 +60,15 @@ class WalletAPI
         if @current_wallet_name is wallet_name
             return
         
-        if wallet_name is "default"
-            fast_test_password =  "NoPassword!"
-            pw = hash.sha512 hash.sha512 fast_test_password
-            fast_test_wallet = pw.toString('hex').substring 0,32
-            if WalletDb.exists fast_test_wallet
-                wallet_db = WalletDb.open fast_test_wallet, @events
-                @_open_from_wallet_db wallet_db
-                @unlock 9999999, fast_test_password
-                return
+        #if wallet_name is "default"
+        #    fast_test_password =  "NoPassword!"
+        #    pw = hash.sha512 hash.sha512 fast_test_password
+        #    fast_test_wallet = pw.toString('hex').substring 0,32
+        #    if WalletDb.exists fast_test_wallet
+        #        wallet_db = WalletDb.open fast_test_wallet, @events
+        #        @_open_from_wallet_db wallet_db
+        #        @unlock 9999999, fast_test_password
+        #        return
         
         wallet_db = WalletDb.open wallet_name, @events
         unless wallet_db
@@ -82,14 +104,19 @@ class WalletAPI
             LE.throw 'jslib_wallet.invalid_password'
         return
     
-    unlock:(timeout_seconds = config.BTS_WALLET_DEFAULT_UNLOCK_TIME_SEC, password)->
+    unlock:(
+        timeout_seconds = config.BTS_WALLET_DEFAULT_UNLOCK_TIME_SEC
+        password
+        guest=no
+    )->
         LE.throw "jslib_wallet.must_be_opened" unless @wallet
-        @wallet.unlock timeout_seconds, password
+        @wallet.unlock timeout_seconds, password, guest
         return
     
     lock:->
         LE.throw "jslib_wallet.must_be_opened" unless @wallet
         @wallet.lock()
+        @login_guest()
         return
         
     locked: ->

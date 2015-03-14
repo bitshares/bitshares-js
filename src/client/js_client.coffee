@@ -7,7 +7,7 @@ q = require 'q'
 class JsClient
     
     constructor:(@rpc, version_name, @error_translator)->
-        Storage.version_name = version_name
+        Storage.version_name = version_name # always do this first
         @rpc_pass_through =
             request: @rpc.request
         
@@ -34,11 +34,6 @@ class JsClient
                 if method.aliases
                     for alias in method.aliases
                         aliases[alias] = method.method_name
-            
-            alias=(cmd, alias_array)->
-                aliases[a]=cmd for a in alias_array
-            
-
             aliases
         )(WalletAPI.libraries_api_wallet)
     
