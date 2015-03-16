@@ -34,7 +34,6 @@ class WalletAPI
         @login_guest()
     
     login_guest:->
-        console.log '... login_guest'
         if WalletDb.exists "guest"
             WalletDb.delete "guest"
             #@open "guest"

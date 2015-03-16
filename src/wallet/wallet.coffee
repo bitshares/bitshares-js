@@ -56,7 +56,6 @@ class Wallet
         storage = new Storage()
         for i in [0...storage.local_storage.length] by 1
             key = storage.local_storage.key i
-            console.log '... key', key
             # Only BTS had users create legacy accounts
             continue if key.match /^(\w\t)?guest [A-Z]*\twallet_json$/
             continue unless key.match /\twallet_json$/
@@ -253,22 +252,27 @@ class Wallet
             when 'owner_key'
                 owner_rec = @wallet_db.get_key_record account.owner_key
                 return null unless owner_rec
-                @aes_root.decryptHex owner_rec.encrypted_private_key
+                key = @aes_root.decryptHex owner_rec.encrypted_private_key
+                PrivateKey.fromHex(key).toWif()
             
             when 'active_key'
                 active_rec = @wallet_db.get_key_record account.active_key
                 return null unless active_rec
-                @aes_root.decryptHex active_rec.encrypted_private_key
+                key = @aes_root.decryptHex active_rec.encrypted_private_key
+                PrivateKey.fromHex(key).toWif()
             
             when 'signing_key'
                 LE.throw 'jslib_wallet.not_implemented', [key_type]
+            
             when undefined
                 owner_rec = @wallet_db.get_key_record account.owner_key
                 return null unless owner_rec
                 active_key = @wallet_db.get_key_record account.active_key
                 return null unless active_key
-                owner_key: @aes_root.decryptHex owner_rec.encrypted_private_key
-                active_key: @aes_root.decryptHex active_key.encrypted_private_key
+                owner_key = @aes_root.decryptHex owner_rec.encrypted_private_key
+                active_key = @aes_root.decryptHex active_key.encrypted_private_key
+                owner_key: PrivateKey.fromHex(owner_key).toWif()
+                active_key: PrivateKey.fromHex(active_key).toWif()
             else
                 LE.throw 'jslib_wallet.unknown_parameter',[key_type]
     
