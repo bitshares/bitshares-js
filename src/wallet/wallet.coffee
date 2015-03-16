@@ -262,13 +262,15 @@ class Wallet
             
             when 'signing_key'
                 LE.throw 'jslib_wallet.not_implemented', [key_type]
-            else
+            when undefined
                 owner_rec = @wallet_db.get_key_record account.owner_key
                 return null unless owner_rec
                 active_key = @wallet_db.get_key_record account.active_key
                 return null unless active_key
                 owner_key: @aes_root.decryptHex owner_rec.encrypted_private_key
                 active_key: @aes_root.decryptHex active_key.encrypted_private_key
+            else
+                LE.throw 'jslib_wallet.unknown_parameter',[key_type]
     
     get_my_key_records:(account_name) ->
         @wallet_db.get_my_key_records account_name
