@@ -84,6 +84,7 @@ class WalletAPI
         return
     
     create: (wallet_name = "default", new_password, brain_key)->
+        brain_key = undefined if brain_key is ""
         Wallet.create wallet_name, new_password, brain_key, true, @events
         @open wallet_name
         @unlock config.BTS_WALLET_DEFAULT_UNLOCK_TIME_SEC, new_password
@@ -353,10 +354,6 @@ class WalletAPI
     list_accounts:->
         LE.throw "jslib_wallet.must_be_opened" unless @wallet
         @wallet.list_accounts()
-    
-    list_my_accounts:->
-        LE.throw "jslib_wallet.must_be_opened" unless @wallet
-        @wallet.list_accounts just_mine=true
     
     account_yield_warned:off
     account_yield:->

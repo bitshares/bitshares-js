@@ -135,7 +135,7 @@ class Wallet
     get_trx_expiration:->
         @wallet_db.get_trx_expiration()
     
-    list_accounts:(just_mine=false)->
+    list_accounts:(just_mine=true)->
         accounts = @wallet_db.list_accounts just_mine
         accounts.sort (a, b)->
             if a.name < b.name then -1

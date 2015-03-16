@@ -282,7 +282,7 @@ class WalletDb
         exp.setSeconds exp.getSeconds() + offset
         exp = new Date(exp.toISOString().split('.')[0])
     
-    list_accounts:(just_mine=false)->
+    list_accounts:(just_mine=true)->
         for entry in @wallet_object
             continue unless entry.type is "account_record_type"
             account = @_pretty_account entry.data
