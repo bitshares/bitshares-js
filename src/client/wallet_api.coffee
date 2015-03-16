@@ -365,10 +365,13 @@ class WalletAPI
             console.log 'WARN: account_yield is not implemented'
             @account_yield_warned = on
         []
-        
-    dump_private_key:(account_name)->
+    
+    dump_private_key:()->
+        LE.throw "Instead use: wallet_dump_account_private_key"
+    
+    dump_account_private_key:(account_name, key_type)->
         LE.throw "jslib_wallet.must_be_opened" unless @wallet
-        @wallet.dump_private_key account_name
+        @wallet.dump_account_private_key account_name, key_type
      
     account_balance_extended:(account_name)->
         @account_balance account_name, extended = true

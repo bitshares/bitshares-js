@@ -243,13 +243,32 @@ class Wallet
     valid_unique_account:(account_name) ->
         @chain_interface.valid_unique_account account_name
     
-    dump_private_key:(account_name)->
+    dump_account_private_key:(account_name, key_type)->
         LE.throw 'jslib_wallet.must_be_unlocked' unless @aes_root
         account = @wallet_db.lookup_account account_name
-        return null unless account
-        rec = @wallet_db.get_key_record account.owner_key
-        return null unless rec
-        @aes_root.decryptHex rec.encrypted_private_key
+        unless account
+            LE.throw 'jslib_wallet.account_not_found', [account_name]
+        
+        switch key_type
+            when 'owner_key'
+                owner_rec = @wallet_db.get_key_record account.owner_key
+                return null unless owner_rec
+                @aes_root.decryptHex owner_rec.encrypted_private_key
+            
+            when 'active_key'
+                active_rec = @wallet_db.get_key_record account.active_key
+                return null unless active_rec
+                @aes_root.decryptHex active_rec.encrypted_private_key
+            
+            when 'signing_key'
+                LE.throw 'jslib_wallet.not_implemented', [key_type]
+            else
+                owner_rec = @wallet_db.get_key_record account.owner_key
+                return null unless owner_rec
+                active_key = @wallet_db.get_key_record account.active_key
+                return null unless active_key
+                owner_key: @aes_root.decryptHex owner_rec.encrypted_private_key
+                active_key: @aes_root.decryptHex active_key.encrypted_private_key
     
     get_my_key_records:(account_name) ->
         @wallet_db.get_my_key_records account_name
