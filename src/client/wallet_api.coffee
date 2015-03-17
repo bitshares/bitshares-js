@@ -33,19 +33,19 @@ class WalletAPI
         @login_guest()
     
     login_guest:->
-        if WalletDb.exists "guest"
-            @open "guest"
+        if WalletDb.exists "Guest"
+            @open "Guest"
             @unlock 9999999, "guestpass"
             return
         
         rnd = secureRandom.randomBuffer 32
         epk = ExtendedAddress.fromSha512_zeroChainCode hash.sha512 rnd
         @_open_from_wallet_db WalletDb.create(
-            "guest", epk, rnd.toString('hex').substring 0, 10
+            "Guest", epk, rnd.toString('hex').substring 0, 10
             "guestpass", _save=false
             @events
         )
-        @current_wallet_name = "guest"
+        @current_wallet_name = "Guest"
         @unlock 9999999, "guestpass", guest=yes
         @wallet.wallet_db.fake_guest_account @wallet.aes_root, rnd
         @wallet.wallet_db.save()
