@@ -8,7 +8,6 @@
 {ChainDatabase} = require '../blockchain/chain_database'
 {BlockchainAPI} = require '../blockchain/blockchain_api'
 {PublicKey} = require '../ecc/key_public'
-
 config = require '../wallet/config'
 LE = require('../common/exceptions').LocalizedException
 secureRandom = require 'secure-random'
@@ -35,10 +34,9 @@ class WalletAPI
     
     login_guest:->
         if WalletDb.exists "guest"
-            WalletDb.delete "guest"
-            #@open "guest"
-            #@unlock 9999999, "guestpass"
-            #return
+            @open "guest"
+            @unlock 9999999, "guestpass"
+            return
         
         rnd = secureRandom.randomBuffer 32
         epk = ExtendedAddress.fromSha512_zeroChainCode hash.sha512 rnd
@@ -50,6 +48,7 @@ class WalletAPI
         @current_wallet_name = "guest"
         @unlock 9999999, "guestpass", guest=yes
         @wallet.wallet_db.fake_guest_account @wallet.aes_root, rnd
+        @wallet.wallet_db.save()
         return
     
     WalletAPI.libraries_api_wallet = libraries_api_wallet
