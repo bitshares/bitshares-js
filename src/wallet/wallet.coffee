@@ -56,8 +56,8 @@ class Wallet
         storage = new Storage()
         for i in [0...storage.local_storage.length] by 1
             key = storage.local_storage.key i
-            # Only BTS had users create legacy accounts
-            continue if key.match /^(\w\t)?guest [A-Z]*\twallet_json$/
+            console.log '... key', key
+            continue if key.match /^(\w+\t)?Guest [A-Z]*\twallet_json$/
             continue unless key.match /\twallet_json$/
             return yes
         return no
