@@ -13,10 +13,11 @@ class Storage
             ) './localstorage-bitsharesjs'
     
     getItem:(key)->
+        #console.log '... Storage.getItem', @namespace+'\t'+key
         @local_storage.getItem @namespace+'\t'+key
     
     setItem:(key, value)->
-        #console.log '... setItem ', @namespace+'\t'+key
+        #console.log '... Storage.setItem ', @namespace+'\t'+key
         @local_storage.setItem @namespace+'\t'+key, value
         return
     
