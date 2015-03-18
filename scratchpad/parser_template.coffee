@@ -19,17 +19,21 @@ class TransactionNotice
         
     appendByteBuffer: (b) ->
         throw 'Not Implemented'
+        return
         
     ### <helper_functions> ###
-    
-    toBuffer: ->
+
+    toByteBuffer: () ->
         b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
         @appendByteBuffer(b)
-        return new Buffer(b.copy(0, b.offset).toBinary(), 'binary')
+        b.copy 0, b.offset
+    
+    toBuffer: ->
+        new Buffer(@toByteBuffer().toBinary(), 'binary')
 
     TransactionNotice.fromHex= (hex) ->
         b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
-        return SignedTransaction.fromByteBuffer b
+        TransactionNotice.fromByteBuffer b
 
     toHex: () ->
         b=@toByteBuffer()
