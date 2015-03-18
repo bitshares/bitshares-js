@@ -35,7 +35,7 @@ class WalletAPI
     login_guest:->
         if WalletDb.exists "Guest"
             @open "Guest"
-            @unlock 9999999, "guestpass"
+            @unlock 9999999, "guestpass", guest = yes
             return
         
         rnd = secureRandom.randomBuffer 32
@@ -499,7 +499,7 @@ class WalletAPI
                 collector
             )=>
                 builder.pay_network_fee payer_account, network_fee
-                console.log '... collector',JSON.stringify collector
+                #console.log '... collector',JSON.stringify collector
                 if collector
                     builder.pay_collector_fee payer_account, collector, light_fee
                 
