@@ -157,8 +157,8 @@ class ChainDatabase
             defer = q.defer()
             ((blocknum_hash)=>
                 @blockchain_api.get_block_hash(blocknum_hash[0]).then (hash)=>
-                    if blocknum_hash[1] and hash isnt blocknum_hash[1]
-                        console.log "INFO, fork detected"
+                    if blocknum_hash[1] and hash.previous isnt blocknum_hash[1].previous
+                        console.log "INFO, fork detected",hash,blocknum_hash[1]
                         defer.resolve 1
                         return
                     # no fork, so jump to the head
