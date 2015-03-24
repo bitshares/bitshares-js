@@ -12,6 +12,7 @@ config = require '../wallet/config'
 LE = require('../common/exceptions').LocalizedException
 secureRandom = require 'secure-random'
 hash = require '../ecc/hash'
+BigInteger = require 'bigi'
 q = require 'q'
 
 # merge from bitshares/libraries/api/wallet_api.json
@@ -472,6 +473,68 @@ class WalletAPI
                 start_block_num
                 end_block_num
             )
+    
+    ### Example to create USD from XTS at a penney a share:
+        wallet_market_submit_short delegate0 200 XTS 1 USD 0.01
+    ###
+    market_submit_short:(
+        from_account_name
+        short_collateral_string # quantity
+        collateral_symbol
+        interest_rate_string # apr
+        quote_symbol
+        price_limit_string # price_limit
+    )->
+        LE.throw "jslib_wallet.must_be_opened" unless @wallet
+        defer = q.defer()
+        
+        q.all([
+            @wallet.get_chain_account from_account_name, refresh=false
+            @chain_interface.get_asset collateral_symbol
+            @chain_interface.get_asset quote_symbol
+        ]).spread (
+            from_account
+            collateral_asset
+            quote_asset
+        )=>
+            unless collateral_asset
+                LE.throw 'jslib_wallet.unknown_asset',[collateral_symbol]
+            unless quote_asset
+                LE.throw 'jslib_wallet.unknown_asset',[quote_symbol]
+            
+            short_collateral = ChainInterface.to_ugly_asset(
+                short_collateral_string, collateral_asset
+            )
+            interest_rate_price = (->
+                price = ChainInterface.to_ugly_price(
+                    interest_rate_string, collateral_asset, quote_asset
+                    _needs_satoshi_conversion = no
+                )
+                price.ratio = price.ratio.divide(
+                    BigInteger "100"
+                )
+                {hex2dec} = require '../common/hex2dec'
+                console.log '... price.ratio', hex2dec price.ratio.toHex()
+                price
+            )()
+            limit_price = ChainInterface.to_ugly_price(
+                price_limit_string, collateral_asset, quote_asset
+                _needs_satoshi_conversion = yes
+            )
+            builder = @_transaction_builder()
+            builder.submit_short(
+                from_account
+                short_collateral
+                interest_rate_price
+                limit_price
+            )
+            console.log '... test trx'
+            builder.finalize().then ()=>
+                builder.sign_transaction()
+            #@_finalize_and_send(
+            #    builder, from_account, collateral_symbol
+            #).then (record)->
+            #    record
     
     market_order_list:->
         console.log 'WARN Not Implemented'

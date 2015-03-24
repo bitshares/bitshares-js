@@ -3,6 +3,7 @@
 {BlockchainAPI} = require '../blockchain/blockchain_api'
 {Withdraw} = require '../blockchain/withdraw'
 {Deposit} = require '../blockchain/deposit'
+{Short} = require '../blockchain/short'
 {WithdrawCondition} = require '../blockchain/withdraw_condition'
 {WithdrawSignatureType} = require '../blockchain/withdraw_signature_type'
 {SignedTransaction} = require '../blockchain/signed_transaction'
@@ -74,6 +75,78 @@ class TransactionBuilder
         return @signed_transaction if @signed_transaction
         throw new Error 'call sign_transaction first'
     
+    account_register:(
+        account_to_register
+        pay_from_account
+        public_data=""
+        delegate_pay_rate = -1
+        account_type
+    )->
+        LE.throw "jslib_wallet.must_be_opened" unless @wallet
+        as_delegate = no
+        if delegate_pay_rate isnt -1
+            throw new Error "delegate account registration is not implemented"
+            as_delegate = yes
+        
+        owner_key = @wallet.getOwnerKey account_to_register
+        active_key = @wallet.getActiveKey account_to_register
+        unless owner_key
+            LE.throw "jslib_create_account_before_register"
+        
+        pay_from_ActiveKey = @wallet.getActiveKey pay_from_account
+        unless pay_from_ActiveKey
+            LE.throw "jslib_blockchain.unknown_account", [pay_from_account]
+        
+        meta_data = null
+        if account_type is "public_account"
+            type_id = RegisterAccount.type[account_type]
+            if type_id is undefined
+                throw new Error "Unknown account type: #{account_type}"
+            meta_data=
+                type: type_id
+                data: new Buffer("")
+        
+        if delegate_pay_rate > 100
+            LE.throw 'jslib_wallet.delegate_pay_rate_invalid', [delegate_pay_rate]
+        
+        register = new RegisterAccount(
+            new Buffer account_to_register
+            public_data
+            owner_key
+            active_key
+            delegate_pay_rate
+            meta_data
+        )
+        @operations.push new Operation register.type_id, register
+        
+        account_segments = account_to_register.split '.'
+        if account_segments.length > 1
+            throw new Error 'untested'
+            ###
+            parents = account_segments.slice 1
+            for parent in parents
+                account = @wallet.get_chain_account parent
+                unless account
+                    LE.throw 'jslib_wallet.need_parent_for_registration', [parent]
+                
+                #continue if account.is_retracted #pay_from_ActiveKey == public_key
+                @wallet.has_private_key account
+                @required_signatures[@wallet.lookup_active_key parent] = on
+            ###
+        
+        if delegate_pay_rate isnt -1
+            #calc and add delegate fee
+            throw new Error 'not implemented'
+        
+        @transaction_record.ledger_entries.push ledger_entry =
+            from_account: pay_from_ActiveKey.toBtsPublic()
+            to_account: active_key.toBtsPublic()
+            amount: {amount:0, asset_id: 0}
+            memo: "register " + account_to_register + (if as_delegate then " as a delegate" else "")
+            memo_from_account:null
+        
+        return
+
     deposit_asset:(
         payer, recipient, amount
         memo="", vote_method
@@ -145,6 +218,36 @@ class TransactionBuilder
             )
             recipient_active_key: recipientActivePublic
         ###
+    
+    submit_short:(
+        from_account
+        short_collateral
+        interest_rate_price
+        limit_price
+    )->
+        if (
+            limit_price.quote_asset_id isnt undefined and
+            limit_price.base_asset_id isnt undefined
+        ) and not (
+            interest_rate_price.quote_asset_id is limit_price.quote_asset_id and
+            interest_rate_price.base_asset_id is limit_price.base_asset_id
+        )
+            throw new Error(
+                "Interest rate and price limit do not have compatible units."
+                interest_rate_price
+                limit_price
+            )
+        
+        @_deduct_balance from_account.active_key, short_collateral
+        from_public = PublicKey.fromBtsPublic from_account.active_key
+        short = new Short(
+            short_collateral.amount
+            interest_rate_price
+            from_public.toBlockchainAddress()
+            limit_price
+        )
+        @operations.push new Operation short.type_id, short
+        return
     
     pay_network_fee:(payer_account, fee_asset)->
         unless payer_account.active_key
@@ -257,78 +360,6 @@ class TransactionBuilder
             aes.encrypt memo_content().toBuffer()
         )()
         receiver_address_Public: secret_Public
-    
-    account_register:(
-        account_to_register
-        pay_from_account
-        public_data=""
-        delegate_pay_rate = -1
-        account_type
-    )->
-        LE.throw "jslib_wallet.must_be_opened" unless @wallet
-        as_delegate = no
-        if delegate_pay_rate isnt -1
-            throw new Error "delegate account registration is not implemented"
-            as_delegate = yes
-        
-        owner_key = @wallet.getOwnerKey account_to_register
-        active_key = @wallet.getActiveKey account_to_register
-        unless owner_key
-            LE.throw "jslib_create_account_before_register"
-        
-        pay_from_ActiveKey = @wallet.getActiveKey pay_from_account
-        unless pay_from_ActiveKey
-            LE.throw "jslib_blockchain.unknown_account", pay_from_account
-        
-        meta_data = null
-        if account_type is "public_account"
-            type_id = RegisterAccount.type[account_type]
-            if type_id is undefined
-                throw new Error "Unknown account type: #{account_type}"
-            meta_data=
-                type: type_id
-                data: new Buffer("")
-        
-        if delegate_pay_rate > 100
-            LE.throw 'jslib_wallet.delegate_pay_rate_invalid', [delegate_pay_rate]
-        
-        register = new RegisterAccount(
-            new Buffer account_to_register
-            public_data
-            owner_key
-            active_key
-            delegate_pay_rate
-            meta_data
-        )
-        @operations.push new Operation register.type_id, register
-        
-        account_segments = account_to_register.split '.'
-        if account_segments.length > 1
-            throw new Error 'untested'
-            ###
-            parents = account_segments.slice 1
-            for parent in parents
-                account = @wallet.get_chain_account parent
-                unless account
-                    LE.throw 'jslib_wallet.need_parent_for_registration', [parent]
-                
-                #continue if account.is_retracted #pay_from_ActiveKey == public_key
-                @wallet.has_private_key account
-                @required_signatures[@wallet.lookup_active_key parent] = on
-            ###
-        
-        if delegate_pay_rate isnt -1
-            #calc and add delegate fee
-            throw new Error 'not implemented'
-        
-        @transaction_record.ledger_entries.push ledger_entry =
-            from_account: pay_from_ActiveKey.toBtsPublic()
-            to_account: active_key.toBtsPublic()
-            amount: {amount:0, asset_id: 0}
-            memo: "register " + account_to_register + (if as_delegate then " as a delegate" else "")
-            memo_from_account:null
-        
-        return
     
     withdraw_to_transaction:(
         amount_to_withdraw
@@ -523,7 +554,8 @@ class TransactionBuilder
             @slate_id
             @operations
         )
-        #@binary_transaction.toByteBuffer().printDebug()
+        console.log '... sign_transaction'
+        @binary_transaction.toByteBuffer().printDebug()
         trx_buffer = @binary_transaction.toBuffer()
         trx_sign = Buffer.concat([trx_buffer, chain_id_buffer])
         #console.log 'digest',hash.sha256(trx_sign).toString('hex')

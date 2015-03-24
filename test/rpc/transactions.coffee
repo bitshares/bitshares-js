@@ -24,7 +24,7 @@ new_wallet_api= (rpc, backup_file = '../../testnet/config/wallet.json') ->
         # create an empty wallet
         entropy = secureRandom.randomUint8Array 1000
         Wallet.add_entropy new Buffer entropy
-        wallet_db = Wallet.create 'TestWallet', PASSWORD, brain_key=false, save=false
+        wallet_db = Wallet.create 'TestWallet', PASSWORD, "nimbose uplick refight staup yaird hippish unpaved couac doum setule", save=false
         wallet_api._open_from_wallet_db wallet_db
     (# avoid a blockchain deterministic key conflit
         rnd = 0
@@ -102,6 +102,14 @@ describe "Transactions", ->
                     return
             
             throw new Error "list_accounts did not return a new account"
+        .done()
+    
+    it "market_submit_short", (done) ->
+        wallet_api = new_wallet_api @rpc
+        wallet_api.market_submit_short(
+            "delegate0","200","XTS","1","USD","0.01"
+        ).then (result)->
+            console.log '... result', result
         .done()
     
     it "account_create", (done) ->

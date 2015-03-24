@@ -4,6 +4,7 @@ types = require './types'
 {fp} = require '../common/fast_parser'
 {Deposit} = require './deposit'
 {Withdraw} = require './withdraw'
+{Short} = require './short'
 
 ###
 bts::blockchain::operation, (type)(data)
@@ -25,6 +26,10 @@ class Operation
                 Deposit.fromByteBuffer data_b
             when "withdraw_op_type"
                 Withdraw.fromByteBuffer data_b
+            when "short_op_type"
+                Short.fromByteBuffer data_b
+                # bid_op_type ask_op_type cover_op_type
+                # add_collateral_op_type  update_cover_op_type
             else
                 throw "Not Implemented"
         
