@@ -486,8 +486,6 @@ class WalletAPI
         price_limit_string # price_limit
     )->
         LE.throw "jslib_wallet.must_be_opened" unless @wallet
-        defer = q.defer()
-        
         q.all([
             @wallet.get_chain_account from_account_name, refresh=false
             @chain_interface.get_asset collateral_symbol
@@ -535,6 +533,71 @@ class WalletAPI
             #    builder, from_account, collateral_symbol
             #).then (record)->
             #    record
+    
+    ### Example to create USD from XTS at a penney a share:
+        wallet_market_submit_ask delegate0 100 XTS 0.01 USD
+    ###
+    market_submit_ask:(
+        from_account_name
+        sell_quantity_string
+        sell_quantity_symbol
+        ask_price_string
+        ask_price_symbol
+        #allow_ask_under_5_percent = false
+    )->
+        LE.throw "jslib_wallet.must_be_opened" unless @wallet
+        @blockchain_api.market_order_book(
+            ask_price_symbol
+            sell_quantity_symbol
+            1
+        ).then (highest_bid_price)=>
+            #result = result[0]
+            console.log '... allow_ask_under_5_percent highest_bid_price', ask_price_string,highest_bid_price
+            #if( ask_price < highest_bid_price * 0.95 )
+            #{
+            # FC_THROW_EXCEPTION(stupid_order, "You are attempting to ask at more than 5% below the buy price. "
+            # "This ask is based on economically unsound principles, and is ill-advised. "
+            # "If you're sure you want to do this, place your ask again and set allow_stupid_ask to true.");
+            #}
+            q.all([
+                @wallet.get_chain_account from_account_name, refresh=false
+                @chain_interface.get_asset sell_quantity_symbol
+                @chain_interface.get_asset ask_price_symbol
+            ]).spread (
+                from_account
+                sell_asset
+                ask_asset
+            )=>
+                unless sell_asset
+                    LE.throw 'jslib_wallet.unknown_asset',[sell_quantity_symbol]
+                unless ask_asset
+                    LE.throw 'jslib_wallet.unknown_asset',[ask_price_symbol]
+                
+                sell_quantity = ChainInterface.to_ugly_asset(
+                    sell_quantity_string, sell_asset
+                )
+                ask_price = (->
+                    price = ChainInterface.to_ugly_price(
+                        ask_price_string, sell_asset, ask_asset
+                        _needs_satoshi_conversion = yes
+                    )
+                    #{hex2dec} = require '../common/hex2dec'
+                    #console.log '... price.ratio', hex2dec price.ratio.toHex()
+                    price
+                )()
+                builder = @_transaction_builder()
+                builder.submit_ask(
+                    from_account
+                    sell_quantity
+                    ask_price
+                )
+                console.log '... test trx'
+                #builder.finalize().then ()=>
+                #    builder.sign_transaction()
+                @_finalize_and_send(
+                    builder, from_account, sell_quantity_symbol
+                ).then (record)->
+                    record
     
     market_order_list:->
         console.log 'WARN Not Implemented'

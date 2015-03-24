@@ -68,7 +68,6 @@ class ChainInterface
         if decimal_part isnt undefined
             throw new Error "More than 18 decimal digits" if decimal_part.length > 18
             frac_magnitude = BigInteger("10").pow decimal_part.length
-            console.log '... decimal_part.length', decimal_part.length
             ratio = ratio.add BigInteger(decimal_part).multiply (
                 REAL128_PRECISION.divide frac_magnitude
             )

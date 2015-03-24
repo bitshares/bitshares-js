@@ -62,5 +62,15 @@ class BlockchainAPI
   market_status: (quote_symbol, base_symbol, error_handler = null) ->
     @rpc.request('blockchain_market_status', [quote_symbol, base_symbol]).then (response) ->
       response.result
+
+  # Returns the long and short sides of the order book for a given market
+  # parameters: 
+  #   asset_symbol `quote_symbol` - the symbol name the market is quoted in
+  #   asset_symbol `base_symbol` - the item being bought in this market
+  #   uint32_t `limit` - the maximum number of items to return, -1 for all
+  # return_type: `pair<market_order_array,market_order_array>`
+  market_order_book: (quote_symbol, base_symbol, limit, error_handler = null) ->
+    @rpc.request('blockchain_market_order_book', [quote_symbol, base_symbol, limit]).then (response) ->
+      response.result
   
 exports.BlockchainAPI = BlockchainAPI

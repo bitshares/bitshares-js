@@ -4,6 +4,7 @@
 {Withdraw} = require '../blockchain/withdraw'
 {Deposit} = require '../blockchain/deposit'
 {Short} = require '../blockchain/short'
+{Ask} = require '../blockchain/ask'
 {WithdrawCondition} = require '../blockchain/withdraw_condition'
 {WithdrawSignatureType} = require '../blockchain/withdraw_signature_type'
 {SignedTransaction} = require '../blockchain/signed_transaction'
@@ -247,6 +248,21 @@ class TransactionBuilder
             limit_price
         )
         @operations.push new Operation short.type_id, short
+        return
+    
+    submit_ask:(
+        from_account
+        sell_quantity
+        ask_price
+    )->
+        @_deduct_balance from_account.active_key, sell_quantity
+        from_public = PublicKey.fromBtsPublic from_account.active_key
+        ask = new Ask(
+            sell_quantity.amount
+            ask_price
+            from_public.toBlockchainAddress()
+        )
+        @operations.push new Operation ask.type_id, ask
         return
     
     pay_network_fee:(payer_account, fee_asset)->
