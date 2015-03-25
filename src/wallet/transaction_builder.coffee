@@ -294,6 +294,30 @@ class TransactionBuilder
         @operations.push new Operation ask.type_id, ask
         return
     
+    submit_bid:(
+        from_account
+        buy_quantity_string
+        buy_asset
+        pay_price_string
+        pay_asset
+    )->
+        buy_quantity = ChainInterface.to_ugly_asset(
+            buy_quantity_string, buy_asset
+        )
+        pay_price = ChainInterface.to_ugly_price(
+            pay_price_string, buy_asset, pay_asset
+            _needs_satoshi_conversion = yes
+        )
+        @_deduct_balance from_account.active_key, buy_quantity
+        from_public = PublicKey.fromBtsPublic from_account.active_key
+        bid = new Bid(
+            buy_quantity.amount
+            pay_price
+            from_public.toBlockchainAddress()
+        )
+        @operations.push new Operation bid.type_id, bid
+        return
+    
     pay_network_fee:(payer_account, fee_asset)->
         unless payer_account.active_key
             throw new Error "expecting payer to be an account object"

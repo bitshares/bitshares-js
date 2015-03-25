@@ -538,7 +538,7 @@ class WalletAPI
             #{
             # FC_THROW_EXCEPTION(stupid_order, "You are attempting to ask at more than 5% below the buy price. "
             # "This ask is based on economically unsound principles, and is ill-advised. "
-            # "If you're sure you want to do this, place your ask again and set allow_stupid_ask to true.");
+            # "If you're sure you want to do this, place your ask again and set allow_ask_under_5_percent to true.");
             #}
             q.all([
                 @wallet.get_chain_account from_account_name, refresh=false
@@ -564,6 +564,55 @@ class WalletAPI
                 )
                 @_finalize_and_send(
                     builder, from_account, sell_quantity_symbol
+                ).then (record)->
+                    record
+    
+    market_submit_bid:(
+        from_account_name
+        buy_quantity_string
+        buy_quantity_symbol
+        pay_price_string
+        pay_price_symbol
+        #allow_pay_over_5_percent = false
+    )->
+        LE.throw "jslib_wallet.must_be_opened" unless @wallet
+        @blockchain_api.market_order_book(
+            pay_price_symbol
+            buy_quantity_symbol
+            1
+        ).then (highest_pay_price)=>
+            #result = result[0]
+            console.log '... allow_pay_over_5_percent highest_pay_price', pay_price_string,highest_pay_price
+            #if( pay_price > highest_pay_price * 1.05 )
+            #{
+            # FC_THROW_EXCEPTION(stupid_order, "You are attempting to bid at more than 5% above the sell price. "
+            # "This bid is based on economically unsound principles, and is ill-advised. "
+            # "If you're sure you want to do this, place your bid again and set allow_pay_over_5_percent to true.");
+            #}
+            q.all([
+                @wallet.get_chain_account from_account_name, refresh=false
+                @chain_interface.get_asset buy_quantity_symbol
+                @chain_interface.get_asset pay_price_symbol
+            ]).spread (
+                from_account
+                buy_asset
+                pay_asset
+            )=>
+                unless buy_asset
+                    LE.throw 'jslib_wallet.unknown_asset',[buy_quantity_symbol]
+                unless pay_asset
+                    LE.throw 'jslib_wallet.unknown_asset',[pay_price_symbol]
+                
+                builder = @_transaction_builder()
+                builder.submit_bid(
+                    from_account
+                    buy_quantity_string
+                    buy_asset
+                    pay_price_string
+                    pay_asset
+                )
+                @_finalize_and_send(
+                    builder, from_account, buy_quantity_symbol
                 ).then (record)->
                     record
     

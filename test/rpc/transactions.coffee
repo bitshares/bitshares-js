@@ -124,6 +124,16 @@ describe "Transactions", ->
             done()
         .done()
     
+    it "market_submit_bid", (done) ->
+        # wallet_market_submit_bid delegate0 1 USD 100 XTS
+        wallet_api = new_wallet_api @rpc
+        wallet_api.market_submit_ask(
+            "delegate0","100","XTS","0.01","USD"
+        ).then (result)->
+            console.log '... result', result
+            done()
+        .done()
+    
     it "account_create", (done) ->
         suffix = secureRandom.randomBuffer(2).toString 'hex'
         wallet_api = new_wallet_api @rpc
