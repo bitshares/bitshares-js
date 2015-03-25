@@ -41,12 +41,14 @@ class RelayNode
                         throw new Error "required: base asset symbol"
                     #@_validate_chain_id @welcome.chain_id, @base_asset_symbol
                     (->
-                        ntp_time = new Date(get_info.ntp_time).getTime()
-                        utc_offset = new Date().getTime() - ntp_time
-                        RelayNode.ntp_offset = utc_offset
-                        if Math.abs(@utc_offset) > 5000
-                            console.log "WARN: Local time and network time are off by #{ utc_offset/1000 } seconds"
-                        #else console.log "INFO: ntp_offset #{ utc_offset/1000 } seconds"
+                        RelayNode.ntp_offset = if get_info.ntp_time
+                            ntp_time = new Date(get_info.ntp_time).getTime()
+                            new Date().getTime() - ntp_time
+                        else
+                            0
+                        if Math.abs(RelayNode.ntp_offset) > 5000
+                            console.log "WARN: Local time and network time are off by #{ RelayNode.ntp_offset/1000 } seconds"
+                        #else console.log "INFO: RelayNode.ntp_offset #{ RelayNode.ntp_offset/1000 } seconds"
                     )()
                     @initialized = yes
             
