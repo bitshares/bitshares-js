@@ -111,6 +111,7 @@ describe "Transactions", ->
             "delegate0","200","XTS","1","USD","0.01"
         ).then (result)->
             console.log '... result', result
+            done()
         .done()
     
     it "market_submit_ask", (done) ->
@@ -120,6 +121,7 @@ describe "Transactions", ->
             "delegate0","100","XTS","0.01","USD"
         ).then (result)->
             console.log '... result', result
+            done()
         .done()
     
     it "account_create", (done) ->

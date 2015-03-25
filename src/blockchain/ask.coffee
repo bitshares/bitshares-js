@@ -41,7 +41,7 @@ class Ask
     
     toJson: (o) ->
         o.amount = @amount.toString()
-        o.short_index=
+        o.ask_index=
             order_price:
                 ratio: Util.unreal128 @order_price.ratio
                 quote_asset_id: @order_price.quote
