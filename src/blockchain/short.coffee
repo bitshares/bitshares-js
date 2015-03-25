@@ -77,7 +77,6 @@ class Short
     
     Short.fromHex= (hex) ->
         b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
-        b.printDebug()
         Short.fromByteBuffer b
 
     toHex: () ->

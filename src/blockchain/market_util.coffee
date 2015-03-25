@@ -16,15 +16,17 @@ class Util
         base: b.readVarint32ZigZag()
     
     Util.write_price=(b, price)->
+        #b.writeUint8 0xFF # debugging
         ratio_array = price.ratio.toByteArray()
         target_array = new Uint8Array(16)
         target_array.set ratio_array, 16-ratio_array.length # pad
         b.writeUint8 target_array[i] for i in [7..0] by -1
         b.writeUint8 target_array[i] for i in [15..8] by -1
-        #b.writeUint8 0xFF
+        #b.writeUint8 0xFF # debugging
         b.writeVarint32ZigZag price.quote
-        #b.writeUint8 0xFF
+        #b.writeUint8 0xFF # debugging
         b.writeVarint32ZigZag price.base
+        #b.writeUint8 0xFF # debugging
         return
         
     Util.unreal128=(ratio)->

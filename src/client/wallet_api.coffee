@@ -12,7 +12,6 @@ config = require '../wallet/config'
 LE = require('../common/exceptions').LocalizedException
 secureRandom = require 'secure-random'
 hash = require '../ecc/hash'
-BigInteger = require 'bigi'
 q = require 'q'
 
 # merge from bitshares/libraries/api/wallet_api.json
@@ -500,29 +499,14 @@ class WalletAPI
             unless quote_asset
                 LE.throw 'jslib_wallet.unknown_asset',[quote_symbol]
             
-            short_collateral = ChainInterface.to_ugly_asset(
-                short_collateral_string, collateral_asset
-            )
-            interest_rate_price = (->
-                price = ChainInterface.to_ugly_price(
-                    interest_rate_string, collateral_asset, quote_asset
-                    _needs_satoshi_conversion = no
-                )
-                price.ratio = price.ratio.divide(
-                    BigInteger "100"
-                )
-                price
-            )()
-            limit_price = ChainInterface.to_ugly_price(
-                price_limit_string, collateral_asset, quote_asset
-                _needs_satoshi_conversion = yes
-            )
             builder = @_transaction_builder()
             builder.submit_short(
                 from_account
-                short_collateral
-                interest_rate_price
-                limit_price
+                short_collateral_string
+                collateral_asset
+                interest_rate_string
+                quote_asset
+                price_limit_string
             )
             @_finalize_and_send(
                 builder, from_account, collateral_symbol
@@ -531,6 +515,8 @@ class WalletAPI
     
     ### Example to create USD from XTS at a penney a share:
         wallet_market_submit_ask delegate0 100 XTS 0.01 USD
+        
+        ask(0d)hexmap: "            TyLeAmount                      Order price             Owner                                   ..."
     ###
     market_submit_ask:(
         from_account_name
@@ -568,21 +554,13 @@ class WalletAPI
                 unless ask_asset
                     LE.throw 'jslib_wallet.unknown_asset',[ask_price_symbol]
                 
-                sell_quantity = ChainInterface.to_ugly_asset(
-                    sell_quantity_string, sell_asset
-                )
-                ask_price = (->
-                    price = ChainInterface.to_ugly_price(
-                        ask_price_string, sell_asset, ask_asset
-                        _needs_satoshi_conversion = yes
-                    )
-                    price
-                )()
                 builder = @_transaction_builder()
                 builder.submit_ask(
                     from_account
-                    sell_quantity
-                    ask_price
+                    sell_quantity_string
+                    sell_asset
+                    ask_price_string
+                    ask_asset
                 )
                 @_finalize_and_send(
                     builder, from_account, sell_quantity_symbol
@@ -617,16 +595,15 @@ class WalletAPI
                 builder.pay_network_fee payer_account, network_fee
                 #console.log '... collector',JSON.stringify collector
                 if collector
-                    console.log '... collector', collector
                     builder.pay_collector_fee payer_account, collector, light_fee
                 
                 builder.finalize().then ()=>
+                    
+                    console.log '... transaction\t'+builder._transaction().toBuffer().toString 'hex'
+                    
                     builder.sign_transaction()
                     record = builder.get_transaction_record()
-                    #@wallet.save_transaction record
-                    
                     console.log '... record.trx',JSON.stringify record.trx,null,2
-                    #console.log '... transaction\t'+builder.sign_transaction().transaction.toBuffer().toString 'hex'
                     
                     @blockchain_api.broadcast_transaction(record.trx).then ->
                         record

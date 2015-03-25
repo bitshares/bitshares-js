@@ -105,6 +105,7 @@ describe "Transactions", ->
         .done()
     
     it "market_submit_short", (done) ->
+        # wallet_market_submit_short delegate0 200 XTS 1 USD 0.01
         wallet_api = new_wallet_api @rpc
         wallet_api.market_submit_short(
             "delegate0","200","XTS","1","USD","0.01"
@@ -113,6 +114,7 @@ describe "Transactions", ->
         .done()
     
     it "market_submit_ask", (done) ->
+        # wallet_market_submit_ask delegate0 100 XTS 0.01 USD
         wallet_api = new_wallet_api @rpc
         wallet_api.market_submit_ask(
             "delegate0","100","XTS","0.01","USD"

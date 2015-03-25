@@ -5,6 +5,7 @@
 {Deposit} = require '../blockchain/deposit'
 {Short} = require '../blockchain/short'
 {Ask} = require '../blockchain/ask'
+{ChainInterface} = require '../blockchain/chain_interface'
 {WithdrawCondition} = require '../blockchain/withdraw_condition'
 {WithdrawSignatureType} = require '../blockchain/withdraw_signature_type'
 {SignedTransaction} = require '../blockchain/signed_transaction'
@@ -19,6 +20,7 @@
 LE = require('../common/exceptions').LocalizedException
 config = require '../config'
 hash = require '../ecc/hash'
+BigInteger = require 'bigi'
 q = require 'q'
 types = require '../blockchain/types'
 lookup_type_id = types.type_id
@@ -222,10 +224,26 @@ class TransactionBuilder
     
     submit_short:(
         from_account
-        short_collateral
-        interest_rate_price
-        limit_price
+        short_collateral_string
+        collateral_asset
+        interest_rate_string
+        quote_asset
+        price_limit_string
     )->
+        interest_rate_price = (->
+            price = ChainInterface.to_ugly_price(
+                interest_rate_string, collateral_asset, quote_asset
+                _needs_satoshi_conversion = no
+            )
+            price.ratio = price.ratio.divide(
+                BigInteger "100"
+            )
+            price
+        )()
+        limit_price = ChainInterface.to_ugly_price(
+            price_limit_string, collateral_asset, quote_asset
+            _needs_satoshi_conversion = yes
+        )
         if (
             limit_price.quote_asset_id isnt undefined and
             limit_price.base_asset_id isnt undefined
@@ -238,7 +256,9 @@ class TransactionBuilder
                 interest_rate_price
                 limit_price
             )
-        
+        short_collateral = ChainInterface.to_ugly_asset(
+            short_collateral_string, collateral_asset
+        )
         @_deduct_balance from_account.active_key, short_collateral
         from_public = PublicKey.fromBtsPublic from_account.active_key
         short = new Short(
@@ -252,9 +272,18 @@ class TransactionBuilder
     
     submit_ask:(
         from_account
-        sell_quantity
-        ask_price
+        sell_quantity_string
+        sell_asset
+        ask_price_string
+        ask_asset
     )->
+        sell_quantity = ChainInterface.to_ugly_asset(
+            sell_quantity_string, sell_asset
+        )
+        ask_price = ChainInterface.to_ugly_price(
+            ask_price_string, sell_asset, ask_asset
+            _needs_satoshi_conversion = yes
+        )
         @_deduct_balance from_account.active_key, sell_quantity
         from_public = PublicKey.fromBtsPublic from_account.active_key
         ask = new Ask(
@@ -557,6 +586,13 @@ class TransactionBuilder
             
             return
     
+    _transaction:->
+        new Transaction(
+            expiration = @expiration
+            @slate_id
+            @operations
+        )
+    
     sign_transaction:() ->
         unless @transaction_record.trx
             throw new Error 'call finalize first'
@@ -565,13 +601,7 @@ class TransactionBuilder
             throw new Error 'already signed'
         
         chain_id_buffer = new Buffer config.chain_id, 'hex'
-        @binary_transaction = new Transaction(
-            expiration = @expiration
-            @slate_id
-            @operations
-        )
-        console.log '... sign_transaction'
-        @binary_transaction.toByteBuffer().printDebug()
+        @binary_transaction = @_transaction()
         trx_buffer = @binary_transaction.toBuffer()
         trx_sign = Buffer.concat([trx_buffer, chain_id_buffer])
         #console.log 'digest',hash.sha256(trx_sign).toString('hex')

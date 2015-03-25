@@ -33,6 +33,7 @@ class Ask
         new Ask amount, order_price, owner
     
     appendByteBuffer: (b) ->
+        #b.writeUint8 0xFF # debugging
         b.writeInt64 @amount
         Util.write_price b, @order_price
         fp.ripemd160 b, @owner
@@ -60,7 +61,6 @@ class Ask
     
     Ask.fromHex= (hex) ->
         b = ByteBuffer.fromHex hex, ByteBuffer.LITTLE_ENDIAN
-        b.printDebug()
         Ask.fromByteBuffer b
 
     toHex: () ->
