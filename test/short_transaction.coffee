@@ -45,13 +45,13 @@ describe "Market Support", ->
             return "0" if hex is "" # issue #?
             hex2dec hex
         
-        assert.equal "100000000000000", s2r "0.01"
-        assert.equal "1234567890123456789012345678901234567890123456", 
-            s2r "123456789012345678901234567890.1234567890123456"
+        assert.equal "10000000000000000", s2r "0.01"
+        assert.equal "123456789012345678901234567890123456789012345678", 
+            s2r "123456789012345678901234567890.123456789012345678"
         assert.equal "0", s2r "0"
-        assert.equal "1000000000000000", s2r "0.1"
-        assert.equal "10000000000000000", s2r "1.0"
-        assert.equal "11000000000000000", s2r "1.1"
+        assert.equal "100000000000000000", s2r "0.1"
+        assert.equal "1000000000000000000", s2r "1.0"
+        assert.equal "1100000000000000000", s2r "1.1"
     
     it "scratchpad", ->
         #console.log 'unreal128=',Short.unreal128 BigInteger "0.0"

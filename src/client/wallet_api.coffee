@@ -511,8 +511,6 @@ class WalletAPI
                 price.ratio = price.ratio.divide(
                     BigInteger "100"
                 )
-                {hex2dec} = require '../common/hex2dec'
-                console.log '... price.ratio', hex2dec price.ratio.toHex()
                 price
             )()
             limit_price = ChainInterface.to_ugly_price(
@@ -526,13 +524,10 @@ class WalletAPI
                 interest_rate_price
                 limit_price
             )
-            console.log '... test trx'
-            builder.finalize().then ()=>
-                builder.sign_transaction()
-            #@_finalize_and_send(
-            #    builder, from_account, collateral_symbol
-            #).then (record)->
-            #    record
+            @_finalize_and_send(
+                builder, from_account, collateral_symbol
+            ).then (record)->
+                record
     
     ### Example to create USD from XTS at a penney a share:
         wallet_market_submit_ask delegate0 100 XTS 0.01 USD
@@ -581,8 +576,6 @@ class WalletAPI
                         ask_price_string, sell_asset, ask_asset
                         _needs_satoshi_conversion = yes
                     )
-                    #{hex2dec} = require '../common/hex2dec'
-                    #console.log '... price.ratio', hex2dec price.ratio.toHex()
                     price
                 )()
                 builder = @_transaction_builder()
@@ -591,9 +584,6 @@ class WalletAPI
                     sell_quantity
                     ask_price
                 )
-                console.log '... test trx'
-                #builder.finalize().then ()=>
-                #    builder.sign_transaction()
                 @_finalize_and_send(
                     builder, from_account, sell_quantity_symbol
                 ).then (record)->
@@ -627,6 +617,7 @@ class WalletAPI
                 builder.pay_network_fee payer_account, network_fee
                 #console.log '... collector',JSON.stringify collector
                 if collector
+                    console.log '... collector', collector
                     builder.pay_collector_fee payer_account, collector, light_fee
                 
                 builder.finalize().then ()=>
@@ -635,6 +626,8 @@ class WalletAPI
                     #@wallet.save_transaction record
                     
                     console.log '... record.trx',JSON.stringify record.trx,null,2
+                    #console.log '... transaction\t'+builder.sign_transaction().transaction.toBuffer().toString 'hex'
+                    
                     @blockchain_api.broadcast_transaction(record.trx).then ->
                         record
                     #,(e)->console.log 'e',e

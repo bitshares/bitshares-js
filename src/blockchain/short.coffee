@@ -34,27 +34,22 @@ class Short
     Short.fromByteBuffer= (b) ->
         amount = b.readInt64()
         order_price = Util.read_price b
-        (->
-            r = order_price.ratio
-            console.log '... order_price.ratio r=', hex2dec r.toHex()
-        )()
         owner = fp.ripemd160 b
         limit_price = if fp.optional b
             Util.read_price b
         new Short amount, order_price, owner, limit_price
     
     appendByteBuffer: (b) ->
+        #b.writeUint8 0xFF
         b.writeInt64 @amount
         #b.writeUint8 0xFF
         Util.write_price b, @order_price
         #b.writeUint8 0xFF
-        #b.printDebug()
         fp.ripemd160 b, @owner
+        #b.writeUint8 0xFF
         if fp.optional b, @limit_price
             Util.write_price b, @limit_price
         return
-    
-    REAL128_PRECISION = BigInteger("10").pow 18
     
     toJson: (o) ->
         o.amount = @amount.toString()

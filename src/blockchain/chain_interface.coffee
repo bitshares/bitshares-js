@@ -48,7 +48,6 @@ class ChainInterface
     ChainInterface.string_to_Ratio128=(number_string)->
         throw new Error "Missing parameter: number_string" unless number_string
         number_string = ""+number_string if typeof number_string is "number"
-        console.log '... number_string', number_string
         number_string = number_string.trim()
         number_parts = number_string.match /^([0-9]*)\.?([0-9]*)$/
         unless number_parts

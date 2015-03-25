@@ -6,20 +6,25 @@ class Util
     
     Util.read_price=(b)->
         b_copy = b.copy(b.offset, b.offset + 16); b.skip 16
-        #console.log '1',b_copy.toHex()
-        ratio: BigInteger.fromBuffer new Buffer b_copy.toBinary(), 'binary'
-        quote_asset_id: b.readVarint32ZigZag()
-        base_asset_id: b.readVarint32ZigZag()
+        target_array = new Uint8Array(16)
+        index=0
+        target_array[index++] = b_copy.readByte(i) for i in [7..0] by -1
+        target_array[index++] = b_copy.readByte(i) for i in [15..8] by -1
+        #console.log '... target_array', new Buffer(target_array).toString 'hex'
+        ratio: BigInteger.fromBuffer new Buffer target_array
+        quote: b.readVarint32ZigZag()
+        base: b.readVarint32ZigZag()
     
     Util.write_price=(b, price)->
-        ratio_buffer = price.ratio.toBuffer()
-        ratio_buffer_target = new Buffer(16)
-        ratio_buffer_target.fill 0
-        ratio_buffer.copy ratio_buffer_target, 16 - ratio_buffer.length
-        #console.log '2',(ByteBuffer.fromBinary ratio_buffer_target.toString 'binary').toHex()
-        b.append ByteBuffer.fromBinary ratio_buffer_target.toString 'binary'
-        b.writeVarint32ZigZag price.quote_asset_id
-        b.writeVarint32ZigZag price.base_asset_id
+        ratio_array = price.ratio.toByteArray()
+        target_array = new Uint8Array(16)
+        target_array.set ratio_array, 16-ratio_array.length # pad
+        b.writeUint8 target_array[i] for i in [7..0] by -1
+        b.writeUint8 target_array[i] for i in [15..8] by -1
+        #b.writeUint8 0xFF
+        b.writeVarint32ZigZag price.quote
+        #b.writeUint8 0xFF
+        b.writeVarint32ZigZag price.base
         return
         
     Util.unreal128=(ratio)->
