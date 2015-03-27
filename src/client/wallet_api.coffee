@@ -7,7 +7,9 @@
 {ChainInterface} = require '../blockchain/chain_interface'
 {ChainDatabase} = require '../blockchain/chain_database'
 {BlockchainAPI} = require '../blockchain/blockchain_api'
+{Short} = require '../blockchain/short'
 {PublicKey} = require '../ecc/key_public'
+{Util} = require '../blockchain/market_util'
 config = require '../wallet/config'
 LE = require('../common/exceptions').LocalizedException
 secureRandom = require 'secure-random'
@@ -206,7 +208,7 @@ class WalletAPI
                 defer.reject error
                 return
             
-            amount = ChainInterface.to_ugly_asset amount_to_transfer, asset
+            amount = Util.to_ugly_asset amount_to_transfer, asset
             builder = @_transaction_builder()
             builder.deposit_asset(
                 payer, recipient, amount
@@ -616,9 +618,27 @@ class WalletAPI
                 ).then (record)->
                     record
     
-    market_order_list:->
-        console.log 'WARN Not Implemented'
-        []
+    market_order_list:(base_symbol, quantity_symbol, limit, account_name)->
+        active_key = @wallet.lookup_active_key account_name
+        return [] unless active_key
+        active = PublicKey.fromBtsPublic active_key
+        @blockchain_api.list_address_orders(
+            base_symbol, quantity_symbol, active.toBtsAddy(), limit
+        ).then (result)->
+            result
+    
+    market_cancel_order:(order_id)->
+        LE.throw "jslib_wallet.must_be_opened" unless @wallet
+        @blockchain_api.get_market_order(order_id).then (order)=>
+            throw new Error "Can not find market order" unless order
+            owner_account = @wallet.get_account_for_address order.market_index.owner
+            balance = Util.get_balance_asset order
+            builder = @_transaction_builder()
+            builder.cancel_order order
+            @_finalize_and_send(
+                builder, owner_account, balance.asset_id
+            ).then (record)->
+                record
     
     _finalize_and_send:(builder, payer_account, fee_asset_name_or_id)->
         collector_account_promise = if @relay.relay_fee_collector
@@ -648,12 +668,11 @@ class WalletAPI
                 
                 builder.finalize().then ()=>
                     
-                    console.log '... transaction\t'+builder._transaction().toBuffer().toString 'hex'
+                    #console.log '... transaction\t'+builder._transaction().toBuffer().toString 'hex'
                     
                     builder.sign_transaction()
                     record = builder.get_transaction_record()
-                    console.log '... record.trx',JSON.stringify record.trx,null,2
-                    
+                    console.log '... record.trx', JSON.stringify record,null,2
                     @blockchain_api.broadcast_transaction(record.trx).then ->
                         record
                     #,(e)->console.log 'e',e

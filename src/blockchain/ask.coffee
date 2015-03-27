@@ -43,7 +43,7 @@ class Ask
         o.amount = @amount.toString()
         o.ask_index=
             order_price:
-                ratio: Util.unreal128 @order_price.ratio
+                ratio: Util.ratio128_to_string @order_price.ratio
                 quote_asset_id: @order_price.quote
                 base_asset_id: @order_price.base
             owner:new Address(@owner).toString()

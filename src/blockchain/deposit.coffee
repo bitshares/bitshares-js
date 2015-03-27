@@ -1,5 +1,6 @@
 assert = require 'assert'
 ByteBuffer = require 'bytebuffer'
+#Long = ByteBuffer.Long
 {fp} = require '../common/fast_parser'
 {WithdrawCondition} = require './withdraw_condition'
 types = require './types'
@@ -14,7 +15,6 @@ bts::blockchain::deposit_operation, (amount)(condition)
 class Deposit
 
     constructor: (@amount, @withdraw_condition) ->
-        LE.throw 'jslib_general.positive_amount',[amount] unless amount > 0
         @type_name = "deposit_op_type"
         @type_id = type_id types.operation, @type_name        
         

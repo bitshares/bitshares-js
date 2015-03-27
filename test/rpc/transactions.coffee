@@ -125,7 +125,7 @@ describe "Transactions", ->
         .done()
     
     it "market_submit_bid", (done) ->
-        # wallet_market_submit_bid delegate0 1 USD 100 XTS
+        # wallet_market_submit_bid delegate0 0.01 USD 100 XTS
         wallet_api = new_wallet_api @rpc
         wallet_api.market_submit_ask(
             "delegate0","100","XTS","0.01","USD"

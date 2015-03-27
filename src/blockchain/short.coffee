@@ -27,7 +27,7 @@ bts::blockchain::short_operation, (amount)(short_index)
 ###
 class Short
 
-    constructor: (@amount, @order_price, @owner, @limit_price) ->
+    constructor: (@amount, @order_price, @owner, @limit_price = null) ->
         @type_name = "short_op_type"
         @type_id = 14
     
@@ -37,6 +37,7 @@ class Short
         owner = fp.ripemd160 b
         limit_price = if fp.optional b
             Util.read_price b
+        else null
         new Short amount, order_price, owner, limit_price
     
     appendByteBuffer: (b) ->
@@ -55,15 +56,33 @@ class Short
         o.amount = @amount.toString()
         o.short_index=
             order_price:
-                ratio: Util.unreal128 @order_price.ratio
+                ratio: Util.ratio128_to_string @order_price.ratio
                 quote_asset_id: @order_price.quote
                 base_asset_id: @order_price.base
             owner:new Address(@owner).toString()
-            limit_price:
-                ratio: Util.unreal128 @limit_price.ratio
+        if @limit_price isnt null
+            o.short_index.limit_price=
+                ratio: Util.ratio128_to_string @limit_price.ratio
                 quote_asset_id: @limit_price.quote
                 base_asset_id: @limit_price.base
         return
+    
+    Short.fromJson= (o)->
+        if o.type isnt "short_order"
+            throw new Error "Not a short_order: #{o.type}"
+        console.log '... o', o
+        amount = ByteBuffer.Long.fromString ""+o.collateral
+        p = o.market_index.order_price
+        order_price =
+            ratio: Util.string_to_ratio128 p.ratio
+            base: p.quote_asset_id
+            quote: p.base_asset_id
+        owner = Address.fromString(o.market_index.owner).toBuffer()
+        limit_price = if p = o.interest_rate
+            ratio: Util.string_to_ratio128 p.ratio
+            base: p.quote_asset_id
+            quote: p.base_asset_id
+        new Short amount, order_price, owner, limit_price
 
     ### <helper_functions> ###
 

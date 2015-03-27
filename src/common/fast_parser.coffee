@@ -1,5 +1,9 @@
 class CommonParser
     
+    ###
+        Warning: This method expects null (not undefined) to indicate 
+        that a value is not present.
+    ###
     CommonParser.optional = (b, value) ->
         if value isnt undefined
             if value is null

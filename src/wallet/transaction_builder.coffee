@@ -11,6 +11,7 @@
 {SignedTransaction} = require '../blockchain/signed_transaction'
 {Operation} = require '../blockchain/operation'
 {MemoData} = require '../blockchain/memo_data'
+{Util} = require '../blockchain/market_util'
 
 {Address} = require '../ecc/address'
 {PublicKey} = require '../ecc/key_public'
@@ -24,6 +25,8 @@ BigInteger = require 'bigi'
 q = require 'q'
 types = require '../blockchain/types'
 lookup_type_id = types.type_id
+ByteBuffer = require 'bytebuffer'
+Long = ByteBuffer.Long
 
 BTS_BLOCKCHAIN_MAX_MEMO_SIZE = 19
 
@@ -48,13 +51,14 @@ class TransactionBuilder
         @outstanding_balances = {}
         #@notices = []
         @operations = []
-        @order_keys = {}
+        #@order_keys = {}
         @slate_id = null
     
     ### @return record with private journal entries ###
     get_transaction_record:()->
         throw new Error 'call finalize first' unless @finalized
         record = @transaction_record
+        record.record_id = @binary_transaction.id().toString 'hex'
         record.trx.expiration = @expiration.toISOString().split('.')[0]
         record.trx.slate_id = @slate_id
         record.trx.operations = ops = []
@@ -231,7 +235,7 @@ class TransactionBuilder
         price_limit_string
     )->
         interest_rate_price = (->
-            price = ChainInterface.to_ugly_price(
+            price = Util.to_ugly_price(
                 interest_rate_string, collateral_asset, quote_asset
                 _needs_satoshi_conversion = no
             )
@@ -240,7 +244,7 @@ class TransactionBuilder
             )
             price
         )()
-        limit_price = ChainInterface.to_ugly_price(
+        limit_price = Util.to_ugly_price(
             price_limit_string, collateral_asset, quote_asset
             _needs_satoshi_conversion = yes
         )
@@ -256,7 +260,7 @@ class TransactionBuilder
                 interest_rate_price
                 limit_price
             )
-        short_collateral = ChainInterface.to_ugly_asset(
+        short_collateral = Util.to_ugly_asset(
             short_collateral_string, collateral_asset
         )
         @_deduct_balance from_account.active_key, short_collateral
@@ -277,10 +281,10 @@ class TransactionBuilder
         ask_price_string
         ask_asset
     )->
-        sell_quantity = ChainInterface.to_ugly_asset(
+        sell_quantity = Util.to_ugly_asset(
             sell_quantity_string, sell_asset
         )
-        ask_price = ChainInterface.to_ugly_price(
+        ask_price = Util.to_ugly_price(
             ask_price_string, sell_asset, ask_asset
             _needs_satoshi_conversion = yes
         )
@@ -301,10 +305,10 @@ class TransactionBuilder
         pay_price_string
         pay_asset
     )->
-        buy_quantity = ChainInterface.to_ugly_asset(
+        buy_quantity = Util.to_ugly_asset(
             buy_quantity_string, buy_asset
         )
-        pay_price = ChainInterface.to_ugly_price(
+        pay_price = Util.to_ugly_price(
             pay_price_string, buy_asset, pay_asset
             _needs_satoshi_conversion = yes
         )
@@ -316,6 +320,33 @@ class TransactionBuilder
             from_public.toBlockchainAddress()
         )
         @operations.push new Operation bid.type_id, bid
+        return
+    
+    cancel_order:(order)->
+        console.log '... order', order
+        owner_account = @wallet.get_account_for_address(
+            order.market_index.owner
+        )
+        unless owner_account
+            throw new Error "Unable to find account for address #{order.market_index.owner}"
+        
+        balance = Util.get_balance_asset order
+        order_object = Short.fromJson order
+        price = order_object.order_price
+        owner = order_object.owner
+        switch order.type
+            when 'ask_order'
+                ask = new Ask -1 * balance.amount, price, owner
+                @operations.push new Operation ask.type_id, ask
+            when 'bid_order'
+                bid = new Bid -1 * balance.amount, price, owner
+                @operations.push new Operation bid.type_id, bid
+            when 'short_order'
+                short = new Short -1 * balance.amount, price, owner
+                @operations.push new Operation short.type_id, short
+            else
+                throw new Error "Can't reverse order #{order}"
+        @_credit_balance owner_account.active_key, balance
         return
     
     pay_network_fee:(payer_account, fee_asset)->
@@ -359,21 +390,21 @@ class TransactionBuilder
         messages
     ###
     
-    order_key_for_account:(account_address, account_name)->
-        order_key = @order_keys[account_address]
-        unless order_key
-            order_key = @wallet.getNewPublicKey account_name
-            order_keys[account_address] = order_key
-        order_key
+    #order_key_for_account:(account_address, account_name)->
+    #    order_key = @order_keys[account_address]
+    #    unless order_key
+    #        order_key = @wallet.getNewPublicKey account_name
+    #        order_keys[account_address] = order_key
+    #    order_key
     
-    #deposit:(owner, amount, slate_id = null)->
-    #    deposit = new Deposit amount.amount, new WithdrawCondition(
-    #        amount.asset_id, slate_id
-    #        lookup_type_id(types.withdraw, "withdraw_signature_type"), 
-    #        new WithdrawSignatureType owner
-    #    )
-    #    @operations.push new Operation deposit.type_id, deposit
-    #    return
+    deposit:(owner, amount, slate_id = null)->
+        deposit = new Deposit amount.amount, new WithdrawCondition(
+            amount.asset_id, slate_id
+            lookup_type_id(types.withdraw, "withdraw_signature_type"), 
+            new WithdrawSignatureType owner
+        )
+        @operations.push new Operation deposit.type_id, deposit
+        return
     
     deposit_to_account:(
         receiver_Public, amount
@@ -599,7 +630,9 @@ class TransactionBuilder
                     throw new Error "Missing account for address #{address}"
                 
                 if rec.amount > 0
-                    depositAddress = @order_key_for_account address, account.name
+                    depositAddress = PublicKey.fromBtsPublic(
+                        account.active_key
+                    ).toBlockchainAddress() #@order_key_for_account...
                     @deposit depositAddress, balance
                 else
                     balance.amount = -rec.amount

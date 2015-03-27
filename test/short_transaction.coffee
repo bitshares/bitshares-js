@@ -7,6 +7,7 @@ asset = require 'assert'
 assert = require 'assert'
 {hex2dec} = require '../src/common/hex2dec'
 {ChainInterface} = require '../src/blockchain/chain_interface'
+{Util} = require '../src/blockchain/market_util'
 {Short} = require '../src/blockchain/short'
 BigInteger = require 'bigi'
 
@@ -41,7 +42,7 @@ describe "Market Support", ->
     
     it "Handles large price ratios", ->
         s2r=(num_string)->
-            hex= ChainInterface.string_to_Ratio128(num_string).toHex()
+            hex= Util.string_to_ratio128(num_string).toHex()
             return "0" if hex is "" # issue #?
             hex2dec hex
         
@@ -55,7 +56,7 @@ describe "Market Support", ->
     
     it "scratchpad", ->
         #console.log 'unreal128=',Short.unreal128 BigInteger "0.0"
-        short_collateral = ChainInterface.to_ugly_asset(
+        short_collateral = Util.to_ugly_asset(
             "200", {id:0,precision: 100000}
         )
         console.log short_collateral
