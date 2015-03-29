@@ -6,7 +6,7 @@ class CommonParser
     ###
     CommonParser.optional = (b, value) ->
         if value isnt undefined
-            if value is null
+            if value is null or value is false
                 b.writeUint8(0)
                 return null
             else
