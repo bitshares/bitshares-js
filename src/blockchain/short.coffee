@@ -70,18 +70,17 @@ class Short
     Short.fromJson= (o)->
         if o.type isnt "short_order"
             throw new Error "Not a short_order: #{o.type}"
-        console.log '... o', o
         amount = ByteBuffer.Long.fromString ""+o.collateral
         p = o.market_index.order_price
         order_price =
             ratio: Util.string_to_ratio128 p.ratio
-            base: p.quote_asset_id
-            quote: p.base_asset_id
+            quote: p.quote_asset_id
+            base: p.base_asset_id
         owner = Address.fromString(o.market_index.owner).toBuffer()
         limit_price = if p = o.interest_rate
             ratio: Util.string_to_ratio128 p.ratio
-            base: p.quote_asset_id
-            quote: p.base_asset_id
+            quote: p.quote_asset_id
+            base: p.base_asset_id
         new Short amount, order_price, owner, limit_price
 
     ### <helper_functions> ###
