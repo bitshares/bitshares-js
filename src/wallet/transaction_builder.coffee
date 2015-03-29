@@ -323,15 +323,16 @@ class TransactionBuilder
         return
     
     cancel_order:(order)->
-        console.log '... order', order
         owner_account = @wallet.get_account_for_address(
             order.market_index.owner
         )
         unless owner_account
             throw new Error "Unable to find account for address #{order.market_index.owner}"
         
+        @required_signatures[owner_account.active_key] = on
         balance = Util.get_balance_asset order
-        order_object = Short.fromJson order
+        
+        order_object = Short.fromJson order #ask and bid are compatible
         price = order_object.order_price
         owner = order_object.owner
         switch order.type
