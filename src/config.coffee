@@ -1,5 +1,5 @@
 module.exports =
-    bts_address_prefix: "XTS"
+    bts_address_prefix: "BTS"
     
     ###*
     # This is a hash of the genesis block (genesis.json for example).  It must
@@ -10,5 +10,5 @@ module.exports =
     # less /tmp/blockchain/_property_db.json
     # [[4, ...]]
     ###
-    chain_id: "74cef39d88afd6123d40c5822632b753e5b25da6ca196218c2364560bbf3171f"
+    chain_id: "75c11a81b7670bbaa721cc603eadb2313756f94a3bcbb9928e9101432701ac5f"
     
