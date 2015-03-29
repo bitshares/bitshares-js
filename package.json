@@ -15,7 +15,8 @@
     "test": "./node_modules/.bin/mocha --compilers coffee:coffee-script --require coffee-script/register",
     "web_wallet": "coffee src/deploy/watchify.coffee src/deploy/web_wallet.coffee -s bts --transform coffeeify --extension=.coffee -o $BTS_WEB/vendor/js/bts.js -v",
     "package_tests": "browserify test/*.coffee --debug --transform coffeeify --extension=.coffee >bitshares-mocha.js",
-    "package": "browserify src/deploy/web_wallet.coffee -s bts --debug --transform coffeeify --extension=.coffee >bitshares-debug.js"
+    "package": "browserify src/deploy/web_wallet.coffee -s bts --debug --transform coffeeify --extension=.coffee >bitshares-debug.js",
+    "minify" : "./node_modules/.bin/uglifyjs -o bitshares.min.js bitshares-debug.js"
   },
   "devDependencies": {
     "mocha": "1.21.5",
@@ -23,6 +24,7 @@
     "browserify": "~6.1.0",
     "coffeeify": "~0.7.0",
     "node-localstorage": "~0.3.4",
-    "watchify": "~2.2.1"
+    "watchify": "~2.2.1",
+    "uglifyjs" : "~2.4.10"
   }
 }
