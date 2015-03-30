@@ -571,20 +571,20 @@ class WalletAPI
     
     market_submit_bid:(
         from_account_name
-        buy_quantity_string
-        buy_quantity_symbol
-        pay_price_string
-        pay_price_symbol
+        quantity_string
+        quantity_symbol
+        quote_price_string
+        quote_price_symbol
         #allow_pay_over_5_percent = false
     )->
         LE.throw "jslib_wallet.must_be_opened" unless @wallet
         @blockchain_api.market_order_book(
-            pay_price_symbol
-            buy_quantity_symbol
+            quote_price_symbol
+            quantity_symbol
             1
         ).then (highest_pay_price)=>
             #result = result[0]
-            console.log '... allow_pay_over_5_percent highest_pay_price', pay_price_string,highest_pay_price
+            console.log '... allow_pay_over_5_percent highest_pay_price', quote_price_string,highest_pay_price
             #if( pay_price > highest_pay_price * 1.05 )
             #{
             # FC_THROW_EXCEPTION(stupid_order, "You are attempting to bid at more than 5% above the sell price. "
@@ -593,28 +593,28 @@ class WalletAPI
             #}
             q.all([
                 @wallet.get_chain_account from_account_name, refresh=false
-                @chain_interface.get_asset buy_quantity_symbol
-                @chain_interface.get_asset pay_price_symbol
+                @chain_interface.get_asset quantity_symbol
+                @chain_interface.get_asset quote_price_symbol
             ]).spread (
                 from_account
-                buy_asset
-                pay_asset
+                quantity_asset
+                order_price_asset
             )=>
-                unless buy_asset
-                    LE.throw 'jslib_wallet.unknown_asset',[buy_quantity_symbol]
-                unless pay_asset
-                    LE.throw 'jslib_wallet.unknown_asset',[pay_price_symbol]
+                unless quantity_asset
+                    LE.throw 'jslib_wallet.unknown_asset',[quantity_symbol]
+                unless order_price_asset
+                    LE.throw 'jslib_wallet.unknown_asset',[quote_price_symbol]
                 
                 builder = @_transaction_builder()
                 builder.submit_bid(
                     from_account
-                    buy_quantity_string
-                    buy_asset
-                    pay_price_string
-                    pay_asset
+                    quantity_string
+                    quantity_asset
+                    quote_price_string
+                    order_price_asset
                 )
                 @_finalize_and_send(
-                    builder, from_account, buy_quantity_symbol
+                    builder, from_account, quantity_symbol
                 ).then (record)->
                     record
     
@@ -668,11 +668,13 @@ class WalletAPI
                 
                 builder.finalize().then ()=>
                     
-                    #console.log '... transaction\t'+builder._transaction().toBuffer().toString 'hex'
+                    console.log '... transaction\t'+builder._transaction().toBuffer().toString 'hex'
                     
                     builder.sign_transaction()
                     record = builder.get_transaction_record()
+                    
                     console.log '... record.trx', JSON.stringify record,null,2
+                    
                     @blockchain_api.broadcast_transaction(record.trx).then ->
                         record
                     #,(e)->console.log 'e',e

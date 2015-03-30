@@ -42,13 +42,19 @@ class Bid
     toJson: (o) ->
         o.amount = @amount.toString()
         o.bid_index=
-            order_price:
-                ratio: Util.ratio128_to_string @order_price.ratio
-                quote_asset_id: @order_price.quote
-                base_asset_id: @order_price.base
+            order_price: Util.toJson_Price @order_price
             owner:new Address(@owner).toString()
         return
-
+    
+    Bid.fromJson= (o)->
+        if o.type isnt "bid_order"
+            throw new Error "Not a bid_order: #{o.type}"
+        amount = ByteBuffer.Long.fromString ""+o.state.balance
+        p = o.market_index.order_price
+        order_price = Util.fromJson_Price p
+        owner = Address.fromString(o.market_index.owner).toBuffer()
+        new Bid amount, order_price, owner
+    
     ### <helper_functions> ###
 
     toByteBuffer: () ->

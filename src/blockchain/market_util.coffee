@@ -6,10 +6,6 @@ class Util
     
     REAL128_PRECISION = BigInteger("10").pow 18
     
-    #ChainInterface.isSafeInteger_orThrow:(precision)->
-    #    unless Number.isSafeInteger new Number number_string
-    #        throw new Error "Number #{number_string} is too large"
-    
     Util.string_to_ratio128=(number_string)->
         throw new Error "Missing parameter: number_string" unless number_string
         number_string = ""+number_string if typeof number_string is "number"
@@ -42,7 +38,7 @@ class Util
         str = "0"+str for i in [0...18-str.length] by 1
         str = str.slice(0,idx=str.length-18)+'.'+str.slice idx
         str = str.replace /^0+/g, "" # remove leading zeros
-        str = str.replace /\.?0+$/g, "" # traling zeros
+        str = str.replace /\.?0+#/g, "" # traling zeros
         str = "0"+str if /^\./.test str
         str
     
@@ -82,6 +78,16 @@ class Util
         quote: b.readVarint32ZigZag()
         base: b.readVarint32ZigZag()
     
+    Util.toJson_Price=(price)->
+        ratio: Util.ratio128_to_string price.ratio
+        quote_asset_id: price.quote
+        base_asset_id: price.base
+    
+    Util.fromJson_Price=(price)->
+        ratio: Util.string_to_ratio128 price.ratio
+        quote: price.quote_asset_id
+        base: price.base_asset_id
+    
     Util.write_price=(b, price)->
         #b.writeUint8 0xFF # debugging
         ratio_array = price.ratio.toByteArray()
@@ -107,5 +113,54 @@ class Util
             when 'cover_order'
                 order.market_index.order_price.quote_asset_id
         amount:order.state.balance
-
+    
+    Util.asset_multiply_price=(asset, price)->
+        if asset.asset_id is price.base
+            asset = BigInteger asset.amount
+            ratio = BigInteger price.ratio
+            result = asset.multiple ratio
+            result = result.divide REAL128_PRECISION
+            if result.bitCount() >= 128
+                throw new Error "overflow #{asset} * #{ratio} = #{result} bits = #{result.bitCount()} >= 128"
+            
+            amount: result
+            asset_id: ratio.quote_asset_id
+        
+        else if asset.asset_id is price.quote
+            amount = BigInteger asset.amount
+            amount = amount.multiply REAL128_PRECISION
+            ratio = BigInteger price.ratio
+            result = amount.divide ratio
+            if result.bitCount() >= 128
+                throw new Error "overflow #{asset} / #{ratio} = #{result} bits = #{result.bitCount()} >= 128"
+            
+            amount: result
+            asset_id: ratio.base_asset_id
+        
+        else
+            throw new Error "Type mismatch multiplying assset #{asset} by price #{price}"
+    
+    #ChainInterface.isSafeInteger_orThrow:(precision)->
+    #    unless Number.isSafeInteger new Number number_string
+    #        throw new Error "Number #{number_string} is too large"
+    
+    #Util.order_id=(order)->
+    #    type_name = switch order.type_name
+    #        when 'short_op_type'
+    #            'short_order'
+    #        when 'ask_op_type'
+    #            'ask_order'
+    #        when 'bid_op_type'
+    #            'bid_order'
+    #        else
+    #            throw new Error "Not Implemented"
+    #    ratio_string = Util.ratio128_to_string order.order_price.ratio
+    #    owner_string = new Address(order.owner).toString()
+    #    hash_str = type_name + ratio_string + " " +
+    #        order.order_price.base + "/" +
+    #        order.order_price.quote +
+    #        owner_string
+    #    console.log '... Util.order_id example: short_order0.01 22/0XTS4NjtfjcaMkJsUiWSTz5sGQkxWr5Xwogqt', hash_str
+    #    hash.ripemd160 hash_str
+    
 exports.Util = Util

@@ -55,16 +55,11 @@ class Short
     toJson: (o) ->
         o.amount = @amount.toString()
         o.short_index=
-            order_price:
-                ratio: Util.ratio128_to_string @order_price.ratio
-                quote_asset_id: @order_price.quote
-                base_asset_id: @order_price.base
+            order_price: Util.toJson_Price @order_price
             owner:new Address(@owner).toString()
         if @limit_price isnt null
             o.short_index.limit_price=
-                ratio: Util.ratio128_to_string @limit_price.ratio
-                quote_asset_id: @limit_price.quote
-                base_asset_id: @limit_price.base
+                Util.toJson_Price @limit_price
         return
     
     Short.fromJson= (o)->
@@ -72,15 +67,10 @@ class Short
             throw new Error "Not a short_order: #{o.type}"
         amount = ByteBuffer.Long.fromString ""+o.collateral
         p = o.market_index.order_price
-        order_price =
-            ratio: Util.string_to_ratio128 p.ratio
-            quote: p.quote_asset_id
-            base: p.base_asset_id
+        order_price = Util.fromJson_Price p
         owner = Address.fromString(o.market_index.owner).toBuffer()
         limit_price = if p = o.interest_rate
-            ratio: Util.string_to_ratio128 p.ratio
-            quote: p.quote_asset_id
-            base: p.base_asset_id
+            Util.fromJson_Price p
         new Short amount, order_price, owner, limit_price
 
     ### <helper_functions> ###

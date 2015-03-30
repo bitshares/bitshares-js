@@ -5,6 +5,7 @@
 {Deposit} = require '../blockchain/deposit'
 {Short} = require '../blockchain/short'
 {Ask} = require '../blockchain/ask'
+{Bid} = require '../blockchain/bid'
 {ChainInterface} = require '../blockchain/chain_interface'
 {WithdrawCondition} = require '../blockchain/withdraw_condition'
 {WithdrawSignatureType} = require '../blockchain/withdraw_signature_type'
@@ -276,18 +277,22 @@ class TransactionBuilder
     
     submit_ask:(
         from_account
-        sell_quantity_string
-        sell_asset
-        ask_price_string
-        ask_asset
+        quantity_string
+        quantity_asset
+        quote_price_string
+        quote_price_asset
     )->
+        if quantity_asset.asset_id isnt quote_price_asset.asset_id
+            throw Error "Unmatched asset types"
+        
         sell_quantity = Util.to_ugly_asset(
-            sell_quantity_string, sell_asset
+            quantity_string, quantity_asset
         )
         ask_price = Util.to_ugly_price(
-            ask_price_string, sell_asset, ask_asset
+            quote_price_string, quantity_asset, quote_price_asset
             _needs_satoshi_conversion = yes
         )
+        
         @_deduct_balance from_account.active_key, sell_quantity
         from_public = PublicKey.fromBtsPublic from_account.active_key
         ask = new Ask(
@@ -300,18 +305,24 @@ class TransactionBuilder
     
     submit_bid:(
         from_account
-        buy_quantity_string
-        buy_asset
-        pay_price_string
-        pay_asset
+        quantity_string
+        quantity_asset
+        quote_price_string
+        quote_price_asset
     )->
         buy_quantity = Util.to_ugly_asset(
-            buy_quantity_string, buy_asset
+            quantity_string, quantity_asset
         )
         pay_price = Util.to_ugly_price(
-            pay_price_string, buy_asset, pay_asset
+            quote_price_string, quantity_asset, quote_price_asset
             _needs_satoshi_conversion = yes
         )
+        cost = if quantity_asset.asset_id is quote_price_asset.asset_id
+            buy_quantity
+        else
+            Util.asset_multple_price buy_quantity, pay_price
+        
+        throw new Error "Unlike assets" unless cost.asset_id is pay_price.quote
         @_deduct_balance from_account.active_key, buy_quantity
         from_public = PublicKey.fromBtsPublic from_account.active_key
         bid = new Bid(
@@ -332,7 +343,16 @@ class TransactionBuilder
         @required_signatures[owner_account.active_key] = on
         balance = Util.get_balance_asset order
         
-        order_object = Short.fromJson order #ask and bid are compatible
+        order_object = switch order.type
+            when 'ask_order'
+                Ask.fromJson order
+            when 'bid_order'
+                Bid.fromJson order
+            when 'short_order'
+                Short.fromJson order
+            else
+                throw new Error "Unimplemented cancel for #{order}"
+        
         price = order_object.order_price
         owner = order_object.owner
         switch order.type
@@ -346,7 +366,7 @@ class TransactionBuilder
                 short = new Short -1 * balance.amount, price, owner
                 @operations.push new Operation short.type_id, short
             else
-                throw new Error "Can't reverse order #{order}"
+                throw new Error "Unimplemented cancel for #{order}"
         @_credit_balance owner_account.active_key, balance
         return
     
@@ -683,6 +703,8 @@ class TransactionBuilder
             throw new Error "missing public key"
         unless amount.amount >= 0
             throw new Error "amount #{amount.amount} must be positive"
+        
+        @required_signatures[public_key] = on
         record = @outstanding_balances[public_key + "\t" + amount.asset_id]
         unless record
             @outstanding_balances[public_key + "\t" + amount.asset_id] = record =
