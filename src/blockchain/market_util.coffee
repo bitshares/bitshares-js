@@ -1,14 +1,24 @@
 BigInteger = require 'bigi'
 ByteBuffer = require 'bytebuffer'
-{hex2dec} = require '../common/hex2dec'
+Long = ByteBuffer.Long
 
 class Util
     
     REAL128_PRECISION = BigInteger("10").pow 18
     
     Util.string_to_ratio128=(number_string)->
-        throw new Error "Missing parameter: number_string" unless number_string
-        number_string = ""+number_string if typeof number_string is "number"
+        Util.to_bigi number_string, REAL128_PRECISION
+    
+    Util.to_bigi=(number_string, precision)->
+        unless number_string
+            throw new Error "Missing parameter: number_string"
+        if typeof number_string is "number"
+            if number_string > 9007199254740991
+                throw new Error "overflow"
+            number_string = ""+number_string
+        unless BigInteger.isBigInteger precision
+            throw new Error "Invalid precision"
+        
         number_string = number_string.trim()
         number_parts = number_string.match /^([0-9]*)\.?([0-9]*)$/
         unless number_parts
@@ -19,36 +29,36 @@ class Util
         
         ratio = if int_part isnt undefined
             lhs = BigInteger(int_part)
-            if lhs.bitCount() > 128 # 128 bit limit here has nothing to do with precision below
-                throw new Error "Integer digits require #{lhs.bitCount()} bits which exceeds 128 bits"
-            lhs.multiply REAL128_PRECISION
+            # bit limit here has nothing to do with precision below
+            if lhs.bitCount() > 128 
+                throw new Error "Integer digits require #{lhs.bitCount()} bits which exceeds #{128} bits"
+            lhs.multiply precision
         else
             BigInteger.ZERO
         
         if decimal_part isnt undefined
-            throw new Error "More than 18 decimal digits" if decimal_part.length > 18
+            if decimal_part.length > precision
+                throw new Error "More than #{precision} decimal digits"
             frac_magnitude = BigInteger("10").pow decimal_part.length
             ratio = ratio.add BigInteger(decimal_part).multiply (
-                REAL128_PRECISION.divide frac_magnitude
+                precision.divide frac_magnitude
             )
         ratio
     
     Util.ratio128_to_string=(ratio)->
-        str = hex2dec ratio.toHex()
+        str = ratio.toString()
         str = "0"+str for i in [0...18-str.length] by 1
         str = str.slice(0,idx=str.length-18)+'.'+str.slice idx
         str = str.replace /^0+/g, "" # remove leading zeros
-        str = str.replace /\.?0+#/g, "" # traling zeros
+        str = str.replace /\.?0+$/g, "" # traling zeros
         str = "0"+str if /^\./.test str
         str
     
     ###* @return asset ###
-    Util.to_ugly_asset=(amount_to_transfer, asset)->
-        #amount = ChainInterface.toNumber_orThrow amount_to_transfer # TODO
-        amount = amount_to_transfer
-        amount *= asset.precision
+    Util.to_ugly_asset=(amount, asset)->
+        amount = Util.to_bigi amount, BigInteger ""+asset.precision
         #example: 100.500019 becomes 10050001
-        amount = parseInt amount.toString().split('.')[0]
+        amount = Long.fromString amount.toString()
         amount:amount
         asset_id:asset.id
     
@@ -56,7 +66,6 @@ class Util
         price_string, base_asset, quote_asset
         needs_satoshi_conversion # do_precision_dance
     )->
-        throw new Error 'price is required' unless price_string
         throw new Error 'base_asset is required' unless base_asset
         throw new Error 'quote_asset is required' unless quote_asset
         ratio = Util.string_to_ratio128 price_string
@@ -112,35 +121,39 @@ class Util
                 order.market_index.order_price.base_asset_id
             when 'cover_order'
                 order.market_index.order_price.quote_asset_id
-        amount:order.state.balance
+        amount:Long.fromString ""+order.state.balance
     
     Util.asset_multiply_price=(asset, price)->
         if asset.asset_id is price.base
-            asset = BigInteger asset.amount
-            ratio = BigInteger price.ratio
-            result = asset.multiple ratio
+            asset = BigInteger ""+asset.amount
+            result = asset.multiply price.ratio
             result = result.divide REAL128_PRECISION
             if result.bitCount() >= 128
-                throw new Error "overflow #{asset} * #{ratio} = #{result} bits = #{result.bitCount()} >= 128"
+                throw new Error "overflow #{asset} * #{price.ratio} = #{result} bits = #{result.bitCount()} >= 128"
             
             amount: result
-            asset_id: ratio.quote_asset_id
+            asset_id: price.quote
         
         else if asset.asset_id is price.quote
-            amount = BigInteger asset.amount
+            amount = BigInteger ""+asset.amount
             amount = amount.multiply REAL128_PRECISION
-            ratio = BigInteger price.ratio
-            result = amount.divide ratio
+            result = amount.divide price.ratio
             if result.bitCount() >= 128
-                throw new Error "overflow #{asset} / #{ratio} = #{result} bits = #{result.bitCount()} >= 128"
+                throw new Error "overflow #{asset} / #{price.ratio} = #{result} bits = #{result.bitCount()} >= 128"
             
             amount: result
-            asset_id: ratio.base_asset_id
+            asset_id: price.base
         
         else
             throw new Error "Type mismatch multiplying assset #{asset} by price #{price}"
     
-    #ChainInterface.isSafeInteger_orThrow:(precision)->
+    Util.bigi_to_long=(bigi)->
+        unless BigInteger.isBigInteger bigi
+            throw new Error "Required BigInteger parameter"
+        throw new Error "Overflow" if bigi.bitCount() > 64
+        Long.fromString bigi.toString()
+    
+    #Util.isSafeInteger_orThrow:(number_string)->
     #    unless Number.isSafeInteger new Number number_string
     #        throw new Error "Number #{number_string} is too large"
     

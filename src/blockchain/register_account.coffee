@@ -1,9 +1,10 @@
 assert = require 'assert'
 ByteBuffer = require 'bytebuffer'
-{fp} = require '../common/fast_parser'
-{WithdrawCondition} = require './withdraw_condition'
 types = require './types'
 type_id = types.type_id
+
+{fp} = require '../common/fast_parser'
+{WithdrawCondition} = require './withdraw_condition'
 
 ###
 bts::blockchain::register_account_operation, 

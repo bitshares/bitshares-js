@@ -6,6 +6,7 @@
 {BlockchainAPI} = require '../blockchain/blockchain_api'
 {MemoData} = require '../blockchain/memo_data'
 q = require 'q'
+Long = (require 'bytebuffer').Long
 
 class ChainDatabase
 
@@ -312,7 +313,9 @@ class ChainDatabase
                 
                 if recipient is @relay_fee_address
                     if transaction.fee.asset_id is asset_id
-                        transaction.fee.amount += amount
+                        unless transaction.fee.amount
+                            transaction.fee.amount = Long.ZERO
+                        transaction.fee.amount = transaction.fee.amount.add amount
                         continue
                 
                 entries.push entry = {}
@@ -366,7 +369,7 @@ class ChainDatabase
                     )(entry, defer)
                 
                 entry.amount=
-                    amount: amount
+                    amount: amount.toString()
                     asset_id: asset_id
         
         unless has_from
@@ -400,7 +403,7 @@ class ChainDatabase
                     unless sender
                         console.log "WARN chain_database::_add_ledger_entries did not find balance record #{balance_id}"
                     entry.amount=
-                        amount: amount
+                        amount: amount.toString()
                         asset_id: asset_id
                     entry.memo = ""
                     entry.memo_from_account = null
@@ -443,20 +446,20 @@ class ChainDatabase
                     if asset_id is undefined
                         throw new Error "chain_database::_add_fee_entries did not find balance record #{balance_id}"
                         return
-                    balance = balances[asset_id] or 0
-                    balances[asset_id] = balance + amount
+                    balance = balances[asset_id] or Long.ZERO
+                    balances[asset_id] = balance.add amount
                 
                 if op.type is "deposit_op_type" and op.data.condition.type is "withdraw_signature_type"
                     amount = op.data.amount
                     asset_id = op.data.condition.asset_id
-                    balance = balances[asset_id] or 0
-                    balances[asset_id] = balance - amount
+                    balance = balances[asset_id] or Long.ZERO
+                    balances[asset_id] = balance.subtract amount
             
             fee_balance = for asset_id in Object.keys balances
                 balance = balances[asset_id]
                 continue if balance is 0
                 asset_id: parseInt asset_id
-                amount: balance
+                amount: balance.toString()
                 
             if fee_balance.length isnt 1
                 err = "chain_database::_add_fee_entries can't calc fee, transaction has more than one asset type in its remaning balance"

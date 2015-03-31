@@ -1,9 +1,9 @@
 assert = require 'assert'
 ByteBuffer = require 'bytebuffer'
-{fp} = require '../common/fast_parser'
-{PublicKey} = require '../ecc/key_public'
 types = require './types'
 
+{fp} = require '../common/fast_parser'
+{PublicKey} = require '../ecc/key_public'
 {Address} = require '../ecc/address'
 
 ###

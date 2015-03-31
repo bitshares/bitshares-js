@@ -149,7 +149,7 @@ class TransactionBuilder
         @transaction_record.ledger_entries.push ledger_entry =
             from_account: pay_from_ActiveKey.toBtsPublic()
             to_account: active_key.toBtsPublic()
-            amount: {amount:0, asset_id: 0}
+            amount: {amount:Long.ZERO, asset_id: 0}
             memo: "register " + account_to_register + (if as_delegate then " as a delegate" else "")
             memo_from_account:null
         
@@ -173,7 +173,7 @@ class TransactionBuilder
             #    LE.throw 'jslib_blockchain.account_retracted',[recipient.name]
             @wallet.getActiveKey recipient.name
         
-        unless amount and amount.amount > 0
+        unless amount and amount.amount.compare(Long.ZERO) > 0
             LE.throw 'jslib_Invalid amount', [amount]
         
         if memo?.length > BTS_BLOCKCHAIN_MAX_MEMO_SIZE
@@ -208,7 +208,7 @@ class TransactionBuilder
         @transaction_record.ledger_entries.push ledger_entry =
             from_account: payer.active_key
             to_account: recipientActivePublic.toBtsPublic()
-            amount: amount
+            amount: amount.toString()
             memo: memo
         if memo_sender isnt payerActivePublic.toBtsPublic()
             ledger_entry.memo_from_account = memo_sender
@@ -285,19 +285,19 @@ class TransactionBuilder
         if quantity_asset.asset_id isnt quote_price_asset.asset_id
             throw Error "Unmatched asset types"
         
-        sell_quantity = Util.to_ugly_asset(
+        quantity = Util.to_ugly_asset(
             quantity_string, quantity_asset
         )
-        ask_price = Util.to_ugly_price(
+        quote_price = Util.to_ugly_price(
             quote_price_string, quantity_asset, quote_price_asset
             _needs_satoshi_conversion = yes
         )
         
-        @_deduct_balance from_account.active_key, sell_quantity
+        @_deduct_balance from_account.active_key, quantity
         from_public = PublicKey.fromBtsPublic from_account.active_key
         ask = new Ask(
-            sell_quantity.amount
-            ask_price
+            quantity.amount
+            quote_price
             from_public.toBlockchainAddress()
         )
         @operations.push new Operation ask.type_id, ask
@@ -310,24 +310,27 @@ class TransactionBuilder
         quote_price_string
         quote_price_asset
     )->
-        buy_quantity = Util.to_ugly_asset(
+        quantity = Util.to_ugly_asset(
             quantity_string, quantity_asset
         )
-        pay_price = Util.to_ugly_price(
+        quote_price = Util.to_ugly_price(
             quote_price_string, quantity_asset, quote_price_asset
             _needs_satoshi_conversion = yes
         )
-        cost = if quantity_asset.asset_id is quote_price_asset.asset_id
-            buy_quantity
+        cost = if quantity_asset.id is quote_price_asset.id
+            quantity
         else
-            Util.asset_multple_price buy_quantity, pay_price
-        
-        throw new Error "Unlike assets" unless cost.asset_id is pay_price.quote
-        @_deduct_balance from_account.active_key, buy_quantity
+            cost = Util.asset_multiply_price quantity, quote_price
+            unless cost.asset_id is quote_price.quote
+                throw new Error "Unlike assets"
+            amount:Util.bigi_to_long cost.amount
+            asset_id:cost.asset_id
+            
+        @_deduct_balance from_account.active_key, cost
         from_public = PublicKey.fromBtsPublic from_account.active_key
         bid = new Bid(
-            buy_quantity.amount
-            pay_price
+            cost.amount
+            quote_price
             from_public.toBlockchainAddress()
         )
         @operations.push new Operation bid.type_id, bid
@@ -355,15 +358,16 @@ class TransactionBuilder
         
         price = order_object.order_price
         owner = order_object.owner
+        neg_balance = balance.amount.negate()
         switch order.type
             when 'ask_order'
-                ask = new Ask -1 * balance.amount, price, owner
+                ask = new Ask neg_balance, price, owner
                 @operations.push new Operation ask.type_id, ask
             when 'bid_order'
-                bid = new Bid -1 * balance.amount, price, owner
+                bid = new Bid neg_balance, price, owner
                 @operations.push new Operation bid.type_id, bid
             when 'short_order'
-                short = new Short -1 * balance.amount, price, owner
+                short = new Short neg_balance, price, owner
                 @operations.push new Operation short.type_id, short
             else
                 throw new Error "Unimplemented cancel for #{order}"
@@ -376,7 +380,10 @@ class TransactionBuilder
         unless @transaction_record.fee
             @transaction_record.fee=[]
         
-        @transaction_record.fee.push fee_asset
+        @transaction_record.fee.push
+            asset_id:fee_asset.asset_id
+            amount:fee_asset.amount.toString()
+        
         @_deduct_balance payer_account.active_key, fee_asset
     
     pay_collector_fee:(payer_account, recepient_account, fee_asset)->
@@ -504,17 +511,17 @@ class TransactionBuilder
                     console.log "ERROR: balance owner #{balance_owner} without matching private key",balance_record
                     continue
                 
-                continue if balance_amount <= 0
+                continue if balance_amount.compare(Long.ZERO) <= 0
                 continue if balance_asset_id isnt withdraw_asset_id
-                if amount_remaining > balance_amount
+                if amount_remaining.compare(balance_amount) > 0
                     withdraw = new Withdraw(
                         Address.fromString(balance_id).toBuffer()
                         balance_amount
                     )
                     @operations.push new Operation withdraw.type_id, withdraw
                     @required_signatures[public_key] = on
-                    amount_remaining -= balance_amount
-                    balance_record[1].balance -= balance_amount
+                    amount_remaining = amount_remaining.subtract balance_amount
+                    balance_record[1].balance = balance_record[1].balance.subtract balance_amount
                 else
                     withdraw = new Withdraw(
                         Address.fromString(balance_id).toBuffer()
@@ -522,13 +529,13 @@ class TransactionBuilder
                     )
                     @operations.push new Operation withdraw.type_id, withdraw
                     @required_signatures[public_key] = on
-                    amount_remaining = 0
-                    balance_record[1].balance = 0
+                    amount_remaining = Long.ZERO
+                    balance_record[1].balance = Long.ZERO
                     break
-            break if amount_remaining is 0
+            break if amount_remaining.compare(Long.ZERO) is 0
         
-        if amount_remaining isnt 0
-            available = amount_to_withdraw.amount - amount_remaining
+        if amount_remaining.compare(Long.ZERO) isnt 0
+            available = amount_to_withdraw.amount.subtract amount_remaining
             throw new LE 'jslib_wallet.insufficient_funds', amount_to_withdraw.amount, available
     
     get_extended_balance:(balance_record)-> # renamed from get_spendable_balance
@@ -591,6 +598,7 @@ class TransactionBuilder
                             balances_for_key = balance_records[public_key] = []
                             for balance in balances
                                 if balance[1].condition.type is "withdraw_signature_type"
+                                    balance[1].balance = Long.fromString ""+balance[1].balance
                                     balances_for_key.push balance
                         defer.resolve balance_records
                         return
@@ -624,7 +632,7 @@ class TransactionBuilder
                 account_names = {}
                 for key in Object.keys @outstanding_balances
                     rec = @outstanding_balances[key]
-                    continue if rec.amount > 0
+                    continue if rec.amount.compare(Long.ZERO) > 0
                     address = key.split('\t')[0]
                     account = @wallet.get_account_for_address address
                     unless account
@@ -644,19 +652,19 @@ class TransactionBuilder
                 address = key.split('\t')[0]
                 #account_rec = asset_id: amount.asset_id, amount: amount
                 rec = @outstanding_balances[key]
-                continue if rec.amount is 0
+                continue if rec.amount.compare(Long.ZERO) is 0
                 balance = {amount:rec.amount, asset_id: rec.asset_id}
                 account = @wallet.get_account_for_address address
                 unless account
                     throw new Error "Missing account for address #{address}"
                 
-                if rec.amount > 0
+                if rec.amount.compare(Long.ZERO) > 0
                     depositAddress = PublicKey.fromBtsPublic(
                         account.active_key
                     ).toBlockchainAddress() #@order_key_for_account...
                     @deposit depositAddress, balance
                 else
-                    balance.amount = -rec.amount
+                    balance.amount = rec.amount.negate()
                     @withdraw_to_transaction balance, account.name, key_balances[account.name]
             
             for k in Object.keys @outstanding_balances
@@ -701,8 +709,8 @@ class TransactionBuilder
     _deduct_balance:(public_key, amount)->
         unless public_key
             throw new Error "missing public key"
-        unless amount.amount >= 0
-            throw new Error "amount #{amount.amount} must be positive"
+        unless amount.amount.compare(Long.ZERO) >= 0
+            throw new Error "amount #{amount.amount.toString()} must be positive"
         
         @required_signatures[public_key] = on
         record = @outstanding_balances[public_key + "\t" + amount.asset_id]
@@ -710,23 +718,23 @@ class TransactionBuilder
             @outstanding_balances[public_key + "\t" + amount.asset_id] = record =
                 address:public_key
                 asset_id: amount.asset_id
-                amount: 0
-        record.amount -= amount.amount
+                amount: Long.ZERO
+        record.amount = record.amount.subtract amount.amount
         return
         
     # manually tweak an account's balance in this transaction
     _credit_balance:(public_key, amount)->
         unless public_key
             throw new Error "missing public key"
-        unless amount.amount >= 0
-            throw new Error "amount #{amount.amount} must be positive"
+        unless amount.amount.compare(Long.ZERO) >= 0
+            throw new Error "amount #{amount.amount.toString()} must be positive"
         record = @outstanding_balances[public_key + "\t" + amount.asset_id]
         unless record
             @outstanding_balances[public_key + "\t" + amount.asset_id] = record =
                 address:public_key
                 asset_id: amount.asset_id
-                amount: 0
-        record.amount += amount.amount
+                amount: Long.ZERO
+        record.amount = record.amount.add amount.amount
         return
 
 exports.TransactionBuilder = TransactionBuilder

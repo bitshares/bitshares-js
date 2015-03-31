@@ -1,8 +1,8 @@
 config = require './config'
 LE = require('../common/exceptions').LocalizedException
 q = require 'q'
+Long = (require 'bytebuffer').Long
 {Storage} = require '../common/storage'
-BigInteger = require 'bigi'
 
 ###* 
     Chain interface is generally the interface that is useful for both chain 
@@ -88,12 +88,13 @@ class ChainInterface
     ###* Default fee is in the base asset ID ###
     convert_base_asset_amount:(desired_asset_name_or_id = 0, amount)->
         throw new Error "amount is required" unless amount
-        throw new Error "amount should be an integer" if amount.amount
+        throw new Error "overflow" if amount > 9007199254740991
+        
         defer = q.defer()
         if desired_asset_name_or_id is 0
             defer.resolve
                 asset_id: 0
-                amount: amount
+                amount: new Long amount
             return defer.promise
         
         target_asset = @get_asset desired_asset_name_or_id
@@ -101,16 +102,16 @@ class ChainInterface
         q.all([target_asset, base_asset]).spread (target_asset, base_asset)=>
             if target_asset.id is 0
                 asset_id: 0
-                amount: amount
+                amount: new Long amount
             else
                 @blockchain_api.market_status(target_asset.symbol, base_asset.symbol).then (market)->
                     feed_price = market.current_feed_price
                     unless market.current_feed_price
                         asset_id: 0
-                        amount: amount
+                        amount: new Long amount
                     else
                         fee = (amount / base_asset.precision) * feed_price
                         asset_id: target_asset.id
-                        amount: Math.ceil fee * target_asset.precision
+                        amount: new Long Math.ceil fee * target_asset.precision
 
 exports.ChainInterface = ChainInterface

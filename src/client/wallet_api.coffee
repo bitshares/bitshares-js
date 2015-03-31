@@ -11,6 +11,7 @@
 {PublicKey} = require '../ecc/key_public'
 {Util} = require '../blockchain/market_util'
 config = require '../wallet/config'
+Long = (require 'bytebuffer').Long
 LE = require('../common/exceptions').LocalizedException
 secureRandom = require 'secure-random'
 hash = require '../ecc/hash'
@@ -663,8 +664,13 @@ class WalletAPI
             )=>
                 builder.pay_network_fee payer_account, network_fee
                 #console.log '... collector',JSON.stringify collector
-                if collector
-                    builder.pay_collector_fee payer_account, collector, light_fee
+                if(light_fee and light_fee.amount.compare(Long.ZERO)>0)
+                    unless collector
+                        console.log "WARN: config.json, light_relay_fee specified but relay_account_name is missing"
+                        # Pay the network fee so the transaction will submit
+                        builder.pay_network_fee payer_account, light_fee
+                    else
+                        builder.pay_collector_fee payer_account, collector, light_fee
                 
                 builder.finalize().then ()=>
                     

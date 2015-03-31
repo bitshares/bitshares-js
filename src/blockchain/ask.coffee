@@ -1,9 +1,9 @@
 assert = require 'assert'
 ByteBuffer = require 'bytebuffer'
+Long = ByteBuffer.Long
+
 {fp} = require '../common/fast_parser'
-BigInteger = require 'bigi'
 {Address} = require '../ecc/address'
-{hex2dec} = require '../common/hex2dec'
 {Util} = require './market_util'
 
 ###
@@ -23,6 +23,8 @@ bts::blockchain::ask_operation, (amount)(ask_index)
 class Ask
 
     constructor: (@amount, @order_price, @owner) ->
+        unless Long.isLong @amount
+            throw new Error "Amount must be of type Long"
         @type_name = "ask_op_type"
         @type_id = 13
     
@@ -49,7 +51,7 @@ class Ask
     Ask.fromJson= (o)->
         if o.type isnt "ask_order"
             throw new Error "Not a ask_order: #{o.type}"
-        amount = ByteBuffer.Long.fromString ""+o.state.balance
+        amount = Long.fromString ""+o.state.balance
         p = o.market_index.order_price
         order_price = Util.fromJson_Price p
         owner = Address.fromString(o.market_index.owner).toBuffer()
