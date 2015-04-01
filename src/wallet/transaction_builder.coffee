@@ -389,6 +389,12 @@ class TransactionBuilder
     pay_collector_fee:(payer_account, recepient_account, fee_asset)->
         unless payer_account.active_key
             throw new Error "expecting payer to be an account object"
+        unless @transaction_record.fee
+            @transaction_record.fee=[]
+        
+        @transaction_record.fee.push
+            asset_id:fee_asset.asset_id
+            amount:fee_asset.amount.toString()
         
         @deposit_asset payer_account, recepient_account, fee_asset
     

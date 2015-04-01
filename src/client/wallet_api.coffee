@@ -625,6 +625,9 @@ class WalletAPI
         ).then (result)->
             result
     
+    account_order_list:(account_name, limit)->
+        @market_order_list "", "", limit, account_name
+    
     market_cancel_order:(order_id)->
         LE.throw "jslib_wallet.must_be_opened" unless @wallet
         @blockchain_api.get_market_order(order_id).then (order)=>
@@ -671,7 +674,7 @@ class WalletAPI
                 
                 builder.finalize().then ()=>
                     
-                    console.log '... transaction\t'+builder._transaction().toBuffer().toString 'hex'
+                    #console.log '... transaction\t'+builder._transaction().toBuffer().toString 'hex'
                     
                     builder.sign_transaction()
                     record = builder.get_transaction_record()

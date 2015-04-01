@@ -1,7 +1,7 @@
 module.exports=
     rpc_hide: #{}
         ## {} means hide nothing
-        ##hide_all:on
+        hide_all:on
         get_info: on
         get_config: on
         wallet_create: on #don't log password and brainkey

@@ -295,102 +295,68 @@ class ChainDatabase
             @_storage_balanceid_readonly balance_id_map
             return
     
-    _add_ledger_entries:(transaction, account_address, aes_root, balanceid_readonly)->
+    summarize_op_type:(type)->
+        if /_op_type$/.test type
+            summary = type.substring 0, type.length - "_op_type".length
+            summary.toUpperCase()
+        else
+            ""
+    
+    _add_ledger_entries:(
+        transaction, account_address
+        aes_root, balanceid_readonly
+    )->
         sender = null
         recipient = null
         balance_id = null
         transaction.ledger_entries = entries = []
         account_promises = []
         has_from = no
+        
+        total_by_asset=(map, asset_id, amount)->
+            total = map[asset_id] or Long.ZERO
+            map[asset_id] = total.add amount
+            
+        deposits = {}
         for op in transaction.trx.operations
+            memo = undefined
+            amount = undefined
             if (
                 op.type is "deposit_op_type" and 
-                op.data.condition.type is "withdraw_signature_type"
+                op.data.condition.type is "withdraw_signature_type" and
+                # fees are implied so simply exclude relay_fee_address
+                op.data.condition.data.owner isnt @relay_fee_address
             )
-                amount = op.data.amount
+                amount = Long.fromString ""+op.data.amount
                 asset_id = op.data.condition.asset_id
                 recipient = op.data.condition.data.owner
-                
-                if recipient is @relay_fee_address
-                    if transaction.fee.asset_id is asset_id
-                        unless transaction.fee.amount
-                            transaction.fee.amount = Long.ZERO
-                        transaction.fee.amount = transaction.fee.amount.add amount
-                        continue
-                
-                entries.push entry = {}
-                
-                if op.data.condition.data.memo
-                    try 
-                        memo_data = @_decrypt_memo(
-                            op.data.condition.data.memo
-                            account_address, aes_root
-                        )
-                        if memo_data
-                            has_from = yes
-                            memo_from = memo_data.from.toBtsPublic()
-                            entry.from_account = memo_from
-                            defer = q.defer()
-                            account_promises.push defer.promise
-                            ((entry, defer)=>
-                                @wallet_db.get_chain_account(
-                                    entry.from_account, @blockchain_api
-                                ).then (account) ->
-                                    entry.from_account = account.name if account
-                                    defer.resolve()
-                                    return
-                                , ()->
-                                    #unknown account
-                                    defer.resolve()
-                                    return
-                            )(entry, defer)
-                            entry.memo = memo_data.message.toString()
-                            entry.memo_from_account = memo_from
-                    catch e
-                        #console.log 'chain_database._decrypt_memo',e
-                
-                entry.to_account = recipient
-                if recipient
-                    defer = q.defer()
-                    account_promises.push defer.promise
-                    ((entry, defer)=>
-                        @wallet_db.get_chain_account(
-                            entry.to_account, @blockchain_api
-                        ).then (account) ->
-                            entry.to_account = account.name if account
-                            #console.log '... entry,account', entry,account
-                            defer.resolve()
-                            return
-                        , (ex)->
-                            #unknown account
-                            #console.log ex,ex.stack
-                            defer.resolve()
-                            return
-                    )(entry, defer)
-                
-                entry.amount=
-                    amount: amount.toString()
-                    asset_id: asset_id
-        
-        unless has_from
-            for op in transaction.trx.operations
-                if op.type is "withdraw_op_type"
-                    balance_id = op.data.balance_id
-                    sender = balanceid_readonly[balance_id]?.owner
-                    asset_id = balanceid_readonly[balance_id]?.asset_id
-                    amount = op.data.amount
-                    entries.push entry = {}
-                    entry.from_account = sender
-                    entry.to_account = ""
-                    if sender
+                memo = op.data.condition.data.memo
+            
+            else if op.type is "ask_op_type"
+                amount = Long.fromString ""+op.data.amount
+                asset_id = op.data.ask_index.order_price.base_asset_id
+                recipient = op.data.ask_index.owner
+            
+            continue unless amount
+            total_by_asset deposits, asset_id, amount
+            entries.push entry = {}
+            
+            if memo
+                try 
+                    memo_data = @_decrypt_memo(
+                        memo
+                        account_address, aes_root
+                    )
+                    if memo_data
+                        has_from = yes
+                        memo_from = memo_data.from.toBtsPublic()
+                        entry.from_account = memo_from
                         defer = q.defer()
                         account_promises.push defer.promise
                         ((entry, defer)=>
                             @wallet_db.get_chain_account(
                                 entry.from_account, @blockchain_api
                             ).then (account) ->
-                                #console.log '... entry.from_account',entry.from_account
-                                #console.log '... account',account
                                 entry.from_account = account.name if account
                                 defer.resolve()
                                 return
@@ -399,14 +365,100 @@ class ChainDatabase
                                 defer.resolve()
                                 return
                         )(entry, defer)
-                    
-                    unless sender
-                        console.log "WARN chain_database::_add_ledger_entries did not find balance record #{balance_id}"
-                    entry.amount=
-                        amount: amount.toString()
-                        asset_id: asset_id
-                    entry.memo = ""
-                    entry.memo_from_account = null
+                        entry.memo = memo_data.message.toString()
+                        entry.memo_from_account = memo_from
+                catch e
+                    #console.log 'chain_database._decrypt_memo',e
+            else
+                entry.memo = @summarize_op_type op.type
+            
+            entry.to_account = recipient
+            if recipient
+                defer = q.defer()
+                account_promises.push defer.promise
+                ((entry, defer)=>
+                    @wallet_db.get_chain_account(
+                        entry.to_account, @blockchain_api
+                    ).then (account) ->
+                        entry.to_account = account.name if account
+                        #console.log '... entry,account', entry,account
+                        defer.resolve()
+                        return
+                    , (ex)->
+                        #unknown account
+                        #console.log ex,ex.stack
+                        defer.resolve()
+                        return
+                )(entry, defer)
+            
+            entry.amount=
+                amount: amount.toString()
+                asset_id: asset_id
+        
+        withdraws = {}
+        for op in transaction.trx.operations
+            amount = sender = undefined
+            if op.type is "withdraw_op_type"
+                balance_id = op.data.balance_id
+                sender = balanceid_readonly[balance_id]?.owner
+                asset_id = balanceid_readonly[balance_id]?.asset_id
+                amount = Long.fromString ""+op.data.amount
+            else if op.type is "bid_op_type"
+                # negate back to positive
+                amount = (Long.fromString ""+op.data.amount).negate()
+                asset_id = op.data.bid_index.order_price.quote_asset_id
+                sender = op.data.bid_index.owner
+            
+            continue unless amount
+            total_by_asset withdraws, asset_id, amount
+            entries.push entry = {}
+            entry.from_account = sender
+            entry.to_account = ""
+            if entry.from_account
+                defer = q.defer()
+                account_promises.push defer.promise
+                ((entry, defer)=>
+                    @wallet_db.get_chain_account(
+                        entry.from_account, @blockchain_api
+                    ).then (account) ->
+                        #console.log '... entry.from_account',entry.from_account
+                        #console.log '... account',account
+                        entry.from_account = account.name if account
+                        defer.resolve()
+                        return
+                    , ()->
+                        #unknown account
+                        defer.resolve()
+                        return
+                )(entry, defer)
+            
+            unless sender
+                console.log "WARN chain_database::_add_ledger_entries did not find balance record #{balance_id}"
+            entry.amount=
+                amount: amount.toString()
+                asset_id: asset_id
+            entry.memo = @summarize_op_type op.type
+            entry.memo_from_account = null
+        
+        subtract_by_asset=(asset1, asset2)->
+            map={}
+            for asset_id in Object.keys asset1
+                total_by_asset map, asset_id, asset1[asset_id]
+            for asset_id in Object.keys asset2
+                total_by_asset map, asset_id, asset2[asset_id].negate()
+            for asset_id in Object.keys map
+                total = map[asset_id]
+                delete map[asset_id] if total.compare(Long.ZERO) is 0
+            map
+        
+        fees = subtract_by_asset withdraws, deposits
+        if (keys = Object.keys fees).length is 1
+            asset_id=keys[0]
+            transaction.fee=
+                amount:fees[asset_id].toString()
+                asset_id:asset_id
+        else
+            console.error "ERROR: transaction contains #{(Object.keys fees).length} asset fee balances",fees,transaction
         
         q.all account_promises
     
@@ -434,41 +486,6 @@ class ChainDatabase
         #console.log '... owner2', secret_private.toPublicKey().toBtsPublic()
         #console.log '... memo_from_account: account.name', account.name
         ###
-    
-    _add_fee_entries:(transaction, balanceid_readonly)->
-        transaction.fee = (->
-            balances = {}
-            for op in transaction.trx.operations
-                if op.type is "withdraw_op_type"
-                    amount = op.data.amount
-                    balance_id = op.data.balance_id
-                    asset_id = balanceid_readonly[balance_id]?.asset_id
-                    if asset_id is undefined
-                        throw new Error "chain_database::_add_fee_entries did not find balance record #{balance_id}"
-                        return
-                    balance = balances[asset_id] or Long.ZERO
-                    balances[asset_id] = balance.add amount
-                
-                if op.type is "deposit_op_type" and op.data.condition.type is "withdraw_signature_type"
-                    amount = op.data.amount
-                    asset_id = op.data.condition.asset_id
-                    balance = balances[asset_id] or Long.ZERO
-                    balances[asset_id] = balance.subtract amount
-            
-            fee_balance = for asset_id in Object.keys balances
-                balance = balances[asset_id]
-                continue if balance is 0
-                asset_id: parseInt asset_id
-                amount: balance.toString()
-                
-            if fee_balance.length isnt 1
-                err = "chain_database::_add_fee_entries can't calc fee, transaction has more than one asset type in its remaning balance"
-                console.log err, transaction, balances
-                return
-            
-            fee_balance[0]
-        )()
-        return
     
     ###* @return promise [transaction] ###
     account_transaction_history:(
@@ -505,6 +522,13 @@ class ChainDatabase
                     balance_id = op.data.balance_id
                     if asset_id is balanceid_readonly[balance_id]?.asset_id
                         return yes
+                
+                if op.type is "ask_op_type"
+                    return asset_id is op.data.ask_index.order_price.base_asset_id
+                
+                if op.type is "bid_op_type"
+                    return asset_id is op.data.bid_index.order_price.quote_asset_id
+            
             return no
         
         history = []
@@ -551,7 +575,6 @@ class ChainDatabase
         for transaction in history
             account_address = transaction._tmp_account_address
             delete transaction._tmp_account_address
-            @_add_fee_entries transaction, balanceid_readonly
             add_ledger_promises.push @_add_ledger_entries(
                 transaction, account_address
                 aes_root, balanceid_readonly
