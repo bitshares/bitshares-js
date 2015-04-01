@@ -371,9 +371,6 @@ class WalletAPI
         LE.throw "jslib_wallet.must_be_opened" unless @wallet
         @wallet.dump_account_private_key account_name, key_type
      
-    account_balance_extended:(account_name)->
-        @account_balance account_name, extended = true
-    
     ###* @return {promise} ###
     account_balance:(account_name, extended = false)->
         LE.throw "jslib_wallet.must_be_opened" unless @wallet
@@ -385,8 +382,8 @@ class WalletAPI
                 totals_by_account[account_name] = totals
             
             amount = totals[asset_id]
-            amount = 0 unless amount
-            totals[asset_id] = amount + balance
+            amount = Long.ZERO unless amount
+            totals[asset_id] = amount.add balance
         
         by_account=(account_name)=>
             defer = q.defer()
