@@ -36,12 +36,22 @@ class WalletAPI
         @login_guest()
     
     login_guest:->
-        if WalletDb.exists "Guest"
-            @open "Guest"
-            @unlock 9999999, "guestpass", guest = yes
-            return
+        if window.bts.guest_wallet
+            WalletDb.delete "Guest"
+        else
+            if WalletDb.exists "Guest"
+                @open "Guest"
+                @unlock 9999999, "guestpass", guest = yes
+                return
         
-        rnd = secureRandom.randomBuffer 32
+        rnd = if window.bts.guest_wallet
+            console.log '... INFO guest_wallet',window.bts.guest_wallet    
+            h = hash.sha256 window.bts.guest_wallet
+            delete window.bts.guest_wallet
+            h
+        else
+            secureRandom.randomBuffer 32
+        
         epk = ExtendedAddress.fromSha512_zeroChainCode hash.sha512 rnd
         @_open_from_wallet_db WalletDb.create(
             "Guest", epk, rnd.toString('hex').substring 0, 10
@@ -60,16 +70,6 @@ class WalletAPI
     open: (wallet_name = "default")->
         if @current_wallet_name is wallet_name
             return
-        
-        #if wallet_name is "default"
-        #    fast_test_password =  "NoPassword!"
-        #    pw = hash.sha512 hash.sha512 fast_test_password
-        #    fast_test_wallet = pw.toString('hex').substring 0,32
-        #    if WalletDb.exists fast_test_wallet
-        #        wallet_db = WalletDb.open fast_test_wallet, @events
-        #        @_open_from_wallet_db wallet_db
-        #        @unlock 9999999, fast_test_password
-        #        return
         
         wallet_db = WalletDb.open wallet_name, @events
         unless wallet_db
@@ -90,7 +90,7 @@ class WalletAPI
         Wallet.create wallet_name, new_password, brain_key, true, @events
         @open wallet_name
         @unlock config.BTS_WALLET_DEFAULT_UNLOCK_TIME_SEC, new_password
-        # Technically online_wallet_2015_03_14 only needed on recovery
+        # Find accounts created prior to March 14
         @chain_database.sync_accounts(
             @wallet.aes_root, 1, algorithm = 'online_wallet_2015_03_14'
         )
@@ -484,6 +484,7 @@ class WalletAPI
         quote_symbol
         price_limit_string # price_limit
     )->
+        throw new Error "Cover is not implemented, do not submit a short"
         LE.throw "jslib_wallet.must_be_opened" unless @wallet
         q.all([
             @wallet.get_chain_account from_account_name, refresh=false

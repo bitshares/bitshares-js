@@ -464,7 +464,7 @@ class WalletDb
     
     fake_guest_account:(aes_root, rnd)->
         owner_key = PrivateKey.fromBuffer rnd
-        active_key = PrivateKey.fromBuffer rnd
+        active_key = PrivateKey.fromBuffer hash.sha256 rnd
         [account, active, owner] = @_new_account(
             aes_root, "Guest", owner_key
             active_key, private_data=null
