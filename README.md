@@ -1,10 +1,11 @@
 # BitShares-JS #
 
-JavaScript library for the BitShares platform.  This does not contain a graphical user interface.
+JavaScript library for the BitShares platform.  This repository does not contain a graphical user interface.  
 
 ## Features ##
 
-Run the Mocha unit tests and view sample code from your browser.  Here is a [live](http://dev.jcalfee.info/bts/mocha) deployment.
+# Enables the the BitShares platform to run from the [web](https://wallet.bitshares.org).
+# Browser compatibility [tests](http://dev.jcalfee.info/bts/mocha).
 
 ## INSTALL ##
 
