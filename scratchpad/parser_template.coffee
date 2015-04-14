@@ -15,7 +15,7 @@ class TransactionNotice
         
     TransactionNotice.fromByteBuffer= (b) ->
         throw 'Not Implemented'
-        new TransactionNotice(field1)
+        new TransactionNotice field1
         
     appendByteBuffer: (b) ->
         throw 'Not Implemented'
@@ -24,8 +24,8 @@ class TransactionNotice
     ### <helper_functions> ###
 
     toByteBuffer: () ->
-        b = new ByteBuffer(ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN)
-        @appendByteBuffer(b)
+        b = new ByteBuffer ByteBuffer.DEFAULT_CAPACITY, ByteBuffer.LITTLE_ENDIAN
+        @appendByteBuffer b
         b.copy 0, b.offset
     
     toBuffer: ->

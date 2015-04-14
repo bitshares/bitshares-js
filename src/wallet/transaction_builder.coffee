@@ -3,6 +3,7 @@
 {BlockchainAPI} = require '../blockchain/blockchain_api'
 {Withdraw} = require '../blockchain/withdraw'
 {Deposit} = require '../blockchain/deposit'
+{Cover} = require '../blockchain/cover'
 {Short} = require '../blockchain/short'
 {Ask} = require '../blockchain/ask'
 {Bid} = require '../blockchain/bid'
@@ -227,54 +228,6 @@ class TransactionBuilder
             recipient_active_key: recipientActivePublic
         ###
     
-    submit_short:(
-        from_account
-        short_collateral_string
-        collateral_asset
-        interest_rate_string
-        quote_asset
-        price_limit_string
-    )->
-        interest_rate_price = (->
-            price = Util.to_ugly_price(
-                interest_rate_string, collateral_asset, quote_asset
-                _needs_satoshi_conversion = no
-            )
-            price.ratio = price.ratio.divide(
-                BigInteger "100"
-            )
-            price
-        )()
-        limit_price = Util.to_ugly_price(
-            price_limit_string, collateral_asset, quote_asset
-            _needs_satoshi_conversion = yes
-        )
-        if (
-            limit_price.quote_asset_id isnt undefined and
-            limit_price.base_asset_id isnt undefined
-        ) and not (
-            interest_rate_price.quote_asset_id is limit_price.quote_asset_id and
-            interest_rate_price.base_asset_id is limit_price.base_asset_id
-        )
-            throw new Error(
-                "Interest rate and price limit do not have compatible units."
-                interest_rate_price
-                limit_price
-            )
-        short_collateral = Util.to_ugly_asset(
-            short_collateral_string, collateral_asset
-        )
-        @_deduct_balance from_account.active_key, short_collateral
-        from_public = PublicKey.fromBtsPublic from_account.active_key
-        short = new Short(
-            short_collateral.amount
-            interest_rate_price
-            from_public.toBlockchainAddress()
-            limit_price
-        )
-        @operations.push new Operation short.type_id, short
-        return
-    
     submit_ask:(
         from_account
         quantity_string
@@ -334,6 +287,94 @@ class TransactionBuilder
             from_public.toBlockchainAddress()
         )
         @operations.push new Operation bid.type_id, bid
+        return
+    
+    submit_short:(
+        from_account
+        short_collateral_string
+        collateral_asset
+        interest_rate_string
+        quote_asset
+        price_limit_string
+    )->
+        interest_rate_price = (->
+            price = Util.to_ugly_price(
+                interest_rate_string, collateral_asset, quote_asset
+                _needs_satoshi_conversion = no
+            )
+            price.ratio = price.ratio.divide(
+                BigInteger "100"
+            )
+            price
+        )()
+        limit_price = Util.to_ugly_price(
+            price_limit_string, collateral_asset, quote_asset
+            _needs_satoshi_conversion = yes
+        )
+        if (
+            limit_price.quote_asset_id isnt undefined and
+            limit_price.base_asset_id isnt undefined
+        ) and not (
+            interest_rate_price.quote_asset_id is limit_price.quote_asset_id and
+            interest_rate_price.base_asset_id is limit_price.base_asset_id
+        )
+            throw new Error(
+                "Interest rate and price limit do not have compatible units."
+                interest_rate_price
+                limit_price
+            )
+        short_collateral = Util.to_ugly_asset(
+            short_collateral_string, collateral_asset
+        )
+        @_deduct_balance from_account.active_key, short_collateral
+        from_public = PublicKey.fromBtsPublic from_account.active_key
+        short = new Short(
+            short_collateral.amount
+            interest_rate_price
+            from_public.toBlockchainAddress()
+            limit_price
+        )
+        @operations.push new Operation short.type_id, short
+        return
+    
+    ###* A {cover_amount} of zero will cover the entire order balance ###
+    submit_cover:(from_account, cover_amount, order)->
+        unless order.type is "cover_order"
+            throw new Error "#{order.type} isnt cover_order"
+        
+        owner_account = @wallet.get_account_for_address(
+            order.market_index.owner
+        )
+        unless owner_account
+            throw new Error "Unable to find account for address #{order.market_index.owner}"
+        
+        @required_signatures[owner_account.active_key] = on
+        unless order.market_index.order_price.quote_asset_id is cover_amount.asset_id
+            throw new Error "Order balance and cover payment must have same asset type"
+        
+        apr_owed_asset = Util.get_interest_owed_asset order
+        order_balance = Util.get_balance_asset order
+        balance_amount = order_balance.amount
+        balance_amount = balance_amount.add Util.bigi_to_long apr_owed_asset.amount
+        unless (
+            cover_amount.amount.compare(balance_amount) > 0 or
+            cover_amount.amount.compare(Long.ZERO) is 0
+        )
+            cover_amount.amount = balance_amount
+        
+        if cover_amount.amount.compare(balance_amount) is 0
+            @_credit_balance from_account.active_key, {
+                amount: Long.fromString ""+order.collateral
+                asset_id: 0
+            }
+        @_deduct_balance from_account.active_key, cover_amount
+        market_index = order.market_index
+        p = market_index.order_price
+        order_price = Util.fromJson_Price p
+        owner = Address.fromString(market_index.owner).toBuffer()
+        
+        cover = new Cover cover_amount.amount, order_price, owner
+        @operations.push new Operation cover.type_id, cover
         return
     
     cancel_order:(order)->
@@ -558,10 +599,10 @@ class TransactionBuilder
                         max_claimable = vc.original_balance
                     else
                         if at_time > vc_start
-                            elapsed_sec = (at_time = vc_start)
+                            elapsed_sec = (at_time - vc_start)
                             if elapsed_sec <= 0 or elapsed_time >= vc.duration
                                 throw new Error "elapsed '#{elapsed_sec}' is out of bounds"
-                            max_claimable = (vc.original_balance * elapsed_sec) / vc.duration
+                            max_claimable = (vc.original_balance * elapsed_sec) / vc.duration #upgrade 128bit
                             if max_claimable < 0 or max_claimable >= vc.original_balance
                                 throw new Error "max_claimable '#{max_claimable}; is out of bounds"
                     

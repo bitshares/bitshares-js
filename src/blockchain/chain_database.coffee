@@ -120,6 +120,9 @@ class ChainDatabase
                 found = no
                 for i in [0...batch_result.length] by 1
                     account = batch_result[i]
+                    console.log '... chaindb sync accounts',next_accounts[i],(
+                        if account then 'found' else 'not found'
+                    )
                     continue unless account
                     next_account = next_accounts[i]
                     # update the account index, create private key entries etc...
@@ -158,10 +161,14 @@ class ChainDatabase
             defer = q.defer()
             ((blocknum_hash)=>
                 @blockchain_api.get_block_hash(blocknum_hash[0]).then (hash)=>
-                    if blocknum_hash[1] and hash.previous isnt blocknum_hash[1].previous
-                        console.log "INFO, fork detected",hash,blocknum_hash[1]
-                        defer.resolve 1
-                        return
+                    try
+                        if blocknum_hash[1] and hash.id isnt blocknum_hash[1].id
+                            console.log "INFO, fork detected",blocknum_hash[1],hash.id
+                            defer.resolve 1
+                            return
+                    catch
+                        console.log "ERROR testing hash id"
+                    
                     # no fork, so jump to the head
                     @rpc.request('get_info').then (info)=>
                         info = info.result
@@ -463,11 +470,13 @@ class ChainDatabase
         q.all account_promises
     
     _decrypt_memo:(titan_memo, account_address, aes_root)->
+        account = @wallet_db.get_account_for_address account_address
+        return null unless account
+        active_private = @wallet_db.getActivePrivate aes_root, account.name 
+        return null unless active_private
+        
         otk_public = PublicKey.fromBtsPublic titan_memo.one_time_key
         ciphertext = titan_memo.encrypted_memo_data
-        
-        account = @wallet_db.get_account_for_address account_address
-        active_private = @wallet_db.getActivePrivate aes_root, account.name 
         
         memo_data = (->
             aes = active_private.sharedAes otk_public

@@ -10,7 +10,9 @@
 {Short} = require '../blockchain/short'
 {PublicKey} = require '../ecc/key_public'
 {Util} = require '../blockchain/market_util'
-config = require '../wallet/config'
+wallet_config = require '../wallet/config'
+config = require '../config'
+
 Long = (require 'bytebuffer').Long
 LE = require('../common/exceptions').LocalizedException
 secureRandom = require 'secure-random'
@@ -36,7 +38,7 @@ class WalletAPI
         @login_guest()
     
     login_guest:->
-        if window.bts.guest_wallet
+        if config.guest_wallet
             WalletDb.delete "Guest"
         else
             if WalletDb.exists "Guest"
@@ -44,10 +46,9 @@ class WalletAPI
                 @unlock 9999999, "guestpass", guest = yes
                 return
         
-        rnd = if window.bts.guest_wallet
-            console.log '... INFO guest_wallet',window.bts.guest_wallet    
-            h = hash.sha256 window.bts.guest_wallet
-            delete window.bts.guest_wallet
+        rnd = if config.guest_wallet
+            h = hash.sha256 config.guest_wallet
+            delete config.guest_wallet
             h
         else
             secureRandom.randomBuffer 32
@@ -60,7 +61,7 @@ class WalletAPI
         )
         @current_wallet_name = "Guest"
         @unlock 9999999, "guestpass", guest=yes
-        @wallet.wallet_db.fake_guest_account @wallet.aes_root, rnd
+        @wallet.wallet_db.fake_account @wallet.aes_root, rnd
         @wallet.wallet_db.save()
         return
     
@@ -89,7 +90,7 @@ class WalletAPI
         brain_key = undefined if brain_key is ""
         Wallet.create wallet_name, new_password, brain_key, true, @events
         @open wallet_name
-        @unlock config.BTS_WALLET_DEFAULT_UNLOCK_TIME_SEC, new_password
+        @unlock wallet_config.BTS_WALLET_DEFAULT_UNLOCK_TIME_SEC, new_password
         # Find accounts created prior to March 14
         @chain_database.sync_accounts(
             @wallet.aes_root, 1, algorithm = 'online_wallet_2015_03_14'
@@ -107,7 +108,7 @@ class WalletAPI
         return
     
     unlock:(
-        timeout_seconds = config.BTS_WALLET_DEFAULT_UNLOCK_TIME_SEC
+        timeout_seconds = wallet_config.BTS_WALLET_DEFAULT_UNLOCK_TIME_SEC
         password
         guest=no
     )->
@@ -474,47 +475,6 @@ class WalletAPI
             )
     
     ### Example to create USD from XTS at a penney a share:
-        wallet_market_submit_short delegate0 200 XTS 1 USD 0.01
-    ###
-    market_submit_short:(
-        from_account_name
-        short_collateral_string # quantity
-        collateral_symbol
-        interest_rate_string # apr
-        quote_symbol
-        price_limit_string # price_limit
-    )->
-        throw new Error "Cover is not implemented, do not submit a short"
-        LE.throw "jslib_wallet.must_be_opened" unless @wallet
-        q.all([
-            @wallet.get_chain_account from_account_name, refresh=false
-            @chain_interface.get_asset collateral_symbol
-            @chain_interface.get_asset quote_symbol
-        ]).spread (
-            from_account
-            collateral_asset
-            quote_asset
-        )=>
-            unless collateral_asset
-                LE.throw 'jslib_wallet.unknown_asset',[collateral_symbol]
-            unless quote_asset
-                LE.throw 'jslib_wallet.unknown_asset',[quote_symbol]
-            
-            builder = @_transaction_builder()
-            builder.submit_short(
-                from_account
-                short_collateral_string
-                collateral_asset
-                interest_rate_string
-                quote_asset
-                price_limit_string
-            )
-            @_finalize_and_send(
-                builder, from_account, collateral_symbol
-            ).then (record)->
-                record
-    
-    ### Example to create USD from XTS at a penney a share:
         wallet_market_submit_ask delegate0 100 XTS 0.01 USD
         
         ask(0d)hexmap: "            TyLeAmount                      Order price             Owner                                   ..."
@@ -534,7 +494,7 @@ class WalletAPI
             1
         ).then (highest_bid_price)=>
             #result = result[0]
-            console.log '... allow_ask_under_5_percent highest_bid_price', ask_price_string,highest_bid_price
+            #console.log '... highest_bid_price',ask_price_string,JSON.stringify highest_bid_price
             #if( ask_price < highest_bid_price * 0.95 )
             #{
             # FC_THROW_EXCEPTION(stupid_order, "You are attempting to ask at more than 5% below the buy price. "
@@ -583,7 +543,7 @@ class WalletAPI
             1
         ).then (highest_pay_price)=>
             #result = result[0]
-            console.log '... allow_pay_over_5_percent highest_pay_price', quote_price_string,highest_pay_price
+            #console.log '... highest_pay_price',quote_price_string,JSON.stringify highest_pay_price
             #if( pay_price > highest_pay_price * 1.05 )
             #{
             # FC_THROW_EXCEPTION(stupid_order, "You are attempting to bid at more than 5% above the sell price. "
@@ -616,18 +576,69 @@ class WalletAPI
                     builder, from_account, quantity_symbol
                 ).then (record)->
                     record
+        ### Example to create USD from XTS at a penney a share:
+        wallet_market_submit_short delegate0 200 XTS 1 USD 0.01
+    ###
+    market_submit_short:(
+        from_account_name
+        short_collateral_string # quantity
+        collateral_symbol
+        interest_rate_string # apr
+        quote_symbol
+        price_limit_string # price_limit
+    )->
+        LE.throw "jslib_wallet.must_be_opened" unless @wallet
+        q.all([
+            @wallet.get_chain_account from_account_name, refresh=false
+            @chain_interface.get_asset collateral_symbol
+            @chain_interface.get_asset quote_symbol
+        ]).spread (
+            from_account
+            collateral_asset
+            quote_asset
+        )=>
+            unless collateral_asset
+                LE.throw 'jslib_wallet.unknown_asset',[collateral_symbol]
+            unless quote_asset
+                LE.throw 'jslib_wallet.unknown_asset',[quote_symbol]
+            
+            builder = @_transaction_builder()
+            builder.submit_short(
+                from_account
+                short_collateral_string
+                collateral_asset
+                interest_rate_string
+                quote_asset
+                price_limit_string
+            )
+            @_finalize_and_send(
+                builder, from_account, collateral_symbol
+            ).then (record)->
+                record
     
-    market_order_list:(base_symbol, quantity_symbol, limit, account_name)->
-        active_key = @wallet.lookup_active_key account_name
-        return [] unless active_key
-        active = PublicKey.fromBtsPublic active_key
-        @blockchain_api.list_address_orders(
-            base_symbol, quantity_symbol, active.toBtsAddy(), limit
-        ).then (result)->
-            result
-    
-    account_order_list:(account_name, limit)->
-        @market_order_list "", "", limit, account_name
+    market_cover:(from_account_name, quantity, quantity_symbol, order_id)->
+        ((quantity, order_id, builder)=>
+            q.all([
+                @chain_interface.get_asset quantity_symbol
+                @wallet.get_local_account from_account_name
+                @blockchain_api.get_market_order order_id
+            ]).spread (
+                quantity_asset
+                from_account
+                order
+            )=>
+                unless quantity_asset
+                    LE.throw 'jslib_blockchain.unknown_asset', [quantity_asset]
+                
+                quantity_amount = Util.to_ugly_asset quantity, quantity_asset
+                builder.submit_cover from_account, quantity_amount, order
+                @_finalize_and_send(
+                    builder, from_account, quantity_asset.asset_id
+                ).then (record)->
+                    record
+        
+        )(quantity, order_id, @_transaction_builder())
+
     
     market_cancel_order:(order_id)->
         LE.throw "jslib_wallet.must_be_opened" unless @wallet
@@ -641,6 +652,18 @@ class WalletAPI
                 builder, owner_account, balance.asset_id
             ).then (record)->
                 record
+        
+    market_order_list:(base_symbol, quantity_symbol, limit, account_name)->
+        active_key = @wallet.lookup_active_key account_name
+        return [] unless active_key
+        active = PublicKey.fromBtsPublic active_key
+        @blockchain_api.list_address_orders(
+            base_symbol, quantity_symbol, active.toBtsAddy(), limit
+        ).then (result)->
+            result
+    
+    account_order_list:(account_name, limit)->
+        @market_order_list "", "", limit, account_name
     
     _finalize_and_send:(builder, payer_account, fee_asset_name_or_id)->
         collector_account_promise = if @relay.relay_fee_collector
@@ -680,7 +703,7 @@ class WalletAPI
                     builder.sign_transaction()
                     record = builder.get_transaction_record()
                     
-                    console.log '... record.trx', JSON.stringify record,null,2
+                    #console.log '... record.trx', JSON.stringify record,null,2
                     
                     @blockchain_api.broadcast_transaction(record.trx).then ->
                         record

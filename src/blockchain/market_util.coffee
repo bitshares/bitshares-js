@@ -1,6 +1,7 @@
 BigInteger = require 'bigi'
 ByteBuffer = require 'bytebuffer'
 Long = ByteBuffer.Long
+config = require '../config'
 
 class Util
     
@@ -10,7 +11,7 @@ class Util
         Util.to_bigi number_string, REAL128_PRECISION
     
     Util.to_bigi=(number_string, precision)->
-        unless number_string
+        if number_string is null or number_string is undefined
             throw new Error "Missing parameter: number_string"
         if typeof number_string is "number"
             if number_string > 9007199254740991
@@ -30,8 +31,8 @@ class Util
         ratio = if int_part isnt undefined
             lhs = BigInteger(int_part)
             # bit limit here has nothing to do with precision below
-            if lhs.bitCount() > 128 
-                throw new Error "Integer digits require #{lhs.bitCount()} bits which exceeds #{128} bits"
+            if lhs.bitLength() > 128 
+                throw new Error "Integer digits require #{lhs.bitLength()} bits which exceeds #{128} bits"
             lhs.multiply precision
         else
             BigInteger.ZERO
@@ -59,8 +60,8 @@ class Util
         amount = Util.to_bigi amount, BigInteger ""+asset.precision
         #example: 100.500019 becomes 10050001
         amount = Long.fromString amount.toString()
-        amount:amount
-        asset_id:asset.id
+        amount: amount
+        asset_id: asset.id
     
     Util.to_ugly_price=(
         price_string, base_asset, quote_asset
@@ -123,13 +124,14 @@ class Util
                 order.market_index.order_price.quote_asset_id
         amount:Long.fromString ""+order.state.balance
     
+    ###* @return {amount: BigInteger, asset_id: int} ###
     Util.asset_multiply_price=(asset, price)->
         if asset.asset_id is price.base
             asset = BigInteger ""+asset.amount
             result = asset.multiply price.ratio
             result = result.divide REAL128_PRECISION
-            if result.bitCount() >= 128
-                throw new Error "overflow #{asset} * #{price.ratio} = #{result} bits = #{result.bitCount()} >= 128"
+            if result.bitLength() >= 128
+                throw new Error "overflow #{asset} * #{price.ratio} = #{result} bits = #{result.bitLength()} >= 128"
             
             amount: result
             asset_id: price.quote
@@ -138,8 +140,8 @@ class Util
             amount = BigInteger ""+asset.amount
             amount = amount.multiply REAL128_PRECISION
             result = amount.divide price.ratio
-            if result.bitCount() >= 128
-                throw new Error "overflow #{asset} / #{price.ratio} = #{result} bits = #{result.bitCount()} >= 128"
+            if result.bitLength() >= 128
+                throw new Error "overflow #{asset} / #{price.ratio} = #{result} bits = #{result.bitLength()} >= 128"
             
             amount: result
             asset_id: price.base
@@ -150,8 +152,40 @@ class Util
     Util.bigi_to_long=(bigi)->
         unless BigInteger.isBigInteger bigi
             throw new Error "Required BigInteger parameter"
-        throw new Error "Overflow" if bigi.bitCount() > 64
+        throw new Error "Overflow" if bigi.bitLength() > 64
         Long.fromString bigi.toString()
+    
+    Util.long_to_bigi=(long)->
+        unless Long.isLong long
+            throw new Error "Required Long parameter"
+        BigInteger long.toString()
+    
+    Util.get_interest_owed_asset=(order)->
+        unless order.expiration
+            throw Error "order.expiration is required"
+        
+        balance_asset = Util.get_balance_asset order
+        order_expiration_sec = (new Date order.expiration).getTime()/1000
+        apr_price = Util.fromJson_Price order.interest_rate
+        
+        # about 1 month (in seconds)
+        age_seconds = # age_at_earliest_confirmation
+            (Date.now()/1000) + config.BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC -
+                (order_expiration_sec - config.BTS_BLOCKCHAIN_MAX_SHORT_PERIOD_SEC)
+        
+        max_shares_base_asset = {amount:config.BTS_BLOCKCHAIN_MAX_SHARES, asset_id:apr_price.base}
+        iapr = Util.asset_multiply_price(
+            max_shares_base_asset
+            apr_price
+        ).amount.divide BigInteger ""+config.BTS_BLOCKCHAIN_MAX_SHARES
+        
+        percent_of_year = age_seconds / (
+            sec_per_year = 365 * 24 * 60 * 60
+        )
+        balance_amount = BigInteger ""+order.state.balance
+        interest_owed = balance_amount.multiply iapr.multiply BigInteger ""+percent_of_year
+        amount: interest_owed
+        asset_id: balance_asset.asset_id
     
     #Util.isSafeInteger_orThrow:(number_string)->
     #    unless Number.isSafeInteger new Number number_string

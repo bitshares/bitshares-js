@@ -7,6 +7,7 @@
 wallet_object = require '../testnet/config/wallet.json'
 EC = require('../src/common/exceptions').ErrorWithCause
 secureRandom = require 'secure-random'
+config = require '../src/config'
 
 # cloneable
 wallet_object_string = JSON.stringify wallet_object
@@ -23,7 +24,7 @@ describe "Wallet API (non-RPC)", ->
             relay_fee_amount: 50000
             network_fee_amount: 200000
             base_asset_symbol: 'XTS'
-            chain_id:"74cef39d88afd6123d40c5822632b753e5b25da6ca196218c2364560bbf3171f"
+            chain_id: config.chain_id
             
         @wallet_api = new WalletAPI null, null, @relay
         @wallet_api._open_from_wallet_db @wallet_db

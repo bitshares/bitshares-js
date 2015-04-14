@@ -8,6 +8,5 @@ testnet/htdocs
 testnet/tmp
 testnet/core
 bts.js
-src/logging.coffee
 src/deploy/logging.coffee
 localstorage-bitsharesjs
