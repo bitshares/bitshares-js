@@ -15,8 +15,8 @@ class TestUtil
     
     relay_node=
         chain_id: XTS_CHAIN
-        network_fee_amount:10000
-        relay_fee_amount:10000
+        network_fee_amount:25000
+        relay_fee_amount:25000
         base_symbol:->"XTS"
         init:->
             defer=q.defer()

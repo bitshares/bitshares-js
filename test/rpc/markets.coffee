@@ -38,17 +38,7 @@ describe "Markets", ->
         # wallet_market_submit_short delegate0 200 XTS 1 USD 0.01
         wallet_api = new_wallet_api @rpc
         wallet_api.market_submit_short(
-            "delegate0","600","XTS","1","USD","0.01"
-        ).then (result)->
-            #console.log '... result', result
-            done()
-        .done()
-    
-    it "bid", (done) ->
-        # wallet_market_submit_bid delegate0 0.01 USD 100 XTS
-        wallet_api = new_wallet_api @rpc
-        wallet_api.market_submit_bid(
-            "delegate0","100","XTS","0.01","USD"
+            "delegate0","200","XTS","1","USD","0.01"
         ).then (result)->
             #console.log '... result', result
             done()
@@ -66,37 +56,34 @@ describe "Markets", ->
     
     it "cover", (done) ->
         # wallet_market_cover delegate0 200 XTS 1 xxxxxx
-        run_cover= =>
-            @rpc.request(
-                'blockchain_list_address_orders'
-                ['USD','XTS','XTS8DvGQqzbgCR5FHiNsFf8kotEXr8VKD3mR']
-            ).then (result)=>
-                result = result.result
-                #console.log '... result',JSON.stringify result,null,1
-                cover_orders = for order in result
-                    continue unless order[1].type is "cover_order"
-                    order
-                return no if cover_orders.length is 0
-                order_id = cover_orders[0][0]
-                #console.log '... cover_orders',JSON.stringify cover_orders,null,1
-                wallet_api = new_wallet_api @rpc
-                wallet_api.market_cover(
-                    "delegate0","1","USD",order_id
-                ).then (result)->
-                    console.log '... market_cover result', result
-                    return yes
-        
-        run_cover().then (result)=>
-            if result
+        @rpc.request(
+            'blockchain_list_address_orders'
+            ['USD','XTS','XTS8DvGQqzbgCR5FHiNsFf8kotEXr8VKD3mR']
+        ).then (result)=>
+            result = result.result
+            #console.log '... result',JSON.stringify result,null,1
+            cover_orders = for order in result
+                continue unless order[1].type is "cover_order"
+                order
+            if cover_orders.length is 0
+                throw new Error "No cover_order"
+            order_id = cover_orders[0][0]
+            #console.log '... cover_orders',JSON.stringify cover_orders,null,1
+            wallet_api = new_wallet_api @rpc
+            wallet_api.market_cover(
+                "delegate0",".5","USD",order_id
+            ).then (result)->
+                console.log '... market_cover result', result
                 done()
-            else
-                @timeout (config.BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC + 1) * 1000
-                setTimeout =>
-                    run_cover().then (result)=>
-                        if result
-                            done()
-                        else
-                            throw new Error "No cover_order"
-                    .done()
-                , config.BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC * 1000
+            .done()
+        .done()
+    
+    it "bid", (done) ->
+        # wallet_market_submit_bid delegate0 0.01 USD 100 XTS
+        wallet_api = new_wallet_api @rpc
+        wallet_api.market_submit_bid(
+            "delegate0","100","XTS","0.01","USD"
+        ).then (result)->
+            #console.log '... result', result
+            done()
         .done()
