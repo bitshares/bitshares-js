@@ -87,7 +87,8 @@ class ChainInterface
     # refresh_assets:-> blockchain_list_assets probably once a day or if the user requests a refresh ...
     ###* Default fee is in the base asset ID ###
     convert_base_asset_amount:(desired_asset_name_or_id = 0, amount)->
-        throw new Error "amount is required" unless amount
+        if amount is null or amount is undefined
+            throw new Error "amount is required" 
         throw new Error "overflow" if amount > 9007199254740991
         
         defer = q.defer()
