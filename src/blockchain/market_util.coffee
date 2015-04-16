@@ -37,9 +37,12 @@ class Util
         else
             BigInteger.ZERO
         
-        if decimal_part isnt undefined
-            if decimal_part.length > precision
-                throw new Error "More than #{precision} decimal digits"
+        if decimal_part isnt undefined and decimal_part isnt ""
+            precision_length = precision.toString().length - 1
+            if decimal_part.length > precision_length
+                #throw new Error "More than #{precision_length} decimal digits"
+                decimal_part = decimal_part.substring 0, precision_length
+            
             frac_magnitude = BigInteger("10").pow decimal_part.length
             ratio = ratio.add BigInteger(decimal_part).multiply (
                 precision.divide frac_magnitude
@@ -152,7 +155,7 @@ class Util
     Util.bigi_to_long=(bigi)->
         unless BigInteger.isBigInteger bigi
             throw new Error "Required BigInteger parameter"
-        throw new Error "Overflow" if bigi.bitLength() > 64
+        throw new Error "Overflow #{bigi.toString()}" if bigi.bitLength() > 64
         Long.fromString bigi.toString()
     
     Util.long_to_bigi=(long)->
@@ -174,16 +177,34 @@ class Util
                 (order_expiration_sec - config.BTS_BLOCKCHAIN_MAX_SHORT_PERIOD_SEC)
         
         max_shares_base_asset = {amount:config.BTS_BLOCKCHAIN_MAX_SHARES, asset_id:apr_price.base}
+        
         iapr = Util.asset_multiply_price(
             max_shares_base_asset
             apr_price
         ).amount.divide BigInteger ""+config.BTS_BLOCKCHAIN_MAX_SHARES
         
+        #Does not truncate decimal digits (worse, ignorged it and makes a larger number)
+        #https://github.com/cryptocoinjs/bigi/issues/19
+        #percent_of_year = BigInteger(""+age_seconds).divide (
+        #    BigInteger ""+(365 * 24 * 60 * 60)
+        #)
+        #console.log '... percent_of_year', percent_of_year.toString()
+        
         percent_of_year = age_seconds / (
             sec_per_year = 365 * 24 * 60 * 60
         )
+        if /e-[0-9]+$/.test ""+percent_of_year
+            percent_of_year = 0
+        
         balance_amount = BigInteger ""+order.state.balance
-        interest_owed = balance_amount.multiply iapr.multiply BigInteger ""+percent_of_year
+        interest_owed = balance_amount.multiply iapr.multiply(
+            Util.string_to_ratio128 percent_of_year
+        )
+        interest_owed = interest_owed.divide REAL128_PRECISION
+        
+        console.log '... amount(interest_owed)\t', interest_owed.toString()
+        console.log '... principle.asset_id\t', balance_asset.asset_id
+        
         amount: interest_owed
         asset_id: balance_asset.asset_id
     

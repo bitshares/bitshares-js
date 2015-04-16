@@ -56,6 +56,10 @@ class TestUtil
         
         wallet_api
     
+    TestUtil.after_block = (func)->
+        setTimeout ->
+            func().then().done()
+        , config.BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC * 1000
     
     TestUtil.try_tryagain= (done, blocks=1, func)=>
         func().then (result)=>
