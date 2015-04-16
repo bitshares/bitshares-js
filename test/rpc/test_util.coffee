@@ -55,6 +55,21 @@ class TestUtil
         #)
         
         wallet_api
-       
+    
+    
+    TestUtil.try_tryagain= (done, blocks=1, func)=>
+        func().then (result)=>
+            if result
+                done()
+            else
+                setTimeout =>
+                    func().then (result)=>
+                        if result
+                            done()
+                        else
+                            throw new Error "No results"
+                    .done()
+                , config.BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC * blocks * 1000
+        .done()
 
 module.exports=TestUtil

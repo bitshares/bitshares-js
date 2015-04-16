@@ -356,7 +356,7 @@ class TransactionBuilder
         order_balance = Util.get_balance_asset order
         balance_amount = order_balance.amount
         balance_amount = balance_amount.add Util.bigi_to_long apr_owed_asset.amount
-        unless (
+        if (
             cover_amount.amount.compare(balance_amount) > 0 or
             cover_amount.amount.compare(Long.ZERO) is 0
         )

@@ -703,7 +703,7 @@ class WalletAPI
                     builder.sign_transaction()
                     record = builder.get_transaction_record()
                     
-                    #console.log '... record.trx', JSON.stringify record,null,2
+                    console.log '... record.trx', JSON.stringify record,null,2
                     
                     @blockchain_api.broadcast_transaction(record.trx).then ->
                         record
