@@ -78,10 +78,11 @@ class ChainDatabase
                 ,
                     10*1000
                 try
-                    @sync_transactions()
+                    @sync_transactions().then (new_trx_id_map)=>
+                        @check_pending_transactions new_trx_id_map
                 catch e
                     console.log e,e.stack
-    
+        
     _account_keys:(account_name)->
         account_names = []
         if account_name
@@ -183,7 +184,8 @@ class ChainDatabase
             defer.promise
         
         get_last_unforked_block_num().then (block_num) =>
-            @_sync_transactions(addresses, block_num)
+            p = @_sync_transactions(addresses, block_num)
+            p.done() if p
     
     _sync_transactions:(addresses, last_unforked_block_num)->
         address_last_block_map_storage=(address_last_block_map)=>
@@ -216,6 +218,7 @@ class ChainDatabase
             batch_args
         ]).then (batch_result)=>
             batch_result = batch_result.result
+            trx_ids = {}
             balance_ids = {}
             balance_ids_dirty = no
             for i in [0...batch_result.length] by 1
@@ -223,21 +226,17 @@ class ChainDatabase
                 address = batch_args[i][0]
                 next_block = batch_args[i][1] + 1
                 transactions = for trx_id in Object.keys result
+                    trx_ids[trx_id] = on
                     value = result[trx_id]
                     block_timestamp = value.timestamp
                     transaction = value.trx
-                    #last_block = 0
                     block_num = transaction.chain_location.block_num
-                    #last_block = Math.max last_block, block_num
-                    {
-                        trx_id: trx_id
-                        block_num: block_num
-                        timestamp: block_timestamp
-                        is_confirmed: block_num > 0
-                        is_virtual: false
-                        #is_market: false
-                        trx: transaction.trx
-                    }
+                    trx_id: trx_id
+                    block_num: block_num
+                    timestamp: block_timestamp
+                    is_confirmed: block_num > 0
+                    is_virtual: false
+                    trx: transaction.trx
                 
                 address_last_block_map[address] = last_unforked_block_num
                 if transactions.length > 0
@@ -245,8 +244,9 @@ class ChainDatabase
                         existing_transactions = JSON.parse @storage.getItem(
                             "transactions-"+address
                         )
-                        existing_transactions.push tx for tx in transactions
-                        transactions = existing_transactions
+                        if existing_transactions
+                            existing_transactions.push tx for tx in transactions
+                            transactions = existing_transactions
                     
                     @storage.setItem(
                         "transactions-"+address
@@ -263,8 +263,7 @@ class ChainDatabase
             
             @_index_balanceid_readonly Object.keys balance_ids if balance_ids_dirty
             address_last_block_map_storage address_last_block_map
-            return
-        return
+            return trx_ids
     
     _storage_balanceid_readonly:(balance_id_map)->
         if balance_id_map
@@ -415,6 +414,10 @@ class ChainDatabase
                 amount = (Long.fromString ""+op.data.amount).negate()
                 asset_id = op.data.bid_index.order_price.quote_asset_id
                 sender = op.data.bid_index.owner
+            else if op.type is "cover_op_type"
+                amount = (Long.fromString ""+op.data.amount).negate()
+                asset_id = op.data.cover_index.order_price.quote_asset_id
+                sender = op.data.cover_index.owner
             
             continue unless amount
             total_by_asset withdraws, asset_id, amount
@@ -496,6 +499,114 @@ class ChainDatabase
         #console.log '... memo_from_account: account.name', account.name
         ###
     
+    pending_transactions=undefined
+    get_pending_transactions:->
+        if pending_transactions
+            defer = q.defer()
+            defer.resolve pending_transactions
+            return defer.promise
+        
+        @storage.get("transactions-pending").then (pending_transaction_string)=>
+            unless pending_transaction_string
+                return {
+                    trx_map:{}
+                    trx_address_map:{}
+                }
+            pending_transactions = JSON.parse pending_transaction_string
+            now_time = Date.now().getTime()
+            for trx_id in Object.keys pending_transactions.trx_map
+                transaction = pending_transactions.trx_map[trx_id]
+                # block_num 0 or undefined is pending
+                continue if transaction.block_num
+                expiration = new Date transaction.expiration
+                if now_time >= expiration.getTime()
+                    @delete_pending_transaction trx_id
+                    continue
+                return
+            pending_transactions
+    
+    delete_pending_transaction:(trx_id)->
+        transaction = pending_transactions.trx_map[trx_id]
+        delete pending_transactions.trx_map[trx_id]
+        for address in @addresses_for_transaction transaction
+            ids = pending_transactions.trx_address_map[address]
+            delete ids[trx_id]
+        return
+    
+    check_pending_transactions:(non_pending_trx_id_map={})->
+        @get_pending_transactions().then (pending_transactions)=>
+            trx_ids = Object.keys pending_transactions
+            return unless trx_ids.length
+            for trx_id in trx_ids
+                if non_pending_trx_id_map[trx_id]
+                    @delete_pending_transaction trx_id
+                    continue
+                batch_args.push [trx_id]
+            return unless batch_args.length
+            @rpc.request(
+                "batch",["blockchain_get_transaction", batch_args]
+            ).then (batch_result)->
+                for i in [0...batch_result.result.length] by 1
+                    result = batch_result.result[i]
+                    continue unless result
+                    trx_id = result[0]
+                    trx = result[1]
+                    pending_transactions.trx_map[trx_id].chain_location =
+                        block_num: trx.chain_location.block_num
+                    return
+                return
+    
+    ###* 
+      Saves a new pending transaction.  Also has the effect of cleaning out
+      transactions that are no longer pending (has a non-zero block_num or expired)
+    ###
+    save_pending_transaction:(record)->
+        ((record)=>
+            @get_pending_transactions().then (pending_transactions)=>
+                transaction = record.trx
+                transaction_id = record.record_id
+                pending_transactions.trx_map[transaction_id]=transaction
+                addresses = @addresses_for_transaction transaction
+                for address in addresses
+                    ids = pending_transactions.trx_address_map[address]
+                    unless ids
+                        pending_transactions.trx_address_map[address] = ids = {}
+                    ids[transaction_id]=on
+                
+                for trx_id in Object.keys pending_transactions.trx_map
+                    # block_num 0 or undefined is pending
+                    continue unless pending_transactions.trx_map[trx_id].block_num
+                    @delete_pending_transaction trx_id
+                
+                pending_transaction_string = JSON.stringify pending_transactions,null,0
+                @storage.set "transactions-pending",pending_transaction_string
+        )(record)
+    
+    addresses_for_transaction:(transaction)->
+        recipient=[]
+        sender=[]
+        push=(array, value)-> array.push value if value
+        balance_id_map = @_storage_balanceid_readonly()
+        for op in @transaction.operations
+            if (
+                op.type is "deposit_op_type" and 
+                op.data.condition.type is "withdraw_signature_type"
+            )
+                push recipient, op.data.condition.data.owner
+            
+            if op.type is "withdraw_op_type"
+                balance_id = op.data.balance_id
+                owner = balance_id_map[balance_id]?.owner
+                console.log 'WARN, missing balance_id' unless owner
+                push sender, owner
+            
+            push recipient, op.data.ask_index?.owner
+            push sender, op.data.bid_index?.owner
+            push sender, op.data.cover_index?.owner
+        
+        recipients:recipient
+        senders:sender
+    
     ###* @return promise [transaction] ###
     account_transaction_history:(
         account_name
@@ -537,28 +648,41 @@ class ChainDatabase
                 
                 if op.type is "bid_op_type"
                     return asset_id is op.data.bid_index.order_price.quote_asset_id
+                
+                if op.type is "cover_op_type"
+                    return asset_id is op.data.cover_index.order_price.quote_asset_id
             
             return no
         
         history = []
         add_ledger_promise = []
         for account_address in @_account_addresses account_name
+            pending_transactions = if start_block_num is 0 and pending_transactions
+                ids = pending_transactions.trx_address_map[account_address]
+                for trx_id in Object.keys ids
+                    pending_transactions.trx_map[trx_id]
+            
             transactions_string = @storage.getItem "transactions-"+account_address
-            continue unless transactions_string
-            transactions = JSON.parse transactions_string
+            transactions = if transactions_string
+                JSON.parse transactions_string
             
             ## tally from day 0 (this does not cache running balances)
             #transactions = @transaction_ledger.format_transaction_history transactions
             
-            # now filter
-            for transaction in transactions
-                continue if transaction.block_num < start_block_num
+            check=(transaction)->
+                return if transaction.block_num < start_block_num
                 if end_block_num isnt -1
-                    continue if transaction.block_num > end_block_num
+                    return if transaction.block_num > end_block_num
                 
-                continue unless include_asset transaction
+                return unless include_asset transaction
                 transaction._tmp_account_address = account_address
                 history.push transaction
+            # filter
+            check tx for tx in transactions if transactions
+            if pending_transactions
+                for trx_id in Object.keys pending_transactions.trx_map
+                    check pending_transactions.trx_map[trx_id]
+                return
         
         history.sort (a,b)->
             if (
@@ -589,17 +713,19 @@ class ChainDatabase
                 aes_root, balanceid_readonly
             )
         
-        defer = q.defer()
-        q.all(add_ledger_promises).then =>
-            pretty_history = []
-            for tx in history 
-                try
-                    pretty_history.push @transaction_ledger.to_pretty_tx tx
-                catch e
-                    console.log e,e.stack
-            defer.resolve pretty_history
-        , (error)->
-            defer.reject error
-        defer.promise
+        ((history)=>
+            defer = q.defer()
+            q.all(add_ledger_promises).then =>
+                pretty_history = []
+                for tx in history 
+                    try
+                        pretty_history.push @transaction_ledger.to_pretty_tx tx
+                    catch e
+                        console.log e,e.stack
+                defer.resolve pretty_history
+            , (error)->
+                defer.reject error
+            defer.promise
+        )(history)
     
 exports.ChainDatabase = ChainDatabase

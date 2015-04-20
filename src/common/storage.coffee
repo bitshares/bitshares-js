@@ -1,4 +1,7 @@
+q = require 'q'
 
+### For plug-in compatibility, migrage calling code to use methods that return a promise. 
+###
 class Storage
     
     constructor:(@namespace = "default")->
@@ -11,11 +14,26 @@ class Storage
             new (
                 require('node-localstorage').LocalStorage
             ) './localstorage-bitsharesjs'
+
+    get:(key)->
+        defer = q.defer()
+        #console.log '... Storage.getItem', @namespace+'\t'+key
+        defer.resolve @local_storage.getItem @namespace+'\t'+key
+        defer.promise
     
+    set:(key, value)->
+        defer = q.defer()
+        #console.log '... Storage.setItem ', @namespace+'\t'+key
+        @local_storage.setItem @namespace+'\t'+key, value
+        defer.resolve()
+        defer.promise
+    
+    ###* @deprecated ###
     getItem:(key)->
         #console.log '... Storage.getItem', @namespace+'\t'+key
         @local_storage.getItem @namespace+'\t'+key
     
+    ###* @deprecated ###
     setItem:(key, value)->
         #console.log '... Storage.setItem ', @namespace+'\t'+key
         @local_storage.setItem @namespace+'\t'+key, value
