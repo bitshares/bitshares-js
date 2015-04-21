@@ -305,9 +305,8 @@ class WalletDb
                 defer.resolve local_account
                 return defer.promise
 
-        p = null
         ((name)=>
-            p = blockchain_api.get_account(name).then (chain_account)=>
+            blockchain_api.get_account(name).then (chain_account)=>
                 local_account = @lookup_account name
                 local_account = @get_account_for_address name unless local_account
                 unless local_account or chain_account
@@ -323,8 +322,6 @@ class WalletDb
                 
                 local_account
         )(name)
-        p
-
     
     lookup_account:(account_name)->
         account = @account[account_name]

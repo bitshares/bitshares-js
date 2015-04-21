@@ -1,7 +1,7 @@
 module.exports=
     rpc_hide: #{}
         ## {} means hide nothing
-        #hide_all:on
+        hide_all:on
         get_info: on
         get_config: on
         wallet_create: on #don't log password and brainkey
@@ -14,8 +14,9 @@ module.exports=
         wallet_account_transaction_history: off
         blockchain_get_info: on
         blockchain_get_account: off
+        blockchain_get_block_hash: on
         blockchain_get_security_state:on
         blockchain_get_security_state:on
         blockchain_list_address_transactions: on
         blockchain_list_key_balances: on
-        
+        ####

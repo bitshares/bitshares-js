@@ -78,10 +78,12 @@ class ChainDatabase
                 ,
                     10*1000
                 try
-                    @sync_transactions().then (new_trx_id_map)=>
-                        @check_pending_transactions new_trx_id_map
+                    promise = @sync_transactions()
+                    if promise
+                        promise.then (new_trx_id_map)=>
+                            @check_pending_transactions(new_trx_id_map)
                 catch e
-                    console.log e,e.stack
+                    console.log '[poll_transactions]',e,e.stack
         
     _account_keys:(account_name)->
         account_names = []
@@ -121,9 +123,9 @@ class ChainDatabase
                 found = no
                 for i in [0...batch_result.length] by 1
                     account = batch_result[i]
-                    console.log '... chaindb sync accounts',next_accounts[i],(
-                        if account then 'found' else 'not found'
-                    )
+                    #console.log '... chaindb sync accounts',next_accounts[i],(
+                    #    if account then 'found' else 'not found'
+                    #)
                     continue unless account
                     next_account = next_accounts[i]
                     # update the account index, create private key entries etc...
@@ -184,8 +186,8 @@ class ChainDatabase
             defer.promise
         
         get_last_unforked_block_num().then (block_num) =>
-            p = @_sync_transactions(addresses, block_num)
-            p.done() if p
+            promise = @_sync_transactions(addresses, block_num)
+            promise.done() if promise
     
     _sync_transactions:(addresses, last_unforked_block_num)->
         address_last_block_map_storage=(address_last_block_map)=>
@@ -194,7 +196,7 @@ class ChainDatabase
                     "address_last_block_map"
                     JSON.stringify address_last_block_map,null,0
                 )
-                return
+                return {}
             else
                 str = @storage.getItem "address_last_block_map"
                 if str then JSON.parse str else {}
@@ -513,7 +515,7 @@ class ChainDatabase
                     trx_address_map:{}
                 }
             pending_transactions = JSON.parse pending_transaction_string
-            now_time = Date.now().getTime()
+            now_time = Date.now()
             for trx_id in Object.keys pending_transactions.trx_map
                 transaction = pending_transactions.trx_map[trx_id]
                 # block_num 0 or undefined is pending
@@ -521,8 +523,6 @@ class ChainDatabase
                 expiration = new Date transaction.expiration
                 if now_time >= expiration.getTime()
                     @delete_pending_transaction trx_id
-                    continue
-                return
             pending_transactions
     
     delete_pending_transaction:(trx_id)->
@@ -535,8 +535,9 @@ class ChainDatabase
     
     check_pending_transactions:(non_pending_trx_id_map={})->
         @get_pending_transactions().then (pending_transactions)=>
-            trx_ids = Object.keys pending_transactions
+            trx_ids = Object.keys pending_transactions.trx_map
             return unless trx_ids.length
+            batch_args = []
             for trx_id in trx_ids
                 if non_pending_trx_id_map[trx_id]
                     @delete_pending_transaction trx_id
@@ -544,16 +545,16 @@ class ChainDatabase
                 batch_args.push [trx_id]
             return unless batch_args.length
             @rpc.request(
-                "batch",["blockchain_get_transaction", batch_args]
+                "batch",["blockchain_get_transaction", batch_args],(error)->
             ).then (batch_result)->
                 for i in [0...batch_result.result.length] by 1
                     result = batch_result.result[i]
                     continue unless result
+                    continue if result.error
                     trx_id = result[0]
                     trx = result[1]
                     pending_transactions.trx_map[trx_id].chain_location =
                         block_num: trx.chain_location.block_num
-                    return
                 return
     
     ###* 
@@ -566,11 +567,12 @@ class ChainDatabase
                 transaction = record.trx
                 transaction_id = record.record_id
                 pending_transactions.trx_map[transaction_id]=transaction
+                ids = pending_transactions.trx_address_map[address]
+                unless ids
+                    pending_transactions.trx_address_map[address] = ids = {}
+                    
                 addresses = @addresses_for_transaction transaction
                 for address in addresses
-                    ids = pending_transactions.trx_address_map[address]
-                    unless ids
-                        pending_transactions.trx_address_map[address] = ids = {}
                     ids[transaction_id]=on
                 
                 for trx_id in Object.keys pending_transactions.trx_map
@@ -587,21 +589,29 @@ class ChainDatabase
         sender=[]
         push=(array, value)-> array.push value if value
         balance_id_map = @_storage_balanceid_readonly()
-        for op in @transaction.operations
+        for op in transaction.operations
             if (
                 op.type is "deposit_op_type" and 
                 op.data.condition.type is "withdraw_signature_type"
             )
                 push recipient, op.data.condition.data.owner
+                continue
             
             if op.type is "withdraw_op_type"
                 balance_id = op.data.balance_id
                 owner = balance_id_map[balance_id]?.owner
                 console.log 'WARN, missing balance_id' unless owner
                 push sender, owner
+                continue
+            
+            if op.type is "register_account_op_type"
+                owner = PublicKey.fromBtsPublic(op.data.active_key).toBtsAddy()
+                push sender, owner
+                continue
             
             push recipient, op.data.ask_index?.owner
             push sender, op.data.bid_index?.owner
+            push sender, op.data.short_index?.owner
             push sender, op.data.cover_index?.owner
         
         recipients:recipient
