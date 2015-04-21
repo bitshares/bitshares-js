@@ -81,7 +81,8 @@ class ChainDatabase
                     promise = @sync_transactions()
                     if promise
                         promise.then (new_trx_id_map)=>
-                            @check_pending_transactions(new_trx_id_map)
+                            # https://github.com/BitShares/bitshares/issues/1510
+                            #@check_pending_transactions(new_trx_id_map)
                 catch e
                     console.log '[poll_transactions]',e,e.stack
         

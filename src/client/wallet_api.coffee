@@ -706,7 +706,8 @@ class WalletAPI
                     console.log '... record.trx', JSON.stringify record,null,2
                     
                     @blockchain_api.broadcast_transaction(record.trx).then =>
-                        @chain_database.save_pending_transaction record
+                        # https://github.com/BitShares/bitshares/issues/1510
+                        #@chain_database.save_pending_transaction record
                         record
                     #,(e)->console.log 'e',e
                     
