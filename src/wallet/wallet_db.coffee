@@ -102,6 +102,7 @@ class WalletDb
                 ###
     
     index_key_record:(data)->
+        return if @key_record[data.account_address]
         @key_record[data.public_key] = data
         @key_record[data.account_address] = data
         public_key = PublicKey.fromBtsPublic data.public_key
@@ -469,7 +470,7 @@ class WalletDb
             aes_root, account_name, owner_key
             active_key, private_data=null
         )
-        @store_account_or_update account
+        @store_account_or_update account, null, _save=false
         @add_key_record owner, _save=false
         @add_key_record active, _save=false
         return
@@ -624,7 +625,12 @@ class WalletDb
     
     add_key_record:(rec, save = true)-> # store_and_reload_record
         @index_key_record rec
-        @_append('key_record_type',rec)
+        address = rec.account_address
+        data = @key_record[address]
+        if data and rec.encrypted_private_key and not data.encrypted_private_key
+            data.encrypted_private_key = rec.encrypted_private_key
+        else
+            @_append 'key_record_type',rec
         @save() if save
     
     _append:(key, rec)->
@@ -637,7 +643,7 @@ class WalletDb
         return
     
     _debug_last:(ref)->
-        #console.log "#{ref}",JSON.stringify @wallet_object[@wallet_object.length - 1].data,null,4
+        #console.log "#{ref}",(JSON.stringify @wallet_object[@wallet_object.length - 1].data,null,4),(new Error()).stack
         return
     
     get_child_key_index:->
