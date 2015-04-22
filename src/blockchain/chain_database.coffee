@@ -304,30 +304,12 @@ class ChainDatabase
             @_storage_balanceid_readonly balance_id_map
             return
     
-    summarize_op_type:(type)->
-        if /_op_type$/.test type
-            summary = type.substring 0, type.length - "_op_type".length
-            summary.toUpperCase()
-        else
-            ""
-    
     _add_ledger_entries:(
         transaction, account_address
         aes_root, balanceid_readonly
     )->
-        sender = null
-        recipient = null
-        balance_id = null
-        transaction.ledger_entries = entries = []
-        account_promises = []
-        has_from = no
-        
-        total_by_asset=(map, asset_id, amount)->
-            total = map[asset_id] or Long.ZERO
-            map[asset_id] = total.add amount
-            
-        deposits = {}
-        for op in transaction.trx.operations
+        memo_from = null
+        deposit_entries = for op in transaction.trx.operations
             memo = undefined
             amount = undefined
             if (
@@ -340,16 +322,14 @@ class ChainDatabase
                 asset_id = op.data.condition.asset_id
                 recipient = op.data.condition.data.owner
                 memo = op.data.condition.data.memo
-            
             else if op.type is "ask_op_type"
                 amount = Long.fromString ""+op.data.amount
                 asset_id = op.data.ask_index.order_price.base_asset_id
                 recipient = op.data.ask_index.owner
+            else
+                continue
             
-            continue unless amount
-            total_by_asset deposits, asset_id, amount
-            entries.push entry = {}
-            
+            entry = {}
             if memo
                 try 
                     memo_data = @_decrypt_memo(
@@ -357,55 +337,18 @@ class ChainDatabase
                         account_address, aes_root
                     )
                     if memo_data
-                        has_from = yes
-                        memo_from = memo_data.from.toBtsPublic()
-                        entry.from_account = memo_from
-                        defer = q.defer()
-                        account_promises.push defer.promise
-                        ((entry, defer)=>
-                            @wallet_db.get_chain_account(
-                                entry.from_account, @blockchain_api
-                            ).then (account) ->
-                                entry.from_account = account.name if account
-                                defer.resolve()
-                                return
-                            , ()->
-                                #unknown account
-                                defer.resolve()
-                                return
-                        )(entry, defer)
                         entry.memo = memo_data.message.toString()
-                        entry.memo_from_account = memo_from
+                        memo_from = memo_data.from.toBtsAddy()
                 catch e
                     #console.log 'chain_database._decrypt_memo',e
-            else
-                entry.memo = @summarize_op_type op.type
             
-            entry.to_account = recipient
-            if recipient
-                defer = q.defer()
-                account_promises.push defer.promise
-                ((entry, defer)=>
-                    @wallet_db.get_chain_account(
-                        entry.to_account, @blockchain_api
-                    ).then (account) ->
-                        entry.to_account = account.name if account
-                        #console.log '... entry,account', entry,account
-                        defer.resolve()
-                        return
-                    , (ex)->
-                        #unknown account
-                        #console.log ex,ex.stack
-                        defer.resolve()
-                        return
-                )(entry, defer)
-            
+            entry.account = recipient
             entry.amount=
                 amount: amount.toString()
                 asset_id: asset_id
+            entry
         
-        withdraws = {}
-        for op in transaction.trx.operations
+        withdraw_entries = for op in transaction.trx.operations
             amount = sender = undefined
             if op.type is "withdraw_op_type"
                 balance_id = op.data.balance_id
@@ -418,60 +361,144 @@ class ChainDatabase
                 asset_id = op.data.bid_index.order_price.quote_asset_id
                 sender = op.data.bid_index.owner
             else if op.type is "cover_op_type"
+                # negate back to positive
                 amount = (Long.fromString ""+op.data.amount).negate()
                 asset_id = op.data.cover_index.order_price.quote_asset_id
                 sender = op.data.cover_index.owner
+            else
+                continue
             
-            continue unless amount
-            total_by_asset withdraws, asset_id, amount
-            entries.push entry = {}
-            entry.from_account = sender
-            entry.to_account = ""
-            if entry.from_account
-                defer = q.defer()
-                account_promises.push defer.promise
-                ((entry, defer)=>
-                    @wallet_db.get_chain_account(
-                        entry.from_account, @blockchain_api
-                    ).then (account) ->
-                        #console.log '... entry.from_account',entry.from_account
-                        #console.log '... account',account
-                        entry.from_account = account.name if account
-                        defer.resolve()
-                        return
-                    , ()->
-                        #unknown account
-                        defer.resolve()
-                        return
-                )(entry, defer)
-            
-            unless sender
-                console.log "WARN chain_database::_add_ledger_entries did not find balance record #{balance_id}"
+            entry = {}
+            entry.account = if memo_from then memo_from else sender
+            unless entry.account
+                console.log "WARN chain_database::_add_ledger_entries could not determine sender address"
             entry.amount=
                 amount: amount.toString()
                 asset_id: asset_id
-            entry.memo = @summarize_op_type op.type
-            entry.memo_from_account = null
+            entry
+    
+        bail=->
+            # If there is anything suspicious about the transaction,
+            # this is called to record the original entries then
+            # grouping stops
+            transaction.ledger_entries = entries = []
+            entries.push entry for entry in withdraw_entries
+            entries.push entry for entry in deposit_entries
         
-        subtract_by_asset=(asset1, asset2)->
-            map={}
-            for asset_id in Object.keys asset1
-                total_by_asset map, asset_id, asset1[asset_id]
-            for asset_id in Object.keys asset2
-                total_by_asset map, asset_id, asset2[asset_id].negate()
-            for asset_id in Object.keys map
-                total = map[asset_id]
-                delete map[asset_id] if total.compare(Long.ZERO) is 0
-            map
+        concat=(c1,c2)->
+            c1="" unless c1
+            c2="" unless c2
+            return c1 if c2 is ""
+            return c2 if c1 is ""                   
+            return c1 + "\t" + c2
+                    
+        map_by_asset=(entries)->
+            asset_map = {}
+            resolve_address=(address0,address1)->
+                address0 = null if address0 is ""
+                address1 = null if address1 is ""
+                if address0 and address1
+                    return null unless address0 is address1
+                if address0 then address0 else address1
+            
+            for entry in entries
+                amount = entry.amount.amount
+                asset_id = entry.amount.asset_id
+                map_entry = asset_map[asset_id]
+                unless map_entry
+                    map_entry = asset_map[asset_id] = {
+                        amount:
+                            amount:Long.ZERO
+                            asset_id:asset_id
+                    }
+                account = resolve_address entry.account, map_entry.account
+                return null unless account # impossible, bail on grouping
+                map_entry.account = account
+                map_entry.amount.amount = map_entry.amount.amount.add amount
+                if entry.memo
+                    map_entry.memo = concat map_entry.memo, entry.memo
+            
+            asset_map
         
-        fees = subtract_by_asset withdraws, deposits
-        if (keys = Object.keys fees).length is 1
-            asset_id=keys[0]
-            transaction.fee=
-                amount:fees[asset_id].toString()
-                asset_id:asset_id
-        else
-            console.error "ERROR: transaction contains #{(Object.keys fees).length} asset fee balances",fees,transaction
+        withdraw_map = map_by_asset withdraw_entries
+        deposit_map = map_by_asset deposit_entries
+        unless withdraw_map and deposit_map
+            bail()
+            return
+        
+        for asset_id in Object.keys withdraw_map
+            withdraw = withdraw_map[asset_id]
+            deposit = deposit_map[asset_id]
+            deposit_amount = if deposit
+                deposit.amount.amount
+            else
+                Long.ZERO
+            fee_amount = withdraw.amount.amount.subtract deposit_amount
+            if fee_amount.compare(Long.ZERO) isnt 0
+                fee = transaction.fee
+                if fee
+                    console.error "ERROR: transaction contains multiple fee balances"
+                    bail()
+                    return
+                else
+                    transaction.fee=
+                        amount:fee_amount
+                        asset_id:asset_id
+                    withdraw.amount.amount =
+                        withdraw.amount.amount.subtract fee_amount
+                    if withdraw.amount.amount.compare(Long.ZERO) is 0
+                        delete withdraw_map[asset_id]
+        
+        all_assets = {}
+        all_assets[id] = on for id in Object.keys withdraw_map
+        all_assets[id] = on for id in Object.keys deposit_map
+        transaction.ledger_entries = entries = []
+        for asset_id in Object.keys all_assets
+            withdraw = withdraw_map[asset_id]
+            deposit = deposit_map[asset_id]
+            amount_eq = (
+                withdraw and deposit and
+                withdraw.amount.amount.compare(deposit.amount.amount) is 0
+            )
+            if amount_eq
+                entries.push
+                    from_account:withdraw.account
+                    to_account:deposit.account
+                    memo:concat withdraw.memo, deposit.memo
+                    amount:deposit.amount
+            else
+                if deposit
+                    entries.push
+                        from_account:""
+                        to_account:deposit.account
+                        amount:deposit.amount
+                        memo:deposit.memo
+                
+                if withdraw
+                    entries.push
+                        from_account:withdraw.account
+                        to_account:""
+                        amount:withdraw.amount
+                        memo:withdraw.memo
+        
+        #console.log '... transaction.ledger_entries',JSON.stringify transaction.ledger_entries,null,1
+        
+        account_promises = []
+        for entry in transaction.ledger_entries
+            resolve_name= (entry, atty)=>
+                value = entry[atty]
+                return null if value is "" or value is null
+                @wallet_db.get_chain_account(
+                    value, @blockchain_api
+                ).then (account) ->
+                    #console.log '... entry[atty]',entry[atty],atty
+                    #console.log 'account',account
+                    entry[atty] = account.name if account
+                    return
+                , (error)->#unknown account
+            
+            account_promises.push resolve_name entry, "from_account"
+            account_promises.push resolve_name entry, "to_account"
         
         q.all account_promises
     
