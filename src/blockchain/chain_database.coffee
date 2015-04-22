@@ -313,6 +313,7 @@ class ChainDatabase
         deposit_entries = for op in transaction.trx.operations
             memo = undefined
             amount = undefined
+            entry = {}
             if (
                 op.type is "deposit_op_type" and 
                 op.data.condition.type is "withdraw_signature_type" and
@@ -327,10 +328,30 @@ class ChainDatabase
                 amount = Long.fromString ""+op.data.amount
                 asset_id = op.data.ask_index.order_price.base_asset_id
                 recipient = op.data.ask_index.owner
+            else if op.type is "register_account_op_type"
+                amount = Long.ZERO
+                asset_id = 0
+                recipient = op.data.owner_key
+                entry.memo = "Register account"
+            else if op.type is "bid_op_type"
+                amount = Long.fromString ""+op.data.amount
+                asset_id = op.data.bid_index.order_price.quote_asset_id
+                recipient = op.data.bid_index.owner
+                entry.memo = "Bid"
+            else if op.type is "ask_op_type"
+                amount = Long.fromString ""+op.data.amount
+                asset_id = op.data.ask_index.order_price.quote_asset_id
+                recipient = op.data.ask_index.owner
+                entry.memo = "Ask"
+            else if op.type is "cover_op_type"
+                # negate back to positive
+                amount = (Long.fromString ""+op.data.amount).negate()
+                asset_id = op.data.cover_index.order_price.quote_asset_id
+                recipient = op.data.cover_index.owner
+                entry.memo = "Cover"
             else
                 continue
             
-            entry = {}
             if memo
                 try 
                     memo_data = @_decrypt_memo(
@@ -351,25 +372,15 @@ class ChainDatabase
         
         withdraw_entries = for op in transaction.trx.operations
             amount = sender = undefined
+            entry = {}
             if op.type is "withdraw_op_type"
                 balance_id = op.data.balance_id
                 sender = balanceid_readonly[balance_id]?.owner
                 asset_id = balanceid_readonly[balance_id]?.asset_id
                 amount = Long.fromString ""+op.data.amount
-            else if op.type is "bid_op_type"
-                # negate back to positive
-                amount = (Long.fromString ""+op.data.amount).negate()
-                asset_id = op.data.bid_index.order_price.quote_asset_id
-                sender = op.data.bid_index.owner
-            else if op.type is "cover_op_type"
-                # negate back to positive
-                amount = (Long.fromString ""+op.data.amount).negate()
-                asset_id = op.data.cover_index.order_price.quote_asset_id
-                sender = op.data.cover_index.owner
             else
                 continue
             
-            entry = {}
             entry.account = if memo_from then memo_from else sender
             unless entry.account
                 console.log "WARN chain_database::_add_ledger_entries could not determine sender address"
