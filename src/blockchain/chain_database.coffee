@@ -168,6 +168,7 @@ class ChainDatabase
                     try
                         if blocknum_hash[1] and hash.id isnt blocknum_hash[1].id
                             console.log "INFO, fork detected",blocknum_hash[1],hash.id
+                            @storage.removeItem "blocknum_hash"
                             defer.resolve 1
                             return
                     catch
