@@ -208,7 +208,7 @@ class ChainDatabase
             last_block = address_last_block_map[address]
             next_block = if last_block then last_block + 1 else 1
             if(
-                last_unforked_block_num < next_block and
+                last_unforked_block_num + 1 < next_block and
                 last_unforked_block_num isnt 1
             )
                 throw new Error "Only full refresh on fork is supported"
@@ -324,10 +324,6 @@ class ChainDatabase
                 asset_id = op.data.condition.asset_id
                 recipient = op.data.condition.data.owner
                 memo = op.data.condition.data.memo
-            else if op.type is "ask_op_type"
-                amount = Long.fromString ""+op.data.amount
-                asset_id = op.data.ask_index.order_price.base_asset_id
-                recipient = op.data.ask_index.owner
             else if op.type is "register_account_op_type"
                 amount = Long.ZERO
                 asset_id = 0
@@ -338,17 +334,20 @@ class ChainDatabase
                 asset_id = op.data.bid_index.order_price.quote_asset_id
                 recipient = op.data.bid_index.owner
                 entry.memo = "Bid"
+                transaction.is_market = yes
             else if op.type is "ask_op_type"
                 amount = Long.fromString ""+op.data.amount
-                asset_id = op.data.ask_index.order_price.quote_asset_id
+                asset_id = op.data.ask_index.order_price.base_asset_id
                 recipient = op.data.ask_index.owner
                 entry.memo = "Ask"
+                transaction.is_market = yes
             else if op.type is "cover_op_type"
                 # negate back to positive
                 amount = (Long.fromString ""+op.data.amount).negate()
                 asset_id = op.data.cover_index.order_price.quote_asset_id
                 recipient = op.data.cover_index.owner
                 entry.memo = "Cover"
+                transaction.is_market = yes
             else
                 continue
             
@@ -454,12 +453,17 @@ class ChainDatabase
                     return
                 else
                     transaction.fee=
-                        amount:fee_amount
+                        amount:fee_amount.toString()
                         asset_id:asset_id
                     withdraw.amount.amount =
                         withdraw.amount.amount.subtract fee_amount
                     if withdraw.amount.amount.compare(Long.ZERO) is 0
                         delete withdraw_map[asset_id]
+        
+        unless transaction.fee
+            transaction.fee=
+                amount:0
+                asset_id:0
         
         all_assets = {}
         all_assets[id] = on for id in Object.keys withdraw_map
@@ -477,20 +481,26 @@ class ChainDatabase
                     from_account:withdraw.account
                     to_account:deposit.account
                     memo:concat withdraw.memo, deposit.memo
-                    amount:deposit.amount
+                    amount:
+                        amount:deposit.amount.amount.toString()
+                        asset_id:deposit.amount.asset_id
             else
                 if deposit
                     entries.push
                         from_account:""
                         to_account:deposit.account
-                        amount:deposit.amount
+                        amount:
+                            amount:deposit.amount.amount.toString()
+                            asset_id:deposit.amount.asset_id
                         memo:deposit.memo
                 
                 if withdraw
                     entries.push
                         from_account:withdraw.account
                         to_account:""
-                        amount:withdraw.amount
+                        amount:
+                            amount:withdraw.amount.amount.toString()
+                            asset_id:withdraw.amount.asset_id
                         memo:withdraw.memo
         
         #console.log '... transaction.ledger_entries',JSON.stringify transaction.ledger_entries,null,1

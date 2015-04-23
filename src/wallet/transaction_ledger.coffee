@@ -5,8 +5,7 @@
 
 class TransactionLedger
     
-    #constructor:(@chain_database)->
-    
+    ###
     # history must start from day 1 (tally balances does not cache)
     format_transaction_history:(transactions)-> #get_transaction_history
         balances={}
@@ -41,20 +40,18 @@ class TransactionLedger
                 amt = entry.amount
                 if from_account
                     tally from_account, amt.asset_id, - amt.amount
-                    #//Subtract fee once on the first entry
+                    # Subtract fee once on the first entry
                     #if( !trx.is_virtual && !any_from_me )
                     tally from_account, tx.fee.asset_id, - tx.fee.amount
                     
                 if to_account
                     tally to_account, amt.asset_id, amt.amount
                     
-                ###
-                TODO
-                fee_asset_id = tx.fee.asset_id
-                // Special case to subtract fee if we canceled a bid
-                if( !trx.is_virtual && trx.is_market_cancel && amount_asset_id != fee_asset_id )
-                    running_balances[ fee_asset_id ] -= trx.fee;
-                ###
+                #TODO
+                #fee_asset_id = tx.fee.asset_id
+                # Special case to subtract fee if we canceled a bid
+                #if( !trx.is_virtual && trx.is_market_cancel && amount_asset_id != fee_asset_id )
+                #    running_balances[ fee_asset_id ] -= trx.fee;
             
             for entry in tx.ledger_entries
                 from_account = entry.from_account_name
@@ -68,7 +65,7 @@ class TransactionLedger
             
             history.push tx
         history
-        
+    ###
     #get_pending_transaction_errors:->
     
     to_pretty_tx:(tx)->
@@ -76,9 +73,9 @@ class TransactionLedger
             throw new Error "internal transaction missing ledger entries"
         
         pretty_tx = {}
-        pretty_tx.is_virtual = tx.is_virtual
-        pretty_tx.is_confirmed = tx.is_confirmed
-        pretty_tx.is_market = tx.is_market
+        pretty_tx.is_virtual = tx.is_virtual or no
+        pretty_tx.is_confirmed = tx.is_confirmed or yes
+        pretty_tx.is_market = tx.is_market or no
         #pretty_tx.is_market_cancel = not tx.is_virtual and tx.is_market and Transaction.is_cancel(tx.operations)
         #(Transaction.fromJson tx).id()
         pretty_tx.trx_id = tx.record_id or tx.trx_id #tx.is_virtual ? tx.record_id : tx.id()

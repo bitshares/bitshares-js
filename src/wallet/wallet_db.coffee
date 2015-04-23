@@ -47,8 +47,7 @@ class WalletDb
                     @index_key_record data
                 when "transaction_record_type"
                     @index_transaction data
-                    
-                    
+        
         invalid() unless @master_key
         @resolve_address_to_name()
     
@@ -102,7 +101,10 @@ class WalletDb
                 ###
     
     index_key_record:(data)->
-        return if @key_record[data.account_address]
+        if existing = @key_record[data.account_address]
+            unless existing.encrypted_private_key
+                existing.encrypted_private_key = data.encrypted_private_key
+            return
         @key_record[data.public_key] = data
         @key_record[data.account_address] = data
         public_key = PublicKey.fromBtsPublic data.public_key
@@ -621,13 +623,10 @@ class WalletDb
         @save() if save
     
     add_key_record:(rec, save = true)-> # store_and_reload_record
-        @index_key_record rec
-        address = rec.account_address
-        data = @key_record[address]
-        if data and rec.encrypted_private_key and not data.encrypted_private_key
-            data.encrypted_private_key = rec.encrypted_private_key
-        else
+        unless @key_record[rec.account_address]
             @_append 'key_record_type',rec
+        
+        @index_key_record rec
         @save() if save
     
     _append:(key, rec)->
