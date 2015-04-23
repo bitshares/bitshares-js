@@ -438,6 +438,10 @@ class WalletAPI
     #wallet_account_yield
     
     #batch wallet_check_vote_proportion
+    ###* @return promise [transaction] ###
+    account_pending_transactions:(account_name)->
+        LE.throw "jslib_wallet.must_be_opened" unless @wallet
+        @wallet.account_pending_transactions account_name
     
     ###* @return promise [transaction] ###
     account_transaction_history:(

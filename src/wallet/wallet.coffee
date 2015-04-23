@@ -220,6 +220,11 @@ class Wallet
         return
     
     ###* @return promise [transaction] ###
+    account_pending_transactions:(account_name)->
+        LE.throw 'jslib_wallet.must_be_unlocked' unless @aes_root
+        @chain_database.account_pending_transactions account_name, @aes_root
+    
+    ###* @return promise [transaction] ###
     account_transaction_history:(
         account_name=""
         asset_id=-1

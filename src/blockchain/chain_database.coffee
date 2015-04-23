@@ -668,6 +668,60 @@ class ChainDatabase
         senders:sender
     
     ###* @return promise [transaction] ###
+    account_pending_transactions:(account_name = "", aes_root)->
+        throw new Error "aes_root is required" unless aes_root
+        
+        unless pending_transactions
+            defer = q.defer()
+            defer.resolve()
+            return defer.promise
+        
+        history = []
+        for account_address in @_account_addresses account_name
+            ids = pending_transactions.trx_address_map[account_address]
+            for trx_id in Object.keys ids
+                transaction = pending_transactions.trx_map[trx_id]
+                transaction._tmp_account_address = account_address
+                history.push transaction
+        @_sort_history history
+        
+        balanceid_readonly = @_storage_balanceid_readonly()
+        add_ledger_promises = []
+        for transaction in history
+            account_address = transaction._tmp_account_address
+            delete transaction._tmp_account_address
+            add_ledger_promises.push @_add_ledger_entries(
+                transaction, account_address
+                aes_root, balanceid_readonly
+            )
+        
+        ((history)=>
+            #defer = q.defer()
+            q.all(add_ledger_promises).then =>
+                pretty_history = []
+                for tx in history 
+                    try
+                        pretty_history.push @transaction_ledger.to_pretty_tx tx
+                    catch e
+                        console.log e,e.stack
+                pretty_history
+        )(history)
+        
+    _sort_history:(history)->
+        history.sort (a,b)->
+            if (
+                a.is_confirmed and
+                b.is_confirmed and
+                a.block_num isnt b.block_num
+            )
+                return a.block_num < b.block_num
+                
+            if a.timestamp isnt b.timestamp
+                return a.timestamp < b.timestamp
+            
+            a.trx_id < b.trx_id
+    
+    ###* @return promise [transaction] ###
     account_transaction_history:(
         account_name
         asset_id=-1
@@ -715,47 +769,19 @@ class ChainDatabase
             return no
         
         history = []
-        add_ledger_promise = []
         for account_address in @_account_addresses account_name
-            pending_transactions = if start_block_num is 0 and pending_transactions
-                ids = pending_transactions.trx_address_map[account_address]
-                for trx_id in Object.keys ids
-                    pending_transactions.trx_map[trx_id]
-            
             transactions_string = @storage.getItem "transactions-"+account_address
-            transactions = if transactions_string
-                JSON.parse transactions_string
-            
-            ## tally from day 0 (this does not cache running balances)
-            #transactions = @transaction_ledger.format_transaction_history transactions
-            
-            check=(transaction)->
-                return if transaction.block_num < start_block_num
-                if end_block_num isnt -1
-                    return if transaction.block_num > end_block_num
-                
-                return unless include_asset transaction
-                transaction._tmp_account_address = account_address
-                history.push transaction
-            # filter
-            check tx for tx in transactions if transactions
-            if pending_transactions
-                for trx_id in Object.keys pending_transactions.trx_map
-                    check pending_transactions.trx_map[trx_id]
-                return
+            if transactions_string
+                for transaction in JSON.parse transactions_string
+                    return if transaction.block_num < start_block_num
+                    if end_block_num isnt -1
+                        return if transaction.block_num > end_block_num
+                    
+                    return unless include_asset transaction
+                    transaction._tmp_account_address = account_address
+                    history.push transaction
         
-        history.sort (a,b)->
-            if (
-                a.is_confirmed and
-                b.is_confirmed and
-                a.block_num isnt b.block_num
-            )
-                return a.block_num < b.block_num
-                
-            if a.timestamp isnt b.timestamp
-                return a.timestamp < b.timestamp
-            
-            a.trx_id < b.trx_id
+        @_sort_history history
         
         history = if limit is 0 or Math.abs(limit) >= history.length
            history 
@@ -774,7 +800,6 @@ class ChainDatabase
             )
         
         ((history)=>
-            defer = q.defer()
             q.all(add_ledger_promises).then =>
                 pretty_history = []
                 for tx in history 
@@ -782,10 +807,7 @@ class ChainDatabase
                         pretty_history.push @transaction_ledger.to_pretty_tx tx
                     catch e
                         console.log e,e.stack
-                defer.resolve pretty_history
-            , (error)->
-                defer.reject error
-            defer.promise
+                pretty_history
         )(history)
     
 exports.ChainDatabase = ChainDatabase
