@@ -591,6 +591,7 @@ class WalletAPI
         quote_symbol
         price_limit_string # price_limit
     )->
+        throw new Error "Untested"
         LE.throw "jslib_wallet.must_be_opened" unless @wallet
         q.all([
             @wallet.get_chain_account from_account_name, refresh=false
@@ -621,6 +622,7 @@ class WalletAPI
                 record
     
     market_cover:(from_account_name, quantity, quantity_symbol, order_id)->
+        throw new Error "Untested"
         ((quantity, order_id, builder)=>
             q.all([
                 @chain_interface.get_asset quantity_symbol
@@ -645,6 +647,7 @@ class WalletAPI
 
     
     market_cancel_order:(order_id)->
+        throw new Error "Untested"
         LE.throw "jslib_wallet.must_be_opened" unless @wallet
         @blockchain_api.get_market_order(order_id).then (order)=>
             throw new Error "Can not find market order" unless order
