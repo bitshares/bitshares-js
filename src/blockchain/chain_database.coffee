@@ -463,6 +463,8 @@ class ChainDatabase
                     withdraw.amount.amount =
                         withdraw.amount.amount.subtract fee_amount
                     if withdraw.amount.amount.compare(Long.ZERO) is 0
+                        if deposit
+                            deposit.memo = concat deposit.memo, withdraw.memo
                         delete withdraw_map[asset_id]
         
         unless transaction.fee
@@ -510,11 +512,10 @@ class ChainDatabase
         
         #console.log '... transaction.ledger_entries',JSON.stringify transaction.ledger_entries,null,1
         
-        account_promises = []
-        for entry in transaction.ledger_entries
-            resolve_name= (entry, atty)=>
-                value = entry[atty]
-                return null if value is "" or value is null
+        resolve_name= (entry, atty)=>
+            value = entry[atty]
+            return null if value is "" or value is null
+            ((entry,atty)=>
                 @wallet_db.get_chain_account(
                     value, @blockchain_api
                 ).then (account) ->
@@ -523,10 +524,11 @@ class ChainDatabase
                     entry[atty] = account.name if account
                     return
                 , (error)->#unknown account
-            
+            )(entry,atty)
+        account_promises = []
+        for entry in transaction.ledger_entries
             account_promises.push resolve_name entry, "from_account"
             account_promises.push resolve_name entry, "to_account"
-        
         q.all account_promises
     
     _decrypt_memo:(titan_memo, account_address, aes_root)->
@@ -701,15 +703,13 @@ class ChainDatabase
             )
         
         ((history)=>
-            #defer = q.defer()
             q.all(add_ledger_promises).then =>
-                pretty_history = []
                 for tx in history 
                     try
-                        pretty_history.push @transaction_ledger.to_pretty_tx tx
+                        @transaction_ledger.to_pretty_tx tx
                     catch e
                         console.log e,e.stack
-                pretty_history
+                        continue
         )(history)
         
     _sort_history:(history)->
@@ -795,24 +795,22 @@ class ChainDatabase
         else
             history.slice history.length - -1 * limit, history.length
         
-        add_ledger_promises = []
-        for transaction in history
+        add_ledger_promises = for transaction in history
             account_address = transaction._tmp_account_address
             delete transaction._tmp_account_address
-            add_ledger_promises.push @_add_ledger_entries(
+            @_add_ledger_entries(
                 transaction, account_address
                 aes_root, balanceid_readonly
             )
         
         ((history)=>
             q.all(add_ledger_promises).then =>
-                pretty_history = []
                 for tx in history 
                     try
-                        pretty_history.push @transaction_ledger.to_pretty_tx tx
+                        @transaction_ledger.to_pretty_tx tx
                     catch e
                         console.log e,e.stack
-                pretty_history
+                        continue
         )(history)
     
 exports.ChainDatabase = ChainDatabase
