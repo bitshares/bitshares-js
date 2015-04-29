@@ -395,6 +395,10 @@ class ChainDatabase
             transaction.ledger_entries = entries = []
             entries.push entry for entry in withdraw_entries
             entries.push entry for entry in deposit_entries
+            transaction.fee=
+                amount: null
+                asset_id:0
+            return
         
         concat=(c1,c2)->
             c1="" unless c1
@@ -434,6 +438,7 @@ class ChainDatabase
         withdraw_map = map_by_asset withdraw_entries
         deposit_map = map_by_asset deposit_entries
         unless withdraw_map and deposit_map
+            #console.log '... ERROR, unbalanced withdraw / deposit',withdraw_entries, deposit_entries
             bail()
             return
         
@@ -462,7 +467,7 @@ class ChainDatabase
         
         unless transaction.fee
             transaction.fee=
-                amount:0
+                amount: null
                 asset_id:0
         
         all_assets = {}
@@ -773,11 +778,11 @@ class ChainDatabase
             transactions_string = @storage.getItem "transactions-"+account_address
             if transactions_string
                 for transaction in JSON.parse transactions_string
-                    return if transaction.block_num < start_block_num
+                    continue if transaction.block_num < start_block_num
                     if end_block_num isnt -1
-                        return if transaction.block_num > end_block_num
+                        continue if transaction.block_num > end_block_num
                     
-                    return unless include_asset transaction
+                    continue unless include_asset transaction
                     transaction._tmp_account_address = account_address
                     history.push transaction
         
