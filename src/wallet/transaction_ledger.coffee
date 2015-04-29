@@ -85,11 +85,8 @@ class TransactionLedger
         pretty_tx.ledger_entries = []
         for entry in tx.ledger_entries
             pretty_tx.ledger_entries.push pe = {}
-            unless pe.from_account = entry.from_account_name
-                pe.from_account = entry.from_account
-            unless pe.to_account = entry.to_account_name
-                pe.to_account = entry.to_account
-                
+            pe.from_account = entry.from_account
+            pe.to_account = entry.to_account
             if pe.from_account
                 if entry.memo_from_account_name
                     pe.from_account += " as " + entry.memo_from_account_name
@@ -103,28 +100,29 @@ class TransactionLedger
                 pe.to_account =
                     if tx.is_market then "MARKET"
                     else "UNKNOWN"
-            if pe.from_account is pe.to_account
-                if entry.memo?.indexOf("withdraw pay") is 0
-                    pe.from_account = "NETWORK"
-            if entry.memo?.indexOf("yield") is 0
-                pe.from_account = "NETWORK"
-                console.log "WARN: to_account for yield (#{pe.to_account}) may need resolving"
-            else if entry.memo?.indexOf("burn") is 0 then pe.to_account = "NETWORK"
-            #console.log 'pe',pe
-            (->
-                from = pe.from_account or ""
-                to = pe.to_account or ""
-                if from.indexOf("SHORT") is 0 and to.indexOf("SHORT") is 0
-                    pe.to_account = to.replace /^.{5}/, "MARGIN"
-                else if from.indexOf("MARKET") is 0 and to.indexOf("SHORT") is 0
-                    pe.to_account = to.replace /^.{5}/, "MARGIN"
-                else if from.indexOf("SHORT") is 0 and to.indexOf("MARKET") is 0
-                    pe.from_account = from.replace /^.{5}/, "MARGIN"
-                else if from.indexOf("SHORT") is 0 and to.indexOf("payoff") is 0
-                    pe.to_account = to.replace /^.{5}/, "MARGIN"
-                else if from.indexOf("SHORT") is 0 and to.indexOf("cover") is 0
-                    pe.from_account = from.replace /^.{5}/, "MARGIN"
-            )()
+            
+            #if pe.from_account is pe.to_account
+            #    if entry.memo?.indexOf("withdraw pay") is 0
+            #        pe.from_account = "NETWORK"
+            #if entry.memo?.indexOf("yield") is 0
+            #    pe.from_account = "NETWORK"
+            #    console.log "WARN: to_account for yield (#{pe.to_account}) may need resolving"
+            #else if entry.memo?.indexOf("burn") is 0 then pe.to_account = "NETWORK"
+
+            #(->
+            #    from = pe.from_account or ""
+            #    to = pe.to_account or ""
+            #    if from.indexOf("SHORT") is 0 and to.indexOf("SHORT") is 0
+            #        pe.to_account = to.replace /^.{5}/, "MARGIN"
+            #    else if from.indexOf("MARKET") is 0 and to.indexOf("SHORT") is 0
+            #        pe.to_account = to.replace /^.{5}/, "MARGIN"
+            #    else if from.indexOf("SHORT") is 0 and to.indexOf("MARKET") is 0
+            #        pe.from_account = from.replace /^.{5}/, "MARGIN"
+            #    else if from.indexOf("SHORT") is 0 and to.indexOf("payoff") is 0
+            #        pe.to_account = to.replace /^.{5}/, "MARGIN"
+            #    else if from.indexOf("SHORT") is 0 and to.indexOf("cover") is 0
+            #        pe.from_account = from.replace /^.{5}/, "MARGIN"
+            #)()
             pe.amount = entry.amount
             pe.memo = entry.memo
             pe.running_balances = entry.running_balances or []
