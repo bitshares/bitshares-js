@@ -1,3 +1,7 @@
+ecurve = require 'ecurve'
+Point = ecurve.Point
+secp256k1 = ecurve.getCurveByName 'secp256k1'
+BigInteger = require 'bigi'
 
 class PrivateKey
     
@@ -10,9 +14,6 @@ class PrivateKey
     hash = require './hash'
     assert = require 'assert'
     
-    # npm install bitcore
-    ECIES = require '../../node_modules/bitcore/lib/ECIES'
-
     ###*
     @param {BigInteger}
     ###
@@ -59,13 +60,34 @@ class PrivateKey
         
     ###* {return} Buffer S, 15 bytes ###
     sharedSecret: (public_key) ->
-        ot_pubkey = public_key.toBuffer()
-        #ecies = new ECIES.encryptObj ot_pubkey, new Buffer(''), @toBuffer()
-        #S = ecies.getSfromPubkey()
-        ecies = new ECIES()
-        ecies.KB = ot_pubkey
-        ecies.r = @toBuffer()
-        S = ecies.getSfromPubkey()
+        ###
+        # Alternative method (libraries)... 
+        ec = require('elliptic').curves.secp256k1
+        ecPoint = ec.curve.point.bind(ec.curve)
+        BN = require 'bn.js'
+
+        ecPoint = ec.curve.point.bind(ec.curve);
+        KB = public_key.toBuffer() 
+        x = new BN KB.slice(1,33)
+        y = new BN KB.slice(33,65)
+        KB = ecPoint(x, y)
+        KB.validate()
+        
+        r = @toBuffer()
+        P = KB.mul new BN(r)
+        S = new Buffer P.getX().toArray()
+        ###
+        KB = public_key.toBuffer() #BigInteger.fromBuffer public_key_point
+        KBP = new Point(#.fromAffine(
+            secp256k1
+            x = BigInteger.fromBuffer KB.slice 1,33
+            y = BigInteger.fromBuffer KB.slice 33,65
+            BigInteger.ONE
+        )
+        r = @toBuffer()
+        P = KBP.multiply BigInteger.fromBuffer r
+        S = P.affineX.toBuffer {size: 32}
+        S
 
     get_shared_secret:(public_key)->
         @sharedSecret public_key.toUncompressed()
