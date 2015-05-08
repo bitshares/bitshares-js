@@ -8,7 +8,7 @@
     "bytebuffer": "3.5.4",
     "q": "1.0.1",
     "bs58": "~2.0.0",
-    "bitcore": "~0.1.39",
+    "bitcore": "0.1.39",
     "secure-random": "~1.1.1"
   },
   "scripts": {
