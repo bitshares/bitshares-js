@@ -2,17 +2,14 @@ ecurve = require 'ecurve'
 Point = ecurve.Point
 secp256k1 = ecurve.getCurveByName 'secp256k1'
 BigInteger = require 'bigi'
+base58 = require 'bs58'
+hash = require './hash'
+assert = require 'assert'
+
+{PublicKey} = require './key_public'
+{Aes} = require './aes'
 
 class PrivateKey
-    
-    BigInteger = require 'bigi'
-    secp256k1 = require('ecurve').getCurveByName 'secp256k1'
-    BigInteger = require 'bigi'
-    {PublicKey} = require './key_public'
-    {Aes} = require './aes'
-    base58 = require 'bs58'
-    hash = require './hash'
-    assert = require 'assert'
     
     ###*
     @param {BigInteger}
@@ -58,7 +55,7 @@ class PrivateKey
     toBuffer: ->
         @d.toBuffer()
         
-    ###* {return} Buffer S, 15 bytes ###
+    ###* {return} Buffer ###
     sharedSecret: (public_key) ->
         ###
         # Alternative method (libraries)... 
@@ -77,8 +74,8 @@ class PrivateKey
         P = KB.mul new BN(r)
         S = new Buffer P.getX().toArray()
         ###
-        KB = public_key.toBuffer() #BigInteger.fromBuffer public_key_point
-        KBP = new Point(#.fromAffine(
+        KB = public_key.toBuffer()
+        KBP = Point.fromAffine(
             secp256k1
             x = BigInteger.fromBuffer KB.slice 1,33
             y = BigInteger.fromBuffer KB.slice 33,65
