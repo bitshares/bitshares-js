@@ -164,13 +164,13 @@ class Wallet
         
     
     ###* @return promise: {string} public key ###
-    #account_recover:(account_name)->
-    #    LE.throw 'jslib_wallet.must_be_unlocked' unless @aes_root
-    #    @wallet_db.recover_account(
-    #        @aes_root, @blockchain_api, account_name
-    #        private_data = null, save = true
-    #        recover_only = true
-    #    )
+    account_recover:(account_name)->
+        LE.throw 'jslib_wallet.must_be_unlocked' unless @aes_root
+        @wallet_db.recover_account(
+            @aes_root, @blockchain_api, account_name
+            private_data = null, save = true
+            recover_only = true
+        )
     
     getWithdrawConditions:(account_name)->
         @wallet_db.getWithdrawConditions account_name

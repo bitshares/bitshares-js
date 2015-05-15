@@ -135,7 +135,11 @@ describe "Wallet API (non-RPC)", ->
         storage.setItem 'key', 'value'
         value = storage.getItem 'key'
         throw new Error 'failed to save value' unless value is 'value'
-        
+    
+    #it "recover's account by name", ->
+    #    @wallet_api.create "default", PASSWORD, "brainkey                            "
+    #    @wallet_api.account_recover "jtest3"
+    
     ###
     it "create brain-key wallet", ->
         # exception in wallet.coffee: throw 'Brain keys have not been tested with the native client'

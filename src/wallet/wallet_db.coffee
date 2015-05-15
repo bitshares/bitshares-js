@@ -474,7 +474,6 @@ class WalletDb
         @add_key_record active, _save=false
         return
     
-    ### but may be needed by legacy light wallet accounts 
     recover_account:(
         aes_root, blockchain_api
         account_name, private_data
@@ -512,7 +511,6 @@ class WalletDb
                 @save() if save
                 defer.resolve owner_public.toBtsPublic()
         defer.promise
-    ###
     
     _new_account:(
         aes_root, account_name, owner_private_key
