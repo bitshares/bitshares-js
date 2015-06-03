@@ -93,7 +93,7 @@ class WalletAPI
         @unlock wallet_config.BTS_WALLET_DEFAULT_UNLOCK_TIME_SEC, new_password
         # Find accounts created prior to March 14
         @chain_database.sync_accounts(
-            @wallet.aes_root, 1, algorithm = 'online_wallet_2015_03_14'
+            @wallet.aes_root, 2, algorithm = 'online_wallet_2015_03_14'
         )
         return
     
@@ -647,7 +647,6 @@ class WalletAPI
 
     
     market_cancel_order:(order_id)->
-        throw new Error "Untested"
         LE.throw "jslib_wallet.must_be_opened" unless @wallet
         @blockchain_api.get_market_order(order_id).then (order)=>
             throw new Error "Can not find market order" unless order
