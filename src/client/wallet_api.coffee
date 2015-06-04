@@ -272,10 +272,13 @@ class WalletAPI
         
     broadcast_transaction:(defer, signed_trx)->
         #console.log 'signed_trx',JSON.stringify signed_trx,null,2
+        events = @events
         @rpc.request("blockchain_broadcast_transaction", [signed_trx]).then(
             (result)->
                 # returns void
                 defer.resolve signed_trx
+                try
+                    events["transaction_broadcasted"]?()
             (error)->
                 defer.reject error
         ).done()
@@ -719,6 +722,8 @@ class WalletAPI
                     @blockchain_api.broadcast_transaction(record.trx).then =>
                         # https://github.com/BitShares/bitshares/issues/1510
                         #@chain_database.save_pending_transaction record
+                        try
+                            @events["transaction_broadcasted"]?()
                         record
                     #,(e)->console.log 'e',e
                     
