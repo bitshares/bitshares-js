@@ -112,11 +112,16 @@ class JsClient
                                 err.message = message
                                 err = data:error: err
                                 defer.reject err
+                                try
+                                    @events[error]?(message, err.stack)
                                 error_handler err if error_handler
+                                
                         )(defer, error_handler, err)
                     else
                         err = data:error: err
                         defer.reject err
+                        try
+                            @events[error]?(message, err.stack)
                         error_handler err if error_handler
                 else
                     ret = result:null if ret is undefined
