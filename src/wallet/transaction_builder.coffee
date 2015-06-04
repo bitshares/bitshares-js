@@ -583,7 +583,7 @@ class TransactionBuilder
         
         if amount_remaining.compare(Long.ZERO) isnt 0
             available = amount_to_withdraw.amount.subtract amount_remaining
-            throw new LE 'jslib_wallet.insufficient_funds', amount_to_withdraw.amount, available
+            throw new LE 'jslib_wallet.insufficient_balances', amount_to_withdraw.amount, available
     
     get_extended_balance:(balance_record)-> # renamed from get_spendable_balance
         switch balance_record.condition.type
