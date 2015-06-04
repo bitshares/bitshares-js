@@ -462,7 +462,7 @@ class WalletDb
         )(standard_child_index, account, active, owner)
         defer.promise
     
-    fake_account:(aes_root, rnd, account_name = "guest")->
+    fake_account:(aes_root, rnd, account_name = "Guest")->
         owner_key = PrivateKey.fromBuffer rnd
         active_key = PrivateKey.fromBuffer hash.sha256 rnd
         [account, active, owner] = @_new_account(

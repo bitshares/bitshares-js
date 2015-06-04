@@ -40,10 +40,10 @@ class WalletAPI
     login_guest:->
         #console.log '... login_guest'
         #if config.guest_wallet
-        #    WalletDb.delete "guestwallet"
+        #    WalletDb.delete "GuestWallet"
         #else
-        if WalletDb.exists "guestwallet"
-            @open "guestwallet"
+        if WalletDb.exists "GuestWallet"
+            @open "GuestWallet"
             @unlock 9999999, "guestpass", guest = yes
             return
         
@@ -56,13 +56,13 @@ class WalletAPI
         rnd = secureRandom.randomBuffer 32
         epk = ExtendedAddress.fromSha512_zeroChainCode hash.sha512 rnd
         @_open_from_wallet_db WalletDb.create(
-            "guestwallet", epk, rnd.toString('hex').substring 0, 10
+            "GuestWallet", epk, rnd.toString('hex').substring 0, 10
             "guestpass", _save=false
             @events
         )
-        @current_wallet_name = "guestwallet"
+        @current_wallet_name = "GuestWallet"
         @unlock 9999999, "guestpass", guest=yes
-        @wallet.wallet_db.fake_account @wallet.aes_root, rnd, "guest"
+        @wallet.wallet_db.fake_account @wallet.aes_root, rnd, "Guest"
         @wallet.wallet_db.save()
         return
     
