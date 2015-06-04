@@ -309,6 +309,21 @@ class ChainDatabase
         transaction, account_address
         aes_root, balanceid_readonly
     )->
+        @tcache = {} unless @tcache
+        if tcache_map = @tcache[transaction.trx_id]
+            transaction.is_market = tcache_map.is_market
+            transaction.ledger_entries = tcache_map.ledger_entries
+            transaction.fee = tcache_map.fee
+            defer = q.defer()
+            defer.resolve()
+            return defer.promise
+        cache=(transaction)=>
+            @tcache[transaction.trx_id] = tcache_map = {}
+            tcache_map.is_market = transaction.is_market
+            tcache_map.ledger_entries = transaction.ledger_entries
+            tcache_map.fee = transaction.fee
+            return
+        
         memo_from = null
         deposit_entries = for op in transaction.trx.operations
             memo = undefined
@@ -398,6 +413,7 @@ class ChainDatabase
             transaction.fee=
                 amount: null
                 asset_id:0
+            cache transaction
             return
         
         concat=(c1,c2)->
@@ -529,6 +545,7 @@ class ChainDatabase
         for entry in transaction.ledger_entries
             account_promises.push resolve_name entry, "from_account"
             account_promises.push resolve_name entry, "to_account"
+        cache transaction
         q.all account_promises
     
     _decrypt_memo:(titan_memo, account_address, aes_root)->
