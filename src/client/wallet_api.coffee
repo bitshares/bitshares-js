@@ -361,8 +361,11 @@ class WalletAPI
     account_yield_warned:off
     account_yield:->
         unless @account_yield_warned
-            console.log 'WARN: account_yield is not implemented'
+            console.log 'WARNING: account_yield is not implemented'
             @account_yield_warned = on
+        []
+    
+    list_approvals:->
         []
     
     dump_private_key:()->
