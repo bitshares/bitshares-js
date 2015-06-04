@@ -38,30 +38,31 @@ class WalletAPI
         @login_guest()
     
     login_guest:->
-        if config.guest_wallet
-            WalletDb.delete "Guest"
-        else
-            if WalletDb.exists "Guest"
-                @open "Guest"
-                @unlock 9999999, "guestpass", guest = yes
-                return
+        #console.log '... login_guest'
+        #if config.guest_wallet
+        #    WalletDb.delete "guestwallet"
+        #else
+        if WalletDb.exists "guestwallet"
+            @open "guestwallet"
+            @unlock 9999999, "guestpass", guest = yes
+            return
         
-        rnd = if config.guest_wallet
-            h = hash.sha256 config.guest_wallet
-            delete config.guest_wallet
-            h
-        else
-            secureRandom.randomBuffer 32
-        
+        #rnd = if config.guest_wallet
+        #    h = hash.sha256 config.guest_wallet
+        #    delete config.guest_wallet
+        #    h
+        #else
+        #    secureRandom.randomBuffer 32
+        rnd = secureRandom.randomBuffer 32
         epk = ExtendedAddress.fromSha512_zeroChainCode hash.sha512 rnd
         @_open_from_wallet_db WalletDb.create(
-            "Guest", epk, rnd.toString('hex').substring 0, 10
+            "guestwallet", epk, rnd.toString('hex').substring 0, 10
             "guestpass", _save=false
             @events
         )
-        @current_wallet_name = "Guest"
+        @current_wallet_name = "guestwallet"
         @unlock 9999999, "guestpass", guest=yes
-        @wallet.wallet_db.fake_account @wallet.aes_root, rnd
+        @wallet.wallet_db.fake_account @wallet.aes_root, rnd, "guest"
         @wallet.wallet_db.save()
         return
     
@@ -114,6 +115,7 @@ class WalletAPI
     )->
         LE.throw "jslib_wallet.must_be_opened" unless @wallet
         @wallet.unlock timeout_seconds, password, guest
+        #console.log '... unlock guest',guest
         return
     
     lock:->
