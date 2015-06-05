@@ -2,11 +2,15 @@
 {PublicKey} = require '../ecc/key_public'
 {ExtendedAddress} = require '../ecc/extended_address'
 {TransactionLedger} = require '../wallet/transaction_ledger'
-{ChainInterface} = require '../blockchain/chain_interface'
-{BlockchainAPI} = require '../blockchain/blockchain_api'
-{MemoData} = require '../blockchain/memo_data'
+{ChainInterface} = require './chain_interface'
+{BlockchainAPI} = require './blockchain_api'
+MarketUtil = require('./market_util').Util
+{MemoData} = require './memo_data'
+
 q = require 'q'
 Long = (require 'bytebuffer').Long
+config = require '../config'
+chain_storage = new Storage config.chain_id
 
 class ChainDatabase
 
@@ -85,7 +89,7 @@ class ChainDatabase
                             #@check_pending_transactions(new_trx_id_map)
                 catch e
                     console.log '[poll_transactions]',e,e.stack
-        
+    
     _account_keys:(account_name)->
         account_names = []
         if account_name
@@ -324,6 +328,8 @@ class ChainDatabase
             tcache_map.fee = transaction.fee
             return
         
+        asset_id_lookups = {}
+        asset_id_callbacks = []
         memo_from = null
         deposit_entries = for op in transaction.trx.operations
             memo = undefined
@@ -349,12 +355,42 @@ class ChainDatabase
                 asset_id = op.data.bid_index.order_price.quote_asset_id
                 recipient = op.data.bid_index.owner
                 entry.memo = "Bid"
+                ((price, entry)=>
+                    ChainDatabase.assetid_symbol_precision_add price.base_asset_id
+                    ChainDatabase.assetid_symbol_precision_add price.quote_asset_id
+                    asset_id_callbacks.push (spmap)->
+                        base_asset = spmap[price.base_asset_id]
+                        quote_asset = spmap[price.quote_asset_id]
+                        return unless base_asset and quote_asset
+                        pretty_price = MarketUtil.to_pretty_price(
+                            price.ratio
+                            base_asset
+                            quote_asset
+                        )
+                        entry.memo = "buy #{base_asset.symbol} @ #{pretty_price}"
+                        return
+                )(op.data.bid_index.order_price, entry)
                 transaction.is_market = yes
             else if op.type is "ask_op_type"
                 amount = Long.fromString ""+op.data.amount
                 asset_id = op.data.ask_index.order_price.base_asset_id
                 recipient = op.data.ask_index.owner
                 entry.memo = "Ask"
+                ((price, entry)=>
+                    ChainDatabase.assetid_symbol_precision_add price.base_asset_id
+                    ChainDatabase.assetid_symbol_precision_add price.quote_asset_id
+                    asset_id_callbacks.push (spmap)->
+                        base_asset = spmap[price.base_asset_id]
+                        quote_asset = spmap[price.quote_asset_id]
+                        return unless base_asset and quote_asset
+                        pretty_price = MarketUtil.to_pretty_price(
+                            price.ratio
+                            base_asset
+                            quote_asset
+                        )
+                        entry.memo = "sell #{base_asset.symbol} @ #{pretty_price}"
+                        return
+                )(op.data.ask_index.order_price, entry)
                 transaction.is_market = yes
             else if op.type is "cover_op_type"
                 # negate back to positive
@@ -451,103 +487,211 @@ class ChainDatabase
             
             asset_map
         
-        withdraw_map = map_by_asset withdraw_entries
-        deposit_map = map_by_asset deposit_entries
-        unless withdraw_map and deposit_map
-            #console.log '... ERROR, unbalanced withdraw / deposit',withdraw_entries, deposit_entries
-            bail()
-            return
-        
-        for asset_id in Object.keys withdraw_map
-            withdraw = withdraw_map[asset_id]
-            deposit = deposit_map[asset_id]
-            deposit_amount = if deposit
-                deposit.amount.amount
-            else
-                Long.ZERO
-            fee_amount = withdraw.amount.amount.subtract deposit_amount
-            if fee_amount.compare(Long.ZERO) isnt 0
-                fee = transaction.fee
-                if fee
-                    console.error "ERROR: transaction contains multiple fee balances"
-                    bail()
-                    return
+        finalize_ledger_entries=->
+            withdraw_map = map_by_asset withdraw_entries
+            deposit_map = map_by_asset deposit_entries
+            unless withdraw_map and deposit_map
+                #console.log '... ERROR, unbalanced withdraw / deposit',withdraw_entries, deposit_entries
+                bail()
+                return
+            
+            for asset_id in Object.keys withdraw_map
+                withdraw = withdraw_map[asset_id]
+                deposit = deposit_map[asset_id]
+                deposit_amount = if deposit
+                    deposit.amount.amount
                 else
-                    transaction.fee=
-                        amount:fee_amount.toString()
-                        asset_id:asset_id
-                    withdraw.amount.amount =
-                        withdraw.amount.amount.subtract fee_amount
-                    if withdraw.amount.amount.compare(Long.ZERO) is 0
-                        if deposit
-                            deposit.memo = concat deposit.memo, withdraw.memo
-                        delete withdraw_map[asset_id]
+                    Long.ZERO
+                fee_amount = withdraw.amount.amount.subtract deposit_amount
+                if fee_amount.compare(Long.ZERO) isnt 0
+                    fee = transaction.fee
+                    if fee
+                        console.error "ERROR: transaction contains multiple fee balances"
+                        bail()
+                        return
+                    else
+                        transaction.fee=
+                            amount:fee_amount.toString()
+                            asset_id:asset_id
+                        withdraw.amount.amount =
+                            withdraw.amount.amount.subtract fee_amount
+                        if withdraw.amount.amount.compare(Long.ZERO) is 0
+                            if deposit
+                                deposit.memo = concat deposit.memo, withdraw.memo
+                            delete withdraw_map[asset_id]
+            
+            unless transaction.fee
+                transaction.fee=
+                    amount: null
+                    asset_id:0
+            
+            all_assets = {}
+            all_assets[id] = on for id in Object.keys withdraw_map
+            all_assets[id] = on for id in Object.keys deposit_map
         
-        unless transaction.fee
-            transaction.fee=
-                amount: null
-                asset_id:0
-        
-        all_assets = {}
-        all_assets[id] = on for id in Object.keys withdraw_map
-        all_assets[id] = on for id in Object.keys deposit_map
-        transaction.ledger_entries = entries = []
-        for asset_id in Object.keys all_assets
-            withdraw = withdraw_map[asset_id]
-            deposit = deposit_map[asset_id]
-            amount_eq = (
-                withdraw and deposit and
-                withdraw.amount.amount.compare(deposit.amount.amount) is 0
-            )
-            if amount_eq
-                entries.push
-                    from_account:withdraw.account
-                    to_account:deposit.account
-                    memo:concat withdraw.memo, deposit.memo
-                    amount:
-                        amount:deposit.amount.amount.toString()
-                        asset_id:deposit.amount.asset_id
-            else
-                if deposit
+            transaction.ledger_entries = entries = []
+            for asset_id in Object.keys all_assets
+                withdraw = withdraw_map[asset_id]
+                deposit = deposit_map[asset_id]
+                amount_eq = (
+                    withdraw and deposit and
+                    withdraw.amount.amount.compare(deposit.amount.amount) is 0
+                )
+                if amount_eq
                     entries.push
-                        from_account:""
+                        from_account:withdraw.account
                         to_account:deposit.account
+                        memo:concat withdraw.memo, deposit.memo
                         amount:
                             amount:deposit.amount.amount.toString()
                             asset_id:deposit.amount.asset_id
-                        memo:deposit.memo
-                
-                if withdraw
-                    entries.push
-                        from_account:withdraw.account
-                        to_account:""
-                        amount:
-                            amount:withdraw.amount.amount.toString()
-                            asset_id:withdraw.amount.asset_id
-                        memo:withdraw.memo
+                else
+                    if deposit
+                        entries.push
+                            from_account:""
+                            to_account:deposit.account
+                            amount:
+                                amount:deposit.amount.amount.toString()
+                                asset_id:deposit.amount.asset_id
+                            memo:deposit.memo
+                    
+                    if withdraw
+                        entries.push
+                            from_account:withdraw.account
+                            to_account:""
+                            amount:
+                                amount:withdraw.amount.amount.toString()
+                                asset_id:withdraw.amount.asset_id
+                            memo:withdraw.memo
         
         #console.log '... transaction.ledger_entries',JSON.stringify transaction.ledger_entries,null,1
-        
-        resolve_name= (entry, atty)=>
-            value = entry[atty]
-            return null if value is "" or value is null
-            ((entry,atty)=>
-                @wallet_db.get_chain_account(
-                    value, @blockchain_api
-                ).then (account) ->
-                    #console.log '... entry[atty]',entry[atty],atty
-                    #console.log 'account',account
-                    entry[atty] = account.name if account
-                    return
-                , (error)->#unknown account
-            )(entry,atty)
-        account_promises = []
-        for entry in transaction.ledger_entries
-            account_promises.push resolve_name entry, "from_account"
-            account_promises.push resolve_name entry, "to_account"
-        cache transaction
-        q.all account_promises
+        defer = q.defer()
+        sp_promise = ChainDatabase.assetid_symbol_precision_resolve @rpc
+        sp_promise.then (spmap)=>
+            for cb in asset_id_callbacks
+                try
+                    cb(spmap)
+                catch e
+                    console.error e
+            finalize_ledger_entries()
+            resolve_name= (entry, atty)=>
+                value = entry[atty]
+                return null if value is "" or value is null
+                ((entry,atty)=>
+                    @wallet_db.get_chain_account(
+                        value, @blockchain_api
+                    ).then (account) ->
+                        #console.log '... entry[atty]',entry[atty],atty
+                        #console.log 'account',account
+                        entry[atty] = account.name if account
+                        return
+                    , (error)->#unknown account
+                )(entry,atty)
+            
+            lookup_promises = []
+            for entry in transaction.ledger_entries
+                #ChainDatabase.account_name_add entry.from_account
+                #ChainDatabase.account_name_add entry.to_account
+                lookup_promises.push resolve_name entry, "from_account"
+                lookup_promises.push resolve_name entry, "to_account"
+            defer.resolve()
+            return
+            #an_promise = ChainDatabase.account_name_resolve(@rpc)
+            #an_promise.then (map)->
+            #    for entry in transaction.ledger_entries
+            #        if name = map[entry.from_account]
+            #            entry.from_account = name
+            #        if name = map[entry.to_account]
+            #            entry.to_account = name
+            #    
+            #    cache transaction # you don't want to do all that again do you?
+            #    defer.resolve()
+            #    return
+            #return
+        defer.promise
     
+    ### ram backed disk cache ###
+    ChainDatabase.assetid_symbol_precision_add=(asset_id)->
+        unless spmap = ChainDatabase.assetid_symbol_precision_map
+            spmap_string = chain_storage.getItem "assetid_symbol_precision"
+            spmap = if spmap_string
+                spmap = JSON.parse spmap_string
+            else
+                {}
+            ChainDatabase.assetid_symbol_precision_map = spmap
+        unless spmap[asset_id]
+            spmap[asset_id] = null
+    
+    ### ram backed disk cache ###
+    ChainDatabase.assetid_symbol_precision_resolve=(rpc)->
+        spmap = ChainDatabase.assetid_symbol_precision_map
+        rpc_params = []
+        for param in Object.keys spmap
+            continue if spmap[param]
+            rpc_params.push [param]
+        
+        unless Object.keys(rpc_params).length
+            defer = q.defer()
+            defer.resolve spmap
+            return defer.promise
+        
+        promise = rpc.request('batch', ['blockchain_get_asset', rpc_params])
+        promise.then (batch_result)->
+            console.log('... batch_result',batch_result)    
+            batch_result = batch_result.result
+            for asset in batch_result
+                continue unless asset
+                spmap[asset.id] = 
+                    symbol: asset.symbol
+                    precision: asset.precision
+            chain_storage.setItem "assetid_symbol_precision", JSON.stringify spmap
+            spmap
+
+    #### ram backed disk cache ###
+    #ChainDatabase.account_name_add=(key_or_address)->
+    #    return unless key_or_address
+    #    key_or_address = key_or_address.trim()
+    #    return if key_or_address.length is 0
+    #    return unless /^[A-Z]/.test key_or_address
+    #    unless map = ChainDatabase.account_name_map
+    #        map_string = chain_storage.getItem "account_name_map"
+    #        map = if map_string
+    #            map = JSON.parse map_string
+    #        else
+    #            {}
+    #        ChainDatabase.account_name_map = map
+    #    unless map[key_or_address]
+    #        map[key_or_address] = null
+    #
+    #### ram backed disk cache ###
+    #ChainDatabase.account_name_resolve=(rpc)->
+    #    map = ChainDatabase.account_name_map
+    #    lookup_map = {}
+    #    for param in Object.keys map
+    #        continue if map[param]
+    #        lookup_map[param] = null
+    #    
+    #    rpc_params = for key in Object.keys lookup_map
+    #        console.log('... key',key)    
+    #        [key]
+    #    
+    #    unless rpc_params.length
+    #        defer = q.defer()
+    #        defer.resolve map
+    #        return defer.promise
+    #    
+    #    promise = rpc.request('batch', ['blockchain_get_account', rpc_params])
+    #    promise.then (batch_result)->
+    #        batch_result = batch_result.result
+    #        console.log('... batch_result',batch_result)
+    #        for i in [0...batch_result.length] by 1
+    #            result = batch_result[i]
+    #            continue unless result
+    #            console.log('... rpc_params[i][0]',rpc_params[i][0])
+    #            map[ rpc_params[i][0] ] = result.name
+    #        chain_storage.setItem "account_name_map", JSON.stringify map
+    #        map
+
     _decrypt_memo:(titan_memo, account_address, aes_root)->
         account = @wallet_db.get_account_for_address account_address
         return null unless account

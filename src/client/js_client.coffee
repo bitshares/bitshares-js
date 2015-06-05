@@ -171,9 +171,11 @@ class JsClient
                     promise = @rpc_pass_through.request method, params, this_error_handler
                     promise.then(
                         (response)->
-                            unless response.result
-                                console.log 'WARNING: malformed respolnse',response
-                                response.result = null
+                            if response.result is undefined
+                                console.log(
+                                    'WARNING: malformed response'
+                                    response, method, params
+                                )
                             
                             ret = response.result
                             handle_response intercept=false

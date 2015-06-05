@@ -80,6 +80,13 @@ class Util
         base:base_asset.id
         quote:quote_asset.id
     
+    Util.to_pretty_price = (ratio, base_asset, quote_asset)->
+        ratio = Util.string_to_ratio128 ratio
+        ratio = ratio.multiply BigInteger ""+base_asset.precision
+        ratio = ratio.divide BigInteger ""+quote_asset.precision
+        ratio = Util.ratio128_to_string ratio
+        ratio + " " + quote_asset.symbol + " / " + base_asset.symbol
+    
     Util.read_price=(b)->
         b_copy = b.copy(b.offset, b.offset + 16); b.skip 16
         target_array = new Uint8Array(16)
