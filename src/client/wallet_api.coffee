@@ -585,7 +585,7 @@ class WalletAPI
                     order_price_asset
                 )
                 @_finalize_and_send(
-                    builder, from_account, quantity_symbol
+                    builder, from_account, quote_price_symbol
                 ).then (record)->
                     record
         ### Example to create USD from XTS at a penney a share:

@@ -594,6 +594,7 @@ class ChainDatabase
                 #ChainDatabase.account_name_add entry.to_account
                 lookup_promises.push resolve_name entry, "from_account"
                 lookup_promises.push resolve_name entry, "to_account"
+            cache transaction # you don't want to do all that again do you?
             defer.resolve()
             return
             #an_promise = ChainDatabase.account_name_resolve(@rpc)
@@ -625,6 +626,11 @@ class ChainDatabase
     ### ram backed disk cache ###
     ChainDatabase.assetid_symbol_precision_resolve=(rpc)->
         spmap = ChainDatabase.assetid_symbol_precision_map
+        unless spmap
+            defer = q.defer()
+            defer.resolve {}
+            return defer.promise
+        
         rpc_params = []
         for param in Object.keys spmap
             continue if spmap[param]
@@ -637,7 +643,6 @@ class ChainDatabase
         
         promise = rpc.request('batch', ['blockchain_get_asset', rpc_params])
         promise.then (batch_result)->
-            console.log('... batch_result',batch_result)    
             batch_result = batch_result.result
             for asset in batch_result
                 continue unless asset
