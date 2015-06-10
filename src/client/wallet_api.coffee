@@ -248,6 +248,9 @@ class WalletAPI
         account_type = 'public_account'
         fee_asset_name_or_id = 0
     )->
+        if not ChainInterface.is_cheap_name account_name
+            LE.throw "directive.input_name.please_use_cheap_name"
+        
         LE.throw "jslib_wallet.must_be_opened" unless @wallet
         account_check = @chain_interface.valid_unique_account account_name
         payer = @wallet.get_chain_account pay_with_account
@@ -263,6 +266,11 @@ class WalletAPI
             )
             @_finalize_and_send(builder, payer, fee_asset_name_or_id).then (record)->
                 record
+    
+    account_rename:(old_account_name, new_account_name)->
+        unless old_account_name and new_account_name
+            throw new Error "Required params: old_account_name, new_account_name"
+        @wallet.wallet_db.rename_account old_account_name, new_account_name
     
     #account_retract:(account_to_update, pay_from_account)->
     #   record = @wallet.retract_account( account_to_update, pay_from_account, true );

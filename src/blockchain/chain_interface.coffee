@@ -39,6 +39,12 @@ class ChainInterface
         return true if supername is ""
         ChainInterface.is_valid_acccount_name supername
     
+    ChainInterface.is_cheap_name=(account_name)->
+        account_name.length > 8 or
+        /[0-9]/.test(account_name) or
+        not /[aeiouy]/.test(account_name) or
+        /[\.\-/]/.test(account_name)
+    
     ChainInterface.get_active_key=(hist)->
         hist = hist.sort (a,b)-> 
             if a[0] < b[0] then -1 

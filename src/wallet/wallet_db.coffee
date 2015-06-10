@@ -568,6 +568,35 @@ class WalletDb
         @store_account_or_update account, null, save
         return
     
+    rename_account:(old_account_name, new_account_name)->
+        i = @_wallet_index (o)->
+            o.type is "account_record_type" and
+            o.data.name is old_account_name
+        
+        account = @wallet_object[i].data
+        unless account
+            LE.throw "jslib_wallet.account_not_found", [old_account_name]
+        unless account.is_my_account
+            throw new Error "Account #{old_account_name} does not have a private key in this wallet"
+        if (
+            account.registration_date and 
+            account.registration_date isnt "1970-01-01T00:00:00"
+        )
+            throw new Error "You can not rename a registered account"
+        
+        if not ChainInterface.is_cheap_name new_account_name
+            LE.throw "directive.input_name.please_use_cheap_name"
+        
+        account.name = new_account_name
+        delete @account[old_account_name]
+        @account[new_account_name] = account
+        @save()
+        # The account list in the web_wallet contained
+        # two accounts with this new name.  This wallet database
+        # does not have the dupliate.
+        return "Success, please log out (Lock)..."
+        
+    
     store_account_or_update:(new_account, chain_account = null, save = true)-> #store_account
         EC.throw "missing account name" unless new_account.name
         EC.throw "missing owner key" unless new_account.owner_key
