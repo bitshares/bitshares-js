@@ -228,6 +228,44 @@ class TransactionBuilder
             recipient_active_key: recipientActivePublic
         ###
     
+    deposit_asset_to_address:(
+        payer, recipient, amount
+    )->
+        throw new Error 'missing payer' unless payer?.name
+        throw new Error 'missing recipient' unless recipient
+        throw new Error 'missing amount' unless amount?.amount
+        
+        recipientAddress = Address.fromString recipient
+        
+        unless amount and amount.amount.compare(Long.ZERO) > 0
+            LE.throw 'jslib_Invalid amount', [amount]
+        
+        payerActivePublic = @wallet.getActiveKey payer.name
+        
+        exp_seconds = Math.floor @expiration.getTime() / 1000
+        owner = recipientAddress.toBuffer()
+        
+        withdraw_condition = =>
+            new WithdrawCondition(
+                amount.asset_id, slate_id = 0
+                lookup_type_id(types.withdraw, "withdraw_signature_type")
+                new WithdrawSignatureType(
+                    owner
+                    null #memo.one_time_key
+                    null #memo
+                )
+            )
+        
+        deposit = new Deposit amount.amount, withdraw_condition()
+        @operations.push new Operation deposit.type_id, deposit
+        @_deduct_balance payer.active_key, amount
+        @transaction_record.ledger_entries.push ledger_entry =
+            from_account: payer.active_key
+            to_account: recipientAddress.toString()
+            amount: amount.toString()
+            memo: ""
+        return
+
     submit_ask:(
         from_account
         quantity_string

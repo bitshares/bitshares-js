@@ -4,6 +4,7 @@
 {TransactionBuilder} = require '../wallet/transaction_builder'
 {Aes} = require '../ecc/aes'
 {ExtendedAddress} = require '../ecc/extended_address'
+{Address} = require '../ecc/address'
 {ChainInterface} = require '../blockchain/chain_interface'
 {ChainDatabase} = require '../blockchain/chain_database'
 {BlockchainAPI} = require '../blockchain/blockchain_api'
@@ -191,11 +192,19 @@ class WalletAPI
         else
             @wallet.get_chain_account from_account_name
         
+        by_address = no
         recipient = try
-                PublicKey.fromBtsPublic to_account_name_or_key
-                defer = q.defer()
-                defer.resolve to_account_name_or_key
-                defer.promise
+                try
+                    PublicKey.fromBtsPublic to_account_name_or_key
+                    defer = q.defer()
+                    defer.resolve to_account_name_or_key
+                    defer.promise
+                catch
+                    Address.fromString to_account_name_or_key
+                    by_address = yes
+                    defer = q.defer()
+                    defer.resolve to_account_name_or_key
+                    defer.promise
             catch
                 @wallet.get_chain_account to_account_name_or_key
         
@@ -214,11 +223,19 @@ class WalletAPI
             
             amount = Util.to_ugly_asset amount_to_transfer, asset
             builder = @_transaction_builder()
-            builder.deposit_asset(
-                payer, recipient, amount
-                memo_message, selection_method, sender.active_key
-                use_stealth_address = no#!recipient.meta_data?.type is "public_account"
-            )
+            if by_address
+                unless memo_message is ""
+                    throw new Error "You can not send a memo to an address"
+                
+                builder.deposit_asset_to_address(
+                    payer, recipient, amount
+                )
+            else
+                builder.deposit_asset(
+                    payer, recipient, amount
+                    memo_message, selection_method, sender.active_key
+                    use_stealth_address = no#!recipient.meta_data?.type is "public_account"
+                )
             @_finalize_and_send(builder, payer, fee_asset_name_or_id).then (record)->
                 record
     
