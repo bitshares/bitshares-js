@@ -53,7 +53,7 @@ class PrivateKey
         PublicKey.fromPoint @toPublicKeyPoint()
     
     toBuffer: ->
-        @d.toBuffer()
+        @d.toBuffer(32)
         
     ###* {return} Buffer ###
     sharedSecret: (public_key) ->
