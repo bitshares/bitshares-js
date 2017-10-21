@@ -4,8 +4,7 @@ JavaScript library for the BitShares platform.  This repository does not contain
 
 ## Features ##
 
-* Enables the the BitShares platform to run from the [web](https://wallet.bitshares.org).
-* Browser compatibility [tests](http://dev.jcalfee.info/bts/mocha).
+* Enables the the BitShares platform to run from the [web](https://bitshares.org/wallet).
 
 ## INSTALL ##
 
