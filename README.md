@@ -4,7 +4,7 @@ JavaScript library for the BitShares platform.  This repository does not contain
 
 ## Features ##
 
-* Enables the the BitShares platform to run from the [web](https://bitshares.org/wallet).
+* Enables the the BitShares platform to run from the [web](https://wallet.bitshares.org).
 
 ## INSTALL ##
 
